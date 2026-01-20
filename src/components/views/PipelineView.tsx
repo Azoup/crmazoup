@@ -1,4 +1,4 @@
-import { Lead, LeadStage, STAGE_LABELS, STAGE_COLORS } from '@/types/lead';
+import { Lead, LeadStage, LeadHistory, STAGE_LABELS, STAGE_COLORS } from '@/types/lead';
 import { LeadCard } from '@/components/leads/LeadCard';
 import { formatCurrency, cleanPhoneNumber } from '@/lib/utils';
 import { DollarSign } from 'lucide-react';
@@ -9,7 +9,7 @@ interface PipelineViewProps {
   onOpenLead: (lead: Lead) => void;
   getLeadStatus: (lead: Lead) => 'late' | 'today' | 'ontime' | 'neutral';
   updateLead: (leadId: string, updates: Partial<Lead>) => Promise<void>;
-  addHistory: (leadId: string, type: string, note: string) => Promise<void>;
+  addHistory: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
   msgTemplate: string;
 }
 
