@@ -44,7 +44,8 @@ export const getDaysSince = (dateString: string | null | undefined): number => {
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 
-export const cleanPhoneNumber = (phone: string): string => {
+export const cleanPhoneNumber = (phone: string | null | undefined): string => {
+  if (!phone) return '';
   let cleaned = phone.replace(/\D/g, '');
   if (cleaned.length >= 10 && cleaned.length <= 11 && !cleaned.startsWith('55')) {
     cleaned = '55' + cleaned;
