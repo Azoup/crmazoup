@@ -17,7 +17,7 @@ interface LeadModalProps {
   onClose: () => void;
   onSave: (data: Partial<Lead>) => void;
   onDelete: (id: string) => void;
-  addHistory: (leadId: string, type: string, note: string) => void;
+  addHistory: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
   msgTemplate: string;
   onUpdateTemplate: (template: string) => void;
 }
@@ -95,13 +95,17 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
     }
   };
 
-  const handleRegisterActivity = (type: string) => {
+  const handleRegisterActivity = async (type: string) => {
     if (!lead) return;
     if (!noteText.trim()) {
       return;
     }
-    addHistory(lead.id, type, noteText.trim());
-    setNoteText('');
+    const updatedHistory = await addHistory(lead.id, type, noteText.trim());
+    if (updatedHistory) {
+      // Update local formData with the new history
+      setFormData(prev => ({ ...prev, history: updatedHistory }));
+      setNoteText('');
+    }
   };
 
   const cleanPhoneNumber = (phone: string) => {
@@ -109,16 +113,32 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
     return cleaned.startsWith('55') ? cleaned : `55${cleaned}`;
   };
 
-  const sendWhatsApp = () => {
-    if (!formData.whatsapp) { alert("Sem WhatsApp."); return; }
+  const sendWhatsApp = async () => {
+    if (!formData.whatsapp) { 
+      alert("Adicione um número de WhatsApp primeiro."); 
+      return; 
+    }
+    
     let finalMsg = currentTemplate
       .replace(/{nome}/gi, formData.name || "")
       .replace(/{empresa}/gi, formData.company || "")
       .replace(/{tipo}/gi, formData.confection_type || "");
+    
     if (profile?.signature) finalMsg += `\n\n${profile.signature}`;
+    
     const phone = cleanPhoneNumber(formData.whatsapp);
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(finalMsg)}`, '_blank');
-    if (lead) addHistory(lead.id, 'whatsapp', `Enviou: "${finalMsg}"`);
+    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(finalMsg)}`;
+    
+    // Open WhatsApp first
+    window.open(whatsappUrl, '_blank');
+    
+    // Then register in history
+    if (lead) {
+      const updatedHistory = await addHistory(lead.id, 'whatsapp', `📱 Mensagem enviada via WhatsApp: "${finalMsg.substring(0, 100)}${finalMsg.length > 100 ? '...' : ''}"`);
+      if (updatedHistory) {
+        setFormData(prev => ({ ...prev, history: updatedHistory }));
+      }
+    }
   };
 
   const handleGenerateMessage = async () => {

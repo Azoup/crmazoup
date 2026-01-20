@@ -261,11 +261,17 @@ export function useLeads() {
     toast({ title: 'Sucesso', description: 'Lead excluído!' });
   };
 
-  const addHistory = async (leadId: string, type: string, note: string) => {
-    if (!user || !profile) return;
+  const addHistory = async (leadId: string, type: string, note: string): Promise<LeadHistory[] | null> => {
+    if (!user || !profile) {
+      toast({ title: 'Erro', description: 'Você precisa estar logado', variant: 'destructive' });
+      return null;
+    }
 
     const lead = leads.find(l => l.id === leadId);
-    if (!lead) return;
+    if (!lead) {
+      toast({ title: 'Erro', description: 'Lead não encontrado', variant: 'destructive' });
+      return null;
+    }
 
     const newEntry: LeadHistory = {
       type,
@@ -286,7 +292,19 @@ export function useLeads() {
 
     if (error) {
       console.error('Error adding history:', error);
+      toast({ title: 'Erro', description: 'Erro ao registrar atividade', variant: 'destructive' });
+      return null;
     }
+
+    // Update local state immediately
+    setLeads(prev => prev.map(l => 
+      l.id === leadId 
+        ? { ...l, history: newHistory, last_contact: new Date().toISOString() }
+        : l
+    ));
+
+    toast({ title: 'Sucesso', description: 'Atividade registrada no histórico!' });
+    return newHistory;
   };
 
   const updateSettings = async (updates: Partial<UserSettings>) => {
