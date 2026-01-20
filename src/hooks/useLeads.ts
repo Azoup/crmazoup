@@ -139,47 +139,62 @@ export function useLeads() {
   }, [leads, filters]);
 
   const addLead = async (leadData: Partial<Lead>) => {
-    if (!user || !profile) return;
+    if (!user || !profile) {
+      toast({ title: 'Erro', description: 'Você precisa estar logado para criar leads', variant: 'destructive' });
+      return null;
+    }
+
+    if (!leadData.name?.trim()) {
+      toast({ title: 'Erro', description: 'O nome do lead é obrigatório', variant: 'destructive' });
+      return null;
+    }
 
     const history: LeadHistory[] = [{
       type: 'criacao',
-      note: 'Lead criado',
+      note: `Lead "${leadData.name}" criado por ${profile.name}`,
       date: new Date().toISOString(),
       user: profile.name.split(' ')[0],
     }];
 
-    const { data, error } = await supabase
-      .from('leads')
-      .insert({
-        user_id: user.id,
-        name: leadData.name || 'Novo Lead',
-        company: leadData.company,
-        confection_type: leadData.confection_type,
-        whatsapp: leadData.whatsapp,
-        email: leadData.email,
-        website: leadData.website,
-        temperature: leadData.temperature || 'morno',
-        value: leadData.value || 0,
-        stage: 'prospeccao',
-        next_contact: leadData.next_contact,
-        meeting_pain: leadData.meeting_pain,
-        meeting_needs: leadData.meeting_needs,
-        meeting_link: leadData.meeting_link,
-        meeting_date: leadData.meeting_date,
-        history: history as unknown as Json,
-        last_contact: new Date().toISOString(),
-      })
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .insert({
+          user_id: user.id,
+          name: leadData.name.trim(),
+          company: leadData.company?.trim() || null,
+          confection_type: leadData.confection_type?.trim() || null,
+          whatsapp: leadData.whatsapp?.trim() || null,
+          email: leadData.email?.trim() || null,
+          website: leadData.website?.trim() || null,
+          temperature: leadData.temperature || 'morno',
+          value: Number(leadData.value) || 0,
+          stage: 'prospeccao',
+          next_contact: leadData.next_contact || null,
+          meeting_pain: leadData.meeting_pain?.trim() || null,
+          meeting_needs: leadData.meeting_needs?.trim() || null,
+          meeting_link: leadData.meeting_link?.trim() || null,
+          meeting_date: leadData.meeting_date || null,
+          history: history as unknown as Json,
+          last_contact: new Date().toISOString(),
+          entry_date: new Date().toISOString(),
+        })
+        .select()
+        .single();
 
-    if (error) {
-      console.error('Error adding lead:', error);
-      toast({ title: 'Erro', description: 'Erro ao criar lead', variant: 'destructive' });
+      if (error) {
+        console.error('Error adding lead:', error);
+        toast({ title: 'Erro', description: `Erro ao criar lead: ${error.message}`, variant: 'destructive' });
+        return null;
+      }
+
+      toast({ title: 'Sucesso', description: 'Lead criado com sucesso!' });
+      return transformDbLead(data);
+    } catch (err) {
+      console.error('Unexpected error adding lead:', err);
+      toast({ title: 'Erro', description: 'Erro inesperado ao criar lead', variant: 'destructive' });
       return null;
     }
-
-    toast({ title: 'Sucesso', description: 'Lead criado com sucesso!' });
-    return transformDbLead(data);
   };
 
   const updateLead = async (leadId: string, updates: Partial<Lead>) => {
@@ -276,6 +291,32 @@ export function useLeads() {
 
   const updateSettings = async (updates: Partial<UserSettings>) => {
     if (!user) return;
+
+    // Check if settings exist, if not create them
+    if (!settings) {
+      const { error: insertError } = await supabase
+        .from('user_settings')
+        .insert({
+          user_id: user.id,
+          sales_goal: updates.sales_goal || 50000,
+          msg_template: updates.msg_template || 'Olá {nome}! Vi que você trabalha com {tipo}. Podemos conversar?',
+        });
+
+      if (insertError) {
+        console.error('Error creating settings:', insertError);
+        toast({ title: 'Erro', description: 'Erro ao criar configurações', variant: 'destructive' });
+        return;
+      }
+
+      setSettings({
+        id: '',
+        user_id: user.id,
+        sales_goal: updates.sales_goal || 50000,
+        msg_template: updates.msg_template || 'Olá {nome}! Vi que você trabalha com {tipo}. Podemos conversar?',
+      });
+      toast({ title: 'Sucesso', description: 'Configurações salvas!' });
+      return;
+    }
 
     const { error } = await supabase
       .from('user_settings')

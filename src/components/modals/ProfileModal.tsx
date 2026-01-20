@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Lead } from '@/types/lead';
-import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { XCircle, UserCircle, LogOut, Save } from 'lucide-react';
+import { ImageUpload } from '@/components/ui/image-upload';
+import { XCircle, LogOut, Save } from 'lucide-react';
 
 interface ProfileModalProps {
   onClose: () => void;
@@ -33,7 +33,7 @@ export function ProfileModal({ onClose, leads, salesGoal }: ProfileModalProps) {
   };
 
   const totalSold = leads.filter(l => l.stage === 'venda').reduce((acc, l) => acc + l.value, 0);
-  const percentGoal = Math.min(100, (totalSold / salesGoal) * 100);
+  const percentGoal = salesGoal > 0 ? Math.min(100, (totalSold / salesGoal) * 100) : 0;
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
@@ -43,15 +43,12 @@ export function ProfileModal({ onClose, leads, salesGoal }: ProfileModalProps) {
             <XCircle size={24} />
           </button>
           
-          <div className="w-24 h-24 mx-auto bg-card rounded-full flex items-center justify-center mb-4 overflow-hidden">
-            {formData.avatar ? (
-              <img src={formData.avatar} alt="Perfil" className="w-full h-full object-cover" />
-            ) : (
-              <UserCircle size={48} className="text-primary" />
-            )}
-          </div>
+          <ImageUpload 
+            currentImage={formData.avatar || null}
+            onImageChange={(url) => setFormData({ ...formData, avatar: url || '' })}
+          />
           
-          <h2 className="text-xl font-bold">{formData.name}</h2>
+          <h2 className="text-xl font-bold mt-3">{formData.name}</h2>
           <p className="text-sm text-primary-foreground/70">{profile?.role}</p>
         </div>
 
@@ -70,11 +67,6 @@ export function ProfileModal({ onClose, leads, salesGoal }: ProfileModalProps) {
           <div>
             <Label>Nome</Label>
             <Input value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-          </div>
-          
-          <div>
-            <Label>URL do Avatar</Label>
-            <Input value={formData.avatar} onChange={e => setFormData({ ...formData, avatar: e.target.value })} placeholder="https://..." />
           </div>
           
           <div>
