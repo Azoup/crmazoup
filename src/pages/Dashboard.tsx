@@ -33,14 +33,22 @@ export function Dashboard() {
     getLeadStatus,
     totalSold,
     percentGoal,
+    syncActiveCampaign,
   } = useLeads();
 
   const [view, setView] = useState<ViewType>('pipeline');
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [currentLead, setCurrentLead] = useState<Lead | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const isManager = profile?.role === 'Gestor';
+
+  const handleSyncAC = async () => {
+    setSyncing(true);
+    await syncActiveCampaign();
+    setSyncing(false);
+  };
 
   const handleOpenLead = (lead: Lead) => {
     setCurrentLead(lead);
@@ -85,6 +93,8 @@ export function Dashboard() {
         isManager={isManager}
         onProfileOpen={() => setIsProfileOpen(true)}
         leads={leads}
+        onSyncActiveCampaign={handleSyncAC}
+        syncing={syncing}
       />
 
       <main className="p-4 md:p-6">

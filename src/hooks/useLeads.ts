@@ -42,6 +42,10 @@ function transformDbLead(dbLead: any): Lead {
     history: parseHistory(dbLead.history),
     created_at: dbLead.created_at,
     updated_at: dbLead.updated_at,
+    // New fields
+    is_new: dbLead.is_new ?? false,
+    manager_notes: dbLead.manager_notes ?? null,
+    activecampaign_id: dbLead.activecampaign_id ?? null,
   };
 }
 
@@ -234,6 +238,8 @@ export function useLeads() {
         meeting_link: updates.meeting_link,
         meeting_date: updates.meeting_date,
         history: newHistory as unknown as Json,
+        // Mark as not new when updated
+        is_new: false,
       })
       .eq('id', leadId);
 
@@ -388,6 +394,45 @@ export function useLeads() {
     return Math.min(100, (totalSold / settings.sales_goal) * 100);
   }, [totalSold, settings?.sales_goal]);
 
+  const syncActiveCampaign = async (): Promise<{ imported: number; error?: string }> => {
+    if (!user) {
+      return { imported: 0, error: 'Você precisa estar logado' };
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-activecampaign');
+
+      if (error) {
+        console.error('Error syncing ActiveCampaign:', error);
+        toast({ 
+          title: 'Erro', 
+          description: 'Erro ao sincronizar com ActiveCampaign', 
+          variant: 'destructive' 
+        });
+        return { imported: 0, error: error.message };
+      }
+
+      if (data.success) {
+        toast({ 
+          title: 'Sincronização Concluída', 
+          description: `${data.imported} leads importados do ActiveCampaign` 
+        });
+        return { imported: data.imported };
+      } else {
+        toast({ title: 'Erro', description: data.error, variant: 'destructive' });
+        return { imported: 0, error: data.error };
+      }
+    } catch (err) {
+      console.error('Unexpected error syncing:', err);
+      toast({ 
+        title: 'Erro', 
+        description: 'Erro inesperado ao sincronizar', 
+        variant: 'destructive' 
+      });
+      return { imported: 0, error: 'Erro inesperado' };
+    }
+  };
+
   return {
     leads,
     filteredLeads,
@@ -403,5 +448,6 @@ export function useLeads() {
     getLeadStatus,
     totalSold,
     percentGoal,
+    syncActiveCampaign,
   };
 }

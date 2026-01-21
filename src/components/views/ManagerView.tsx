@@ -1,6 +1,27 @@
-import { Lead } from '@/types/lead';
+import { useState } from 'react';
+import { Lead, LeadStage, STAGE_LABELS } from '@/types/lead';
 import { formatCurrency } from '@/lib/utils';
-import { Users, TrendingUp, AlertTriangle, Target, DollarSign, Clock } from 'lucide-react';
+import { 
+  Users, TrendingUp, AlertTriangle, Target, DollarSign, Clock,
+  RefreshCw, UserPlus, UserMinus, MessageSquare, Calendar, Phone,
+  Mail, ExternalLink, ChevronDown, ChevronUp, Sparkles
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { useManagerData } from '@/hooks/useManagerData';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 
 interface ManagerViewProps {
   leads: Lead[];
@@ -9,27 +30,120 @@ interface ManagerViewProps {
 }
 
 export function ManagerView({ leads, getLeadStatus, percentGoal }: ManagerViewProps) {
-  const totalLeads = leads.length;
-  const lateLeads = leads.filter(l => getLeadStatus(l) === 'late').length;
-  const wonLeads = leads.filter(l => l.stage === 'venda').length;
-  const lostLeads = leads.filter(l => l.stage === 'perdidos').length;
+  const {
+    sdrs,
+    allLeads,
+    loading,
+    syncing,
+    addSDRById,
+    removeSDR,
+    updateLeadManagerNotes,
+    syncActiveCampaign,
+    refreshData,
+  } = useManagerData();
+
+  const [newSdrId, setNewSdrId] = useState('');
+  const [expandedSDR, setExpandedSDR] = useState<string | null>(null);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [managerNotes, setManagerNotes] = useState('');
+
+  // Use allLeads from manager data if available, otherwise use passed leads
+  const displayLeads = allLeads.length > 0 ? allLeads : leads;
+
+  const totalLeads = displayLeads.length;
+  const lateLeads = displayLeads.filter(l => getLeadStatus(l) === 'late').length;
+  const wonLeads = displayLeads.filter(l => l.stage === 'venda').length;
+  const lostLeads = displayLeads.filter(l => l.stage === 'perdidos').length;
+  const meetingLeads = displayLeads.filter(l => l.stage === 'reuniao').length;
   const conversionRate = totalLeads > 0 ? ((wonLeads / totalLeads) * 100).toFixed(1) : '0';
   
-  const pipelineByStage = {
-    prospeccao: leads.filter(l => l.stage === 'prospeccao').length,
-    interesse: leads.filter(l => l.stage === 'interesse').length,
-    reuniao: leads.filter(l => l.stage === 'reuniao').length,
-    venda: leads.filter(l => l.stage === 'venda').length,
-    congelados: leads.filter(l => l.stage === 'congelados').length,
-    perdidos: leads.filter(l => l.stage === 'perdidos').length,
+  const pipelineByStage: Record<LeadStage, number> = {
+    prospeccao: displayLeads.filter(l => l.stage === 'prospeccao').length,
+    interesse: displayLeads.filter(l => l.stage === 'interesse').length,
+    reuniao: displayLeads.filter(l => l.stage === 'reuniao').length,
+    venda: displayLeads.filter(l => l.stage === 'venda').length,
+    congelados: displayLeads.filter(l => l.stage === 'congelados').length,
+    perdidos: displayLeads.filter(l => l.stage === 'perdidos').length,
   };
 
-  const totalValue = leads.reduce((acc, l) => acc + (l.value || 0), 0);
-  const wonValue = leads.filter(l => l.stage === 'venda').reduce((acc, l) => acc + (l.value || 0), 0);
+  const totalValue = displayLeads.reduce((acc, l) => acc + (l.value || 0), 0);
+  const wonValue = displayLeads.filter(l => l.stage === 'venda').reduce((acc, l) => acc + (l.value || 0), 0);
+
+  const handleAddSDR = () => {
+    if (newSdrId.trim()) {
+      addSDRById(newSdrId.trim());
+      setNewSdrId('');
+    }
+  };
+
+  const handleSaveManagerNotes = () => {
+    if (selectedLead) {
+      updateLeadManagerNotes(selectedLead.id, managerNotes);
+    }
+  };
+
+  const openLeadNotes = (lead: Lead) => {
+    setSelectedLead(lead);
+    setManagerNotes(lead.manager_notes || '');
+  };
+
+  const stageColors: Record<LeadStage, string> = {
+    prospeccao: 'bg-stage-prospeccao',
+    interesse: 'bg-stage-interesse',
+    reuniao: 'bg-stage-reuniao',
+    venda: 'bg-stage-venda',
+    congelados: 'bg-stage-congelados',
+    perdidos: 'bg-stage-perdidos',
+  };
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Action Bar */}
+      <div className="flex flex-wrap gap-3 items-center justify-between bg-card p-4 rounded-xl border border-border">
+        <div className="flex gap-2">
+          <Button 
+            onClick={syncActiveCampaign} 
+            disabled={syncing}
+            className="gap-2"
+            variant="outline"
+          >
+            <Sparkles size={16} className={syncing ? 'animate-spin' : ''} />
+            {syncing ? 'Sincronizando...' : 'Sincronizar ActiveCampaign'}
+          </Button>
+          <Button onClick={refreshData} variant="ghost" size="icon">
+            <RefreshCw size={16} />
+          </Button>
+        </div>
+
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <UserPlus size={16} /> Adicionar SDR
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Adicionar SDR à Equipe</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Peça ao SDR para copiar seu ID de usuário nas configurações do perfil e cole aqui.
+              </p>
+              <Input
+                placeholder="ID do usuário do SDR"
+                value={newSdrId}
+                onChange={(e) => setNewSdrId(e.target.value)}
+              />
+              <Button onClick={handleAddSDR} className="w-full">
+                Adicionar SDR
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Metrics */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <MetricCard
           icon={Users}
           label="Total de Leads"
@@ -38,57 +152,138 @@ export function ManagerView({ leads, getLeadStatus, percentGoal }: ManagerViewPr
           bgColor="bg-info/10"
         />
         <MetricCard
+          icon={Calendar}
+          label="Em Reunião"
+          value={meetingLeads.toString()}
+          color="text-primary"
+          bgColor="bg-primary/10"
+        />
+        <MetricCard
           icon={AlertTriangle}
-          label="Leads Atrasados"
+          label="Atrasados"
           value={lateLeads.toString()}
           color="text-destructive"
           bgColor="bg-destructive/10"
         />
         <MetricCard
           icon={TrendingUp}
-          label="Taxa Conversão"
+          label="Conversão"
           value={`${conversionRate}%`}
           color="text-success"
           bgColor="bg-success/10"
         />
         <MetricCard
           icon={Target}
-          label="Meta Atingida"
+          label="Meta"
           value={`${percentGoal.toFixed(1)}%`}
-          color="text-primary"
-          bgColor="bg-primary/10"
+          color="text-warning"
+          bgColor="bg-warning/10"
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* SDR List */}
+        <div className="lg:col-span-1 bg-card rounded-xl border border-border shadow-sm p-4">
+          <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
+            <Users size={18} /> Equipe de SDRs ({sdrs.length})
+          </h3>
+          
+          {loading ? (
+            <div className="text-center text-muted-foreground py-8">Carregando...</div>
+          ) : sdrs.length === 0 ? (
+            <div className="text-center text-muted-foreground py-8">
+              Nenhum SDR vinculado. Adicione SDRs para acompanhar.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {sdrs.map(sdr => {
+                const sdrWon = sdr.leads.filter(l => l.stage === 'venda').length;
+                const sdrMeetings = sdr.leads.filter(l => l.stage === 'reuniao').length;
+                const isExpanded = expandedSDR === sdr.user_id;
+
+                return (
+                  <Collapsible 
+                    key={sdr.user_id}
+                    open={isExpanded}
+                    onOpenChange={() => setExpandedSDR(isExpanded ? null : sdr.user_id)}
+                  >
+                    <div className="bg-muted rounded-lg p-3">
+                      <CollapsibleTrigger className="w-full">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            {sdr.avatar ? (
+                              <img src={sdr.avatar} alt={sdr.name} className="w-10 h-10 rounded-full object-cover" />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                                <Users size={20} className="text-primary" />
+                              </div>
+                            )}
+                            <div className="text-left">
+                              <p className="font-medium text-foreground">{sdr.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {sdr.leads.length} leads • {sdrMeetings} reuniões • {sdrWon} vendas
+                              </p>
+                            </div>
+                          </div>
+                          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </div>
+                      </CollapsibleTrigger>
+
+                      <CollapsibleContent className="mt-3 pt-3 border-t border-border">
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                          {sdr.leads.slice(0, 5).map(lead => (
+                            <div 
+                              key={lead.id} 
+                              className={`flex items-center justify-between p-2 rounded text-sm cursor-pointer hover:bg-background/50 ${
+                                lead.is_new ? 'bg-purple-500/20 border border-purple-500/30' : 'bg-background/30'
+                              }`}
+                              onClick={() => openLeadNotes(lead)}
+                            >
+                              <div className="flex items-center gap-2">
+                                {lead.is_new && <Sparkles size={12} className="text-purple-500" />}
+                                <span className="truncate max-w-[120px]">{lead.name}</span>
+                              </div>
+                              <span className={`text-xs px-2 py-0.5 rounded ${stageColors[lead.stage]} text-white`}>
+                                {STAGE_LABELS[lead.stage]}
+                              </span>
+                            </div>
+                          ))}
+                          {sdr.leads.length > 5 && (
+                            <p className="text-xs text-muted-foreground text-center">
+                              +{sdr.leads.length - 5} mais leads
+                            </p>
+                          )}
+                        </div>
+                        <Button 
+                          variant="destructive" 
+                          size="sm" 
+                          className="w-full mt-3"
+                          onClick={() => removeSDR(sdr.user_id)}
+                        >
+                          <UserMinus size={14} className="mr-2" /> Remover SDR
+                        </Button>
+                      </CollapsibleContent>
+                    </div>
+                  </Collapsible>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Funnel */}
         <div className="bg-card rounded-xl border border-border shadow-sm p-6">
           <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
             <Clock size={18} /> Funil de Vendas
           </h3>
           <div className="space-y-3">
-            {Object.entries(pipelineByStage).map(([stage, count]) => {
+            {(Object.entries(pipelineByStage) as [LeadStage, number][]).map(([stage, count]) => {
               const percentage = totalLeads > 0 ? (count / totalLeads) * 100 : 0;
-              const stageLabels: Record<string, string> = {
-                prospeccao: 'Prospecção',
-                interesse: 'Interesse',
-                reuniao: 'Reunião',
-                venda: 'Venda',
-                congelados: 'Congelados',
-                perdidos: 'Perdidos',
-              };
-              const stageColors: Record<string, string> = {
-                prospeccao: 'bg-stage-prospeccao',
-                interesse: 'bg-stage-interesse',
-                reuniao: 'bg-stage-reuniao',
-                venda: 'bg-stage-venda',
-                congelados: 'bg-stage-congelados',
-                perdidos: 'bg-stage-perdidos',
-              };
               
               return (
                 <div key={stage}>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-muted-foreground">{stageLabels[stage]}</span>
+                    <span className="text-muted-foreground">{STAGE_LABELS[stage]}</span>
                     <span className="font-bold text-foreground">{count}</span>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
@@ -103,6 +298,7 @@ export function ManagerView({ leads, getLeadStatus, percentGoal }: ManagerViewPr
           </div>
         </div>
 
+        {/* Values */}
         <div className="bg-card rounded-xl border border-border shadow-sm p-6">
           <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
             <DollarSign size={18} /> Valores
@@ -133,6 +329,81 @@ export function ManagerView({ leads, getLeadStatus, percentGoal }: ManagerViewPr
           </div>
         </div>
       </div>
+
+      {/* Lead Notes Dialog */}
+      <Dialog open={!!selectedLead} onOpenChange={() => setSelectedLead(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare size={18} />
+              Notas do Gestor - {selectedLead?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedLead && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Phone size={14} />
+                  {selectedLead.whatsapp || 'Sem telefone'}
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Mail size={14} />
+                  {selectedLead.email || 'Sem email'}
+                </div>
+              </div>
+
+              {selectedLead.meeting_date && (
+                <div className="p-3 bg-primary/10 rounded-lg">
+                  <p className="text-sm font-medium text-primary flex items-center gap-2">
+                    <Calendar size={14} />
+                    Reunião: {new Date(selectedLead.meeting_date).toLocaleString('pt-BR')}
+                  </p>
+                  {selectedLead.meeting_link && (
+                    <a 
+                      href={selectedLead.meeting_link} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary flex items-center gap-1 mt-1"
+                    >
+                      <ExternalLink size={12} /> Acessar reunião
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {selectedLead.meeting_pain && (
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Dor identificada:</p>
+                  <p className="text-sm">{selectedLead.meeting_pain}</p>
+                </div>
+              )}
+
+              {selectedLead.meeting_needs && (
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Necessidades:</p>
+                  <p className="text-sm">{selectedLead.meeting_needs}</p>
+                </div>
+              )}
+
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  Notas para retorno (visível apenas para você):
+                </label>
+                <Textarea
+                  value={managerNotes}
+                  onChange={(e) => setManagerNotes(e.target.value)}
+                  placeholder="Adicione notas sobre o que foi combinado, próximos passos, etc."
+                  rows={4}
+                />
+              </div>
+
+              <Button onClick={handleSaveManagerNotes} className="w-full">
+                Salvar Notas
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
