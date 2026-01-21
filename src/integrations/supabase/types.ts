@@ -184,7 +184,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_managed_sdr_ids: { Args: { _manager_id: string }; Returns: string[] }
+      is_manager: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
