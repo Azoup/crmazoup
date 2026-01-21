@@ -6,6 +6,62 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Sanitize string input: trim, limit length, remove potentially dangerous characters
+function sanitizeString(input: unknown, maxLength: number): string {
+  if (input === null || input === undefined) return '';
+  if (typeof input !== 'string') return String(input).substring(0, maxLength);
+  return input
+    .trim()
+    .substring(0, maxLength)
+    .replace(/[<>{}[\]\\]/g, ''); // Remove potentially dangerous characters
+}
+
+// Validate email format
+function isValidEmail(email: unknown): boolean {
+  if (typeof email !== 'string') return false;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email) && email.length <= 255;
+}
+
+// Sanitize phone number
+function sanitizePhone(phone: unknown): string | null {
+  if (phone === null || phone === undefined) return null;
+  if (typeof phone !== 'string') return null;
+  // Keep only digits, plus, parentheses, spaces, and hyphens
+  const sanitized = phone.replace(/[^0-9+() -]/g, '').substring(0, 50);
+  return sanitized || null;
+}
+
+// Validate and sanitize contact data from ActiveCampaign
+interface ValidatedContact {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  phone: string | null;
+  orgname: string | null;
+}
+
+function validateContact(contact: unknown): ValidatedContact | null {
+  if (!contact || typeof contact !== 'object') return null;
+  
+  const rawContact = contact as Record<string, unknown>;
+  
+  // ID is required
+  if (!rawContact.id) return null;
+  
+  const id = String(rawContact.id);
+  const firstName = sanitizeString(rawContact.firstName, 100);
+  const lastName = sanitizeString(rawContact.lastName, 100);
+  const email = rawContact.email && isValidEmail(rawContact.email) 
+    ? sanitizeString(rawContact.email, 255) 
+    : null;
+  const phone = sanitizePhone(rawContact.phone);
+  const orgname = sanitizeString(rawContact.orgname, 200) || null;
+  
+  return { id, firstName, lastName, email, phone, orgname };
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -16,7 +72,7 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'Não autorizado' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -32,7 +88,7 @@ serve(async (req) => {
     
     if (claimsError || !claimsData?.user) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'Não autorizado' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -46,8 +102,8 @@ serve(async (req) => {
     if (!acApiKey || !acUrl) {
       console.error('ActiveCampaign credentials not configured');
       return new Response(
-        JSON.stringify({ error: 'ActiveCampaign não configurado' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Serviço de integração não configurado' }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -65,7 +121,7 @@ serve(async (req) => {
       const errorText = await acResponse.text();
       console.error('ActiveCampaign API error:', errorText);
       return new Response(
-        JSON.stringify({ error: 'Erro ao buscar contatos do ActiveCampaign', details: errorText }),
+        JSON.stringify({ error: 'Erro ao sincronizar contatos' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -85,25 +141,38 @@ serve(async (req) => {
     const existingAcIds = new Set((existingLeads || []).map(l => l.activecampaign_id));
 
     // Filter new contacts
-    const newContacts = contacts.filter((c: any) => !existingAcIds.has(c.id.toString()));
+    const newContacts = contacts.filter((c: unknown) => {
+      if (!c || typeof c !== 'object') return false;
+      const id = (c as Record<string, unknown>).id;
+      return id && !existingAcIds.has(String(id));
+    });
 
     console.log(`${newContacts.length} new contacts to import`);
 
     let imported = 0;
-    const errors: string[] = [];
+    const errorCount = { validation: 0, database: 0 };
 
     for (const contact of newContacts) {
       try {
+        // Validate and sanitize contact data
+        const validated = validateContact(contact);
+        if (!validated) {
+          errorCount.validation++;
+          continue;
+        }
+        
+        const fullName = `${validated.firstName} ${validated.lastName}`.trim();
+        
         const leadData = {
           user_id: userId,
-          name: `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || contact.email || 'Sem nome',
-          email: contact.email || null,
-          whatsapp: contact.phone || null,
-          company: contact.orgname || null,
+          name: fullName.substring(0, 255) || validated.email || 'Sem nome',
+          email: validated.email,
+          whatsapp: validated.phone,
+          company: validated.orgname,
           stage: 'prospeccao',
           temperature: 'morno',
           is_new: true,
-          activecampaign_id: contact.id.toString(),
+          activecampaign_id: validated.id,
           value: 0,
           history: [{
             type: 'sistema',
@@ -119,13 +188,13 @@ serve(async (req) => {
 
         if (insertError) {
           console.error('Error inserting lead:', insertError);
-          errors.push(`Erro ao importar ${contact.email}: ${insertError.message}`);
+          errorCount.database++;
         } else {
           imported++;
         }
       } catch (e) {
         console.error('Error processing contact:', e);
-        errors.push(`Erro ao processar contato: ${e instanceof Error ? e.message : 'Erro desconhecido'}`);
+        errorCount.database++;
       }
     }
 
@@ -137,7 +206,9 @@ serve(async (req) => {
         imported, 
         total: contacts.length,
         skipped: contacts.length - newContacts.length,
-        errors: errors.length > 0 ? errors : undefined
+        errors: errorCount.validation + errorCount.database > 0 
+          ? `${errorCount.validation} validação, ${errorCount.database} banco de dados`
+          : undefined
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -145,7 +216,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in sync-activecampaign:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Erro desconhecido' }),
+      JSON.stringify({ error: 'Erro ao processar sincronização' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

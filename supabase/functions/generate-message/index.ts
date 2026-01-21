@@ -5,17 +5,77 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Input validation schema
+interface LeadInput {
+  name?: string;
+  company?: string;
+  confection_type?: string;
+  stage?: string;
+  meeting_pain?: string;
+}
+
+// Sanitize string input: trim, limit length, remove potential injection characters
+function sanitizeString(input: unknown, maxLength: number): string {
+  if (typeof input !== 'string') return '';
+  return input
+    .trim()
+    .substring(0, maxLength)
+    .replace(/[<>{}[\]\\]/g, ''); // Remove potentially dangerous characters
+}
+
+// Validate and sanitize lead input
+function validateLead(lead: unknown): LeadInput {
+  if (!lead || typeof lead !== 'object') {
+    return {};
+  }
+  
+  const rawLead = lead as Record<string, unknown>;
+  
+  return {
+    name: sanitizeString(rawLead.name, 200),
+    company: sanitizeString(rawLead.company, 200),
+    confection_type: sanitizeString(rawLead.confection_type, 100),
+    stage: sanitizeString(rawLead.stage, 50),
+    meeting_pain: sanitizeString(rawLead.meeting_pain, 500),
+  };
+}
+
+// Validate type parameter
+function validateType(type: unknown): 'whatsapp' | 'strategy' | null {
+  if (type === 'whatsapp' || type === 'strategy') {
+    return type;
+  }
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { type, lead } = await req.json();
+    const body = await req.json();
+    
+    // Validate type parameter
+    const type = validateType(body.type);
+    if (!type) {
+      return new Response(JSON.stringify({ error: "Tipo de mensagem inválido" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    
+    // Validate and sanitize lead data
+    const lead = validateLead(body.lead);
+    
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+      console.error("LOVABLE_API_KEY is not configured");
+      return new Response(JSON.stringify({ error: "Serviço temporariamente indisponível" }), {
+        status: 503,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     let systemPrompt = "";
@@ -61,6 +121,7 @@ Gere 3-5 pontos-chave para abordar na reunião.`;
     });
 
     if (!response.ok) {
+      console.error(`AI gateway error: ${response.status}`);
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }), {
           status: 429,
@@ -73,7 +134,10 @@ Gere 3-5 pontos-chave para abordar na reunião.`;
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      throw new Error(`AI gateway error: ${response.status}`);
+      return new Response(JSON.stringify({ error: "Erro ao gerar mensagem" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const data = await response.json();
@@ -84,7 +148,7 @@ Gere 3-5 pontos-chave para abordar na reunião.`;
     });
   } catch (error) {
     console.error("generate-message error:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Erro desconhecido" }), {
+    return new Response(JSON.stringify({ error: "Erro ao processar solicitação" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
