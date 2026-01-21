@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       leads: {
         Row: {
+          activecampaign_id: string | null
           company: string | null
           confection_type: string | null
           created_at: string
@@ -23,8 +24,10 @@ export type Database = {
           entry_date: string | null
           history: Json | null
           id: string
+          is_new: boolean | null
           last_contact: string | null
           loss_reason: string | null
+          manager_notes: string | null
           meeting_date: string | null
           meeting_link: string | null
           meeting_needs: string | null
@@ -40,6 +43,7 @@ export type Database = {
           whatsapp: string | null
         }
         Insert: {
+          activecampaign_id?: string | null
           company?: string | null
           confection_type?: string | null
           created_at?: string
@@ -47,8 +51,10 @@ export type Database = {
           entry_date?: string | null
           history?: Json | null
           id?: string
+          is_new?: boolean | null
           last_contact?: string | null
           loss_reason?: string | null
+          manager_notes?: string | null
           meeting_date?: string | null
           meeting_link?: string | null
           meeting_needs?: string | null
@@ -64,6 +70,7 @@ export type Database = {
           whatsapp?: string | null
         }
         Update: {
+          activecampaign_id?: string | null
           company?: string | null
           confection_type?: string | null
           created_at?: string
@@ -71,8 +78,10 @@ export type Database = {
           entry_date?: string | null
           history?: Json | null
           id?: string
+          is_new?: boolean | null
           last_contact?: string | null
           loss_reason?: string | null
+          manager_notes?: string | null
           meeting_date?: string | null
           meeting_link?: string | null
           meeting_needs?: string | null
@@ -86,6 +95,27 @@ export type Database = {
           value?: number | null
           website?: string | null
           whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      manager_sdr_relations: {
+        Row: {
+          created_at: string
+          id: string
+          manager_id: string
+          sdr_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          manager_id: string
+          sdr_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          manager_id?: string
+          sdr_id?: string
         }
         Relationships: []
       }

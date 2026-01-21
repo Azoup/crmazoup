@@ -1,11 +1,13 @@
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Lead } from '@/types/lead';
 import { formatTime } from '@/lib/utils';
 import { 
   Shirt, Scissors, Cloud, Bell, UserCircle, 
-  LayoutDashboard, CalendarDays, TrendingUp, Users 
+  LayoutDashboard, CalendarDays, TrendingUp, Users, Sparkles, RefreshCw
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { Button } from '@/components/ui/button';
 
 interface Notification {
   id: string;
@@ -19,9 +21,11 @@ interface HeaderProps {
   isManager: boolean;
   onProfileOpen: () => void;
   leads: Lead[];
+  onSyncActiveCampaign?: () => Promise<void>;
+  syncing?: boolean;
 }
 
-export function Header({ view, setView, isManager, onProfileOpen, leads }: HeaderProps) {
+export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncActiveCampaign, syncing }: HeaderProps) {
   const { profile } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
@@ -62,6 +66,9 @@ export function Header({ view, setView, isManager, onProfileOpen, leads }: Heade
     return () => clearInterval(checkMeetings);
   }, [leads]);
 
+  // Count new leads from ActiveCampaign
+  const newLeadsCount = leads.filter(l => l.is_new).length;
+
   return (
     <header className="bg-primary text-primary-foreground p-4 shadow-lg flex flex-col md:flex-row justify-between items-center sticky top-0 z-20 gap-4">
       <div className="flex items-center gap-3 w-full md:w-auto">
@@ -77,6 +84,34 @@ export function Header({ view, setView, isManager, onProfileOpen, leads }: Heade
             <Cloud size={10} /> {isManager ? 'Modo Gestor' : 'Modo SDR'}
           </p>
         </div>
+
+        {/* Sync ActiveCampaign button for SDR */}
+        {!isManager && onSyncActiveCampaign && (
+          <Button
+            onClick={onSyncActiveCampaign}
+            disabled={syncing}
+            variant="secondary"
+            size="sm"
+            className="gap-1 text-xs"
+          >
+            {syncing ? (
+              <RefreshCw size={14} className="animate-spin" />
+            ) : (
+              <Sparkles size={14} />
+            )}
+            <span className="hidden sm:inline">
+              {syncing ? 'Sincronizando...' : 'Sincronizar AC'}
+            </span>
+          </Button>
+        )}
+
+        {/* New leads indicator */}
+        {newLeadsCount > 0 && (
+          <div className="bg-purple-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 animate-pulse">
+            <Sparkles size={12} />
+            {newLeadsCount} {newLeadsCount === 1 ? 'novo' : 'novos'}
+          </div>
+        )}
 
         {notifications.length > 0 && (
           <div className="relative group">

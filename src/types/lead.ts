@@ -32,6 +32,10 @@ export interface Lead {
   history: LeadHistory[];
   created_at: string;
   updated_at: string;
+  // New fields
+  is_new?: boolean;
+  manager_notes?: string | null;
+  activecampaign_id?: string | null;
 }
 
 export interface LeadFilters {
