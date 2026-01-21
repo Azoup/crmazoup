@@ -1,6 +1,6 @@
 import { Lead, LeadTemperature } from '@/types/lead';
 import { getDaysSince, formatCurrencyCompact } from '@/lib/utils';
-import { AlertTriangle, DollarSign, GripVertical, MessageCircle, Sparkles } from 'lucide-react';
+import { AlertTriangle, DollarSign, GripVertical, MessageCircle, Sparkles, UserCheck, UserX, Calendar } from 'lucide-react';
 
 interface LeadCardProps {
   lead: Lead;
@@ -21,6 +21,12 @@ const tempLabels: Record<LeadTemperature, string> = {
   frio: '❄️ Frio',
 };
 
+const meetingStatusConfig: Record<string, { label: string; color: string; icon: typeof UserCheck }> = {
+  compareceu: { label: 'Compareceu', color: 'bg-success/10 text-success', icon: UserCheck },
+  no_show: { label: 'No Show', color: 'bg-destructive/10 text-destructive', icon: UserX },
+  reagendar: { label: 'Reagendar', color: 'bg-warning/10 text-warning', icon: Calendar },
+};
+
 export function LeadCard({ lead, onClick, status, onQuickWhatsApp }: LeadCardProps) {
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData("leadId", lead.id);
@@ -28,6 +34,7 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp }: LeadCardPro
   
   const daysSinceContact = getDaysSince(lead.last_contact);
   const isNew = lead.is_new === true;
+  const meetingConfig = lead.meeting_status ? meetingStatusConfig[lead.meeting_status] : null;
 
   return (
     <div
@@ -82,6 +89,11 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp }: LeadCardPro
         {lead.activecampaign_id && (
           <span className="text-[10px] bg-purple-500/10 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full font-bold">
             AC
+          </span>
+        )}
+        {meetingConfig && (
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-0.5 ${meetingConfig.color}`}>
+            <meetingConfig.icon size={8} /> {meetingConfig.label}
           </span>
         )}
       </div>

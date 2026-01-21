@@ -2,6 +2,8 @@ export type LeadTemperature = 'frio' | 'morno' | 'quente';
 
 export type LeadStage = 'prospeccao' | 'interesse' | 'reuniao' | 'venda' | 'congelados' | 'perdidos';
 
+export type MeetingStatus = 'compareceu' | 'no_show' | 'reagendar' | null;
+
 export interface LeadHistory {
   type: string;
   note: string;
@@ -36,6 +38,8 @@ export interface Lead {
   is_new?: boolean;
   manager_notes?: string | null;
   activecampaign_id?: string | null;
+  meeting_status?: MeetingStatus;
+  reference_month?: string | null;
 }
 
 export interface LeadFilters {
@@ -49,6 +53,16 @@ export interface UserSettings {
   user_id: string;
   sales_goal: number;
   msg_template: string;
+}
+
+export interface MonthlyMetrics {
+  totalLeads: number;
+  leadsWithoutResponse: number;
+  meetingsScheduled: number;
+  meetingsAttended: number;
+  meetingsNoShow: number;
+  salesClosed: number;
+  invalidLeads: number;
 }
 
 export const STAGE_LABELS: Record<LeadStage, string> = {
@@ -67,4 +81,10 @@ export const STAGE_COLORS: Record<LeadStage, string> = {
   venda: 'border-stage-venda',
   congelados: 'border-stage-congelados',
   perdidos: 'border-stage-perdidos',
+};
+
+export const MEETING_STATUS_LABELS: Record<string, string> = {
+  compareceu: 'Compareceu',
+  no_show: 'No Show',
+  reagendar: 'Reagendar',
 };
