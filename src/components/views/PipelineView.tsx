@@ -1,8 +1,10 @@
-import { Lead, LeadStage, LeadHistory, STAGE_LABELS, STAGE_COLORS } from '@/types/lead';
+import { useState } from 'react';
+import { Lead, LeadStage, LeadHistory, MeetingStatus, STAGE_COLORS } from '@/types/lead';
 import { LeadCard } from '@/components/leads/LeadCard';
 import { formatCurrency, cleanPhoneNumber } from '@/lib/utils';
 import { DollarSign } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { MeetingStatusModal } from '@/components/modals/MeetingStatusModal';
 
 interface PipelineViewProps {
   leads: Lead[];
@@ -31,6 +33,7 @@ export function PipelineView({
   msgTemplate 
 }: PipelineViewProps) {
   const { profile } = useAuth();
+  const [meetingStatusLead, setMeetingStatusLead] = useState<Lead | null>(null);
 
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
   
@@ -41,6 +44,12 @@ export function PipelineView({
     
     const lead = leads.find(l => l.id === leadId);
     if (!lead || lead.stage === targetStage) return;
+    
+    // If moving to 'reuniao' stage, show meeting status modal
+    if (targetStage === 'reuniao' && lead.stage !== 'reuniao') {
+      setMeetingStatusLead(lead);
+      return;
+    }
     
     const updates: Partial<Lead> = { stage: targetStage };
     
@@ -55,6 +64,28 @@ export function PipelineView({
     }
     
     await updateLead(leadId, updates);
+  };
+
+  const handleMeetingStatusSelect = async (leadId: string, status: MeetingStatus) => {
+    const updates: Partial<Lead> = { 
+      stage: 'reuniao',
+      meeting_status: status 
+    };
+    
+    await updateLead(leadId, updates);
+    
+    // Add history entry
+    const statusLabels: Record<string, string> = {
+      compareceu: '✅ Compareceu à reunião',
+      no_show: '❌ No Show - não compareceu',
+      reagendar: '📅 Reunião reagendada',
+    };
+    
+    if (status) {
+      await addHistory(leadId, 'reuniao_status', statusLabels[status] || 'Status de reunião atualizado');
+    }
+    
+    setMeetingStatusLead(null);
   };
 
   const sendWhatsApp = async (lead: Lead, msg: string = msgTemplate) => {
@@ -131,6 +162,14 @@ export function PipelineView({
           );
         })}
       </div>
+
+      {meetingStatusLead && (
+        <MeetingStatusModal
+          lead={meetingStatusLead}
+          onClose={() => setMeetingStatusLead(null)}
+          onSelectStatus={handleMeetingStatusSelect}
+        />
+      )}
     </div>
   );
 }

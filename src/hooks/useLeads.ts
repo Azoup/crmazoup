@@ -46,6 +46,8 @@ function transformDbLead(dbLead: any): Lead {
     is_new: dbLead.is_new ?? false,
     manager_notes: dbLead.manager_notes ?? null,
     activecampaign_id: dbLead.activecampaign_id ?? null,
+    meeting_status: dbLead.meeting_status ?? null,
+    reference_month: dbLead.reference_month ?? null,
   };
 }
 
@@ -240,6 +242,7 @@ export function useLeads() {
         history: newHistory as unknown as Json,
         // Mark as not new when updated
         is_new: false,
+        meeting_status: updates.meeting_status,
       })
       .eq('id', leadId);
 

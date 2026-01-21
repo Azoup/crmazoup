@@ -32,8 +32,10 @@ export type Database = {
           meeting_link: string | null
           meeting_needs: string | null
           meeting_pain: string | null
+          meeting_status: string | null
           name: string
           next_contact: string | null
+          reference_month: string | null
           stage: string
           temperature: string
           updated_at: string
@@ -59,8 +61,10 @@ export type Database = {
           meeting_link?: string | null
           meeting_needs?: string | null
           meeting_pain?: string | null
+          meeting_status?: string | null
           name: string
           next_contact?: string | null
+          reference_month?: string | null
           stage?: string
           temperature?: string
           updated_at?: string
@@ -86,8 +90,10 @@ export type Database = {
           meeting_link?: string | null
           meeting_needs?: string | null
           meeting_pain?: string | null
+          meeting_status?: string | null
           name?: string
           next_contact?: string | null
+          reference_month?: string | null
           stage?: string
           temperature?: string
           updated_at?: string
