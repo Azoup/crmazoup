@@ -149,15 +149,28 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
         body: JSON.stringify({ type: 'whatsapp', lead: formData }),
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData?.error || 'Erro ao gerar mensagem. Tente novamente.';
+        alert(errorMessage);
+        setIsGenerating(false);
+        return;
+      }
+      
       const data = await response.json();
-      if (data.message) { 
+      if (data?.message) { 
         setCurrentTemplate(data.message); 
         onUpdateTemplate(data.message); 
+      } else {
+        alert('Não foi possível gerar a mensagem. Tente novamente.');
       }
     } catch (e) { 
-      console.error('AI error:', e); 
+      console.error('AI error:', e);
+      alert('Erro de conexão. Verifique sua internet e tente novamente.');
+    } finally {
+      setIsGenerating(false);
     }
-    setIsGenerating(false);
   };
 
   const handleSaveTemplate = () => {
