@@ -60,13 +60,26 @@ export function Dashboard() {
     setCurrentLead(null);
   };
 
-  const handleSaveLead = async (leadData: Partial<Lead>) => {
-    if (currentLead) {
-      await updateLead(currentLead.id, leadData);
-    } else {
-      await addLead(leadData);
+  const handleSaveLead = async (leadData: Partial<Lead>): Promise<boolean> => {
+    try {
+      let success = false;
+      
+      if (currentLead) {
+        success = await updateLead(currentLead.id, leadData);
+      } else {
+        const newLead = await addLead(leadData);
+        success = newLead !== null;
+      }
+      
+      if (success) {
+        handleCloseLead();
+      }
+      
+      return success;
+    } catch (err) {
+      console.error('Error saving lead:', err);
+      return false;
     }
-    handleCloseLead();
   };
 
   if (loading) {

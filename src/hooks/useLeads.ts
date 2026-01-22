@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Lead, LeadHistory, LeadFilters, LeadStage, UserSettings } from '@/types/lead';
+import { Lead, LeadHistory, LeadFilters, UserSettings } from '@/types/lead';
 import { useToast } from '@/hooks/use-toast';
 import { Json } from '@/integrations/supabase/types';
 
@@ -144,22 +144,23 @@ export function useLeads() {
     });
   }, [leads, filters]);
 
-  const addLead = async (leadData: Partial<Lead>) => {
+  const addLead = async (leadData: Partial<Lead>): Promise<Lead | null> => {
     if (!user || !profile) {
       toast({ title: 'Erro', description: 'Você precisa estar logado para criar leads', variant: 'destructive' });
       return null;
     }
 
-    if (!leadData.name?.trim()) {
+    const trimmedName = leadData.name?.trim();
+    if (!trimmedName) {
       toast({ title: 'Erro', description: 'O nome do lead é obrigatório', variant: 'destructive' });
       return null;
     }
 
     const history: LeadHistory[] = [{
       type: 'criacao',
-      note: `Lead "${leadData.name}" criado por ${profile.name}`,
+      note: `Lead "${trimmedName}" criado por ${profile.name ?? 'Sistema'}`,
       date: new Date().toISOString(),
-      user: profile.name.split(' ')[0],
+      user: profile.name?.split(' ')[0] ?? 'Sistema',
     }];
 
     try {
@@ -167,7 +168,7 @@ export function useLeads() {
         .from('leads')
         .insert({
           user_id: user.id,
-          name: leadData.name.trim(),
+          name: trimmedName,
           company: leadData.company?.trim() || null,
           confection_type: leadData.confection_type?.trim() || null,
           whatsapp: leadData.whatsapp?.trim() || null,
@@ -194,6 +195,11 @@ export function useLeads() {
         return null;
       }
 
+      if (!data) {
+        toast({ title: 'Erro', description: 'Não foi possível criar o lead', variant: 'destructive' });
+        return null;
+      }
+
       toast({ title: 'Sucesso', description: 'Lead criado com sucesso!' });
       return transformDbLead(data);
     } catch (err) {
@@ -203,66 +209,87 @@ export function useLeads() {
     }
   };
 
-  const updateLead = async (leadId: string, updates: Partial<Lead>) => {
+  const updateLead = async (leadId: string, updates: Partial<Lead>): Promise<boolean> => {
     if (!user || !profile) {
       toast({ title: 'Erro', description: 'Você precisa estar logado', variant: 'destructive' });
-      return;
+      return false;
+    }
+
+    if (!leadId) {
+      toast({ title: 'Erro', description: 'ID do lead inválido', variant: 'destructive' });
+      return false;
     }
 
     const currentLead = leads.find(l => l.id === leadId);
     if (!currentLead) {
       toast({ title: 'Erro', description: 'Lead não encontrado', variant: 'destructive' });
-      return;
+      return false;
     }
 
     try {
-      let newHistory = [...(updates.history || currentLead.history)];
+      // Safely get current history, ensuring it's always an array
+      const currentHistory = Array.isArray(currentLead.history) ? currentLead.history : [];
+      const updatesHistory = Array.isArray(updates.history) ? updates.history : null;
+      
+      let newHistory = [...(updatesHistory ?? currentHistory)];
       
       // Only add stage change history if stage is explicitly provided and different
+      const newStage = updates.stage ?? currentLead.stage;
       if (updates.stage !== undefined && updates.stage !== currentLead.stage) {
         newHistory = [{
           type: 'stage_change',
-          note: `Fase: ${currentLead.stage.toUpperCase()} → ${updates.stage.toUpperCase()}`,
+          note: `Fase: ${currentLead.stage?.toUpperCase() ?? 'N/A'} → ${updates.stage?.toUpperCase() ?? 'N/A'}`,
           date: new Date().toISOString(),
-          user: profile.name.split(' ')[0],
+          user: profile.name?.split(' ')[0] ?? 'Sistema',
         }, ...newHistory];
       }
 
+      const updatePayload = {
+        name: (updates.name ?? currentLead.name) || 'Sem nome',
+        company: updates.company ?? currentLead.company ?? null,
+        confection_type: updates.confection_type ?? currentLead.confection_type ?? null,
+        whatsapp: updates.whatsapp ?? currentLead.whatsapp ?? null,
+        email: updates.email ?? currentLead.email ?? null,
+        website: updates.website ?? currentLead.website ?? null,
+        temperature: updates.temperature ?? currentLead.temperature ?? 'morno',
+        value: updates.value ?? currentLead.value ?? 0,
+        stage: newStage ?? 'prospeccao',
+        loss_reason: updates.loss_reason ?? currentLead.loss_reason ?? null,
+        next_contact: updates.next_contact ?? currentLead.next_contact ?? null,
+        last_contact: updates.last_contact || new Date().toISOString(),
+        meeting_pain: updates.meeting_pain ?? currentLead.meeting_pain ?? null,
+        meeting_needs: updates.meeting_needs ?? currentLead.meeting_needs ?? null,
+        meeting_link: updates.meeting_link ?? currentLead.meeting_link ?? null,
+        meeting_date: updates.meeting_date ?? currentLead.meeting_date ?? null,
+        history: newHistory as unknown as Json,
+        is_new: false,
+        meeting_status: updates.meeting_status ?? currentLead.meeting_status ?? null,
+      };
+
       const { error } = await supabase
         .from('leads')
-        .update({
-          name: updates.name ?? currentLead.name,
-          company: updates.company ?? currentLead.company,
-          confection_type: updates.confection_type ?? currentLead.confection_type,
-          whatsapp: updates.whatsapp ?? currentLead.whatsapp,
-          email: updates.email ?? currentLead.email,
-          website: updates.website ?? currentLead.website,
-          temperature: updates.temperature ?? currentLead.temperature,
-          value: updates.value ?? currentLead.value,
-          stage: updates.stage ?? currentLead.stage,
-          loss_reason: updates.loss_reason ?? currentLead.loss_reason,
-          next_contact: updates.next_contact ?? currentLead.next_contact,
-          last_contact: updates.last_contact || new Date().toISOString(),
-          meeting_pain: updates.meeting_pain ?? currentLead.meeting_pain,
-          meeting_needs: updates.meeting_needs ?? currentLead.meeting_needs,
-          meeting_link: updates.meeting_link ?? currentLead.meeting_link,
-          meeting_date: updates.meeting_date ?? currentLead.meeting_date,
-          history: newHistory as unknown as Json,
-          is_new: false,
-          meeting_status: updates.meeting_status ?? currentLead.meeting_status,
-        })
+        .update(updatePayload)
         .eq('id', leadId);
 
       if (error) {
         console.error('Error updating lead:', error);
-        toast({ title: 'Erro', description: 'Erro ao atualizar lead', variant: 'destructive' });
-        return;
+        toast({ title: 'Erro', description: `Erro ao atualizar lead: ${error.message}`, variant: 'destructive' });
+        return false;
       }
 
+      // Update local state optimistically
+      setLeads(prev => prev.map(l => 
+        l.id === leadId 
+          ? { ...l, ...updatePayload, history: newHistory }
+          : l
+      ));
+
       toast({ title: 'Sucesso', description: 'Lead atualizado!' });
+      return true;
     } catch (err) {
       console.error('Unexpected error updating lead:', err);
       toast({ title: 'Erro', description: 'Erro inesperado ao atualizar lead', variant: 'destructive' });
+      return false;
     }
   };
 

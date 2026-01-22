@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { 
-  XCircle, User, MessageCircle, Clock, Calendar, Trash2, Save, 
+  XCircle, User, MessageCircle, Calendar, Trash2, Save, 
   Sparkles, ChevronRight, RefreshCw, CheckCircle, Loader2, FileText,
   Phone, Mail, StickyNote, History
 } from 'lucide-react';
@@ -15,7 +15,7 @@ import {
 interface LeadModalProps {
   lead: Lead | null;
   onClose: () => void;
-  onSave: (data: Partial<Lead>) => void;
+  onSave: (data: Partial<Lead>) => Promise<boolean>;
   onDelete: (id: string) => void;
   addHistory: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
   msgTemplate: string;
@@ -64,12 +64,23 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
   };
 
   const handleSave = async () => {
-    if (!formData.name?.trim()) {
+    const trimmedName = formData.name?.trim();
+    if (!trimmedName) {
+      alert('Por favor, informe o nome do lead.');
       return;
     }
+    
     setIsSaving(true);
     try {
-      await onSave(formData);
+      const dataToSave: Partial<Lead> = {
+        ...formData,
+        name: trimmedName,
+      };
+      
+      await onSave(dataToSave);
+    } catch (err) {
+      console.error('Error in handleSave:', err);
+      alert('Erro ao salvar. Tente novamente.');
     } finally {
       setIsSaving(false);
     }

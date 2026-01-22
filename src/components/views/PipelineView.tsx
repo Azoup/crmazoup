@@ -10,7 +10,7 @@ interface PipelineViewProps {
   leads: Lead[];
   onOpenLead: (lead: Lead) => void;
   getLeadStatus: (lead: Lead) => 'late' | 'today' | 'ontime' | 'neutral';
-  updateLead: (leadId: string, updates: Partial<Lead>) => Promise<void>;
+  updateLead: (leadId: string, updates: Partial<Lead>) => Promise<boolean>;
   addHistory: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
   msgTemplate: string;
 }
