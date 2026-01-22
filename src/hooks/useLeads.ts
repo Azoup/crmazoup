@@ -204,55 +204,66 @@ export function useLeads() {
   };
 
   const updateLead = async (leadId: string, updates: Partial<Lead>) => {
-    if (!user || !profile) return;
-
-    const currentLead = leads.find(l => l.id === leadId);
-    if (!currentLead) return;
-
-    let newHistory = [...(updates.history || currentLead.history)];
-    
-    if (updates.stage && updates.stage !== currentLead.stage) {
-      newHistory = [{
-        type: 'stage_change',
-        note: `Fase: ${currentLead.stage.toUpperCase()} → ${updates.stage.toUpperCase()}`,
-        date: new Date().toISOString(),
-        user: profile.name.split(' ')[0],
-      }, ...newHistory];
-    }
-
-    const { error } = await supabase
-      .from('leads')
-      .update({
-        name: updates.name,
-        company: updates.company,
-        confection_type: updates.confection_type,
-        whatsapp: updates.whatsapp,
-        email: updates.email,
-        website: updates.website,
-        temperature: updates.temperature,
-        value: updates.value,
-        stage: updates.stage,
-        loss_reason: updates.loss_reason,
-        next_contact: updates.next_contact,
-        last_contact: updates.last_contact || new Date().toISOString(),
-        meeting_pain: updates.meeting_pain,
-        meeting_needs: updates.meeting_needs,
-        meeting_link: updates.meeting_link,
-        meeting_date: updates.meeting_date,
-        history: newHistory as unknown as Json,
-        // Mark as not new when updated
-        is_new: false,
-        meeting_status: updates.meeting_status,
-      })
-      .eq('id', leadId);
-
-    if (error) {
-      console.error('Error updating lead:', error);
-      toast({ title: 'Erro', description: 'Erro ao atualizar lead', variant: 'destructive' });
+    if (!user || !profile) {
+      toast({ title: 'Erro', description: 'Você precisa estar logado', variant: 'destructive' });
       return;
     }
 
-    toast({ title: 'Sucesso', description: 'Lead atualizado!' });
+    const currentLead = leads.find(l => l.id === leadId);
+    if (!currentLead) {
+      toast({ title: 'Erro', description: 'Lead não encontrado', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      let newHistory = [...(updates.history || currentLead.history)];
+      
+      // Only add stage change history if stage is explicitly provided and different
+      if (updates.stage !== undefined && updates.stage !== currentLead.stage) {
+        newHistory = [{
+          type: 'stage_change',
+          note: `Fase: ${currentLead.stage.toUpperCase()} → ${updates.stage.toUpperCase()}`,
+          date: new Date().toISOString(),
+          user: profile.name.split(' ')[0],
+        }, ...newHistory];
+      }
+
+      const { error } = await supabase
+        .from('leads')
+        .update({
+          name: updates.name ?? currentLead.name,
+          company: updates.company ?? currentLead.company,
+          confection_type: updates.confection_type ?? currentLead.confection_type,
+          whatsapp: updates.whatsapp ?? currentLead.whatsapp,
+          email: updates.email ?? currentLead.email,
+          website: updates.website ?? currentLead.website,
+          temperature: updates.temperature ?? currentLead.temperature,
+          value: updates.value ?? currentLead.value,
+          stage: updates.stage ?? currentLead.stage,
+          loss_reason: updates.loss_reason ?? currentLead.loss_reason,
+          next_contact: updates.next_contact ?? currentLead.next_contact,
+          last_contact: updates.last_contact || new Date().toISOString(),
+          meeting_pain: updates.meeting_pain ?? currentLead.meeting_pain,
+          meeting_needs: updates.meeting_needs ?? currentLead.meeting_needs,
+          meeting_link: updates.meeting_link ?? currentLead.meeting_link,
+          meeting_date: updates.meeting_date ?? currentLead.meeting_date,
+          history: newHistory as unknown as Json,
+          is_new: false,
+          meeting_status: updates.meeting_status ?? currentLead.meeting_status,
+        })
+        .eq('id', leadId);
+
+      if (error) {
+        console.error('Error updating lead:', error);
+        toast({ title: 'Erro', description: 'Erro ao atualizar lead', variant: 'destructive' });
+        return;
+      }
+
+      toast({ title: 'Sucesso', description: 'Lead atualizado!' });
+    } catch (err) {
+      console.error('Unexpected error updating lead:', err);
+      toast({ title: 'Erro', description: 'Erro inesperado ao atualizar lead', variant: 'destructive' });
+    }
   };
 
   const deleteLead = async (leadId: string) => {
