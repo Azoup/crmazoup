@@ -76,8 +76,12 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
         ...formData,
         name: trimmedName,
       };
-      
-      await onSave(dataToSave);
+
+      const success = await onSave(dataToSave);
+      if (!success) {
+        // Keep modal open and avoid any further state changes that could cascade
+        alert('Não foi possível salvar. Verifique sua conexão e tente novamente.');
+      }
     } catch (err) {
       console.error('Error in handleSave:', err);
       alert('Erro ao salvar. Tente novamente.');
@@ -94,15 +98,25 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
     setFormData(prev => ({ ...prev, next_contact: nextDate.toISOString().split('T')[0] }));
   };
 
-  const markAsLost = (reason: string) => {
-    onSave({ ...formData, stage: 'perdidos', loss_reason: reason });
-    setShowLossModal(false);
+  const markAsLost = async (reason: string) => {
+    setIsSaving(true);
+    try {
+      const success = await onSave({ ...formData, stage: 'perdidos', loss_reason: reason });
+      if (success) setShowLossModal(false);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const reactivate = () => {
+  const reactivate = async () => {
     if (confirm("Reativar lead e mover para Prospecção?")) {
       const newHistory: LeadHistory = { type: 'sistema', note: '🔄 Lead Reativado', date: new Date().toISOString(), user: profile?.name.split(' ')[0] || 'Sistema' };
-      onSave({ ...formData, stage: 'prospeccao', history: [newHistory, ...(formData.history || [])] });
+      setIsSaving(true);
+      try {
+        await onSave({ ...formData, stage: 'prospeccao', history: [newHistory, ...(formData.history || [])] });
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
