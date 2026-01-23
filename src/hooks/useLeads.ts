@@ -8,12 +8,14 @@ import { Json } from '@/integrations/supabase/types';
 function parseHistory(historyJson: Json): LeadHistory[] {
   if (!historyJson) return [];
   if (Array.isArray(historyJson)) {
-    return historyJson.map((item: any) => ({
-      type: item.type || '',
-      note: item.note || '',
-      date: item.date || '',
-      user: item.user || '',
-    }));
+    return historyJson
+      .filter((item: any) => item && typeof item === 'object')
+      .map((item: any) => ({
+        type: item.type || '',
+        note: item.note || '',
+        date: item.date || '',
+        user: item.user || '',
+      }));
   }
   return [];
 }
