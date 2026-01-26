@@ -42,8 +42,8 @@ export function SalesView({ totalSold, totalImplementation, totalMonthly, salesG
               Total Vendido
             </span>
           </div>
-          <h3 className="text-3xl font-bold text-foreground">{formatCurrency(totalSold)}</h3>
-          <p className="text-sm text-muted-foreground mt-1">Implantação + Mensalidades</p>
+          <h3 className="text-3xl font-bold text-foreground">{formatCurrency(totalImplementation)}</h3>
+          <p className="text-sm text-muted-foreground mt-1">Total em Implantações</p>
         </div>
 
         <div className="bg-card rounded-xl p-6 border border-border shadow-sm">
