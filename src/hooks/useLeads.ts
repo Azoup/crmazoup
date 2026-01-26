@@ -223,10 +223,12 @@ export function useLeads() {
     return leads.filter(lead => {
       const matchSearch = 
         lead.name?.toLowerCase().includes(filters.search.toLowerCase()) ||
-        lead.company?.toLowerCase().includes(filters.search.toLowerCase());
+        lead.company?.toLowerCase()?.includes(filters.search.toLowerCase()) ||
+        false;
       const matchTemp = filters.temperature === 'todos' || lead.temperature === filters.temperature;
       const matchType = !filters.confectionType || 
-        lead.confection_type?.toLowerCase().includes(filters.confectionType.toLowerCase());
+        lead.confection_type?.toLowerCase()?.includes(filters.confectionType.toLowerCase()) ||
+        false;
       return matchSearch && matchTemp && matchType;
     });
   }, [leads, filters]);
