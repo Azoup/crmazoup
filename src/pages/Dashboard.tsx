@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLeads } from '@/hooks/useLeads';
+import { useToast } from '@/hooks/use-toast';
 import { Header } from '@/components/layout/Header';
 import { FilterBar } from '@/components/layout/FilterBar';
 import { PipelineView } from '@/components/views/PipelineView';
@@ -18,6 +19,7 @@ type ViewType = 'pipeline' | 'agenda' | 'vendas' | 'gestor';
 
 export function Dashboard() {
   const { profile } = useAuth();
+  const { toast } = useToast();
   const {
     filteredLeads,
     leads,
@@ -66,6 +68,16 @@ export function Dashboard() {
     try {
       let success = false;
       
+      // Validate required field
+      if (!leadData.name?.trim()) {
+        toast({
+          title: 'Erro',
+          description: 'O nome do lead é obrigatório',
+          variant: 'destructive',
+        });
+        return false;
+      }
+      
       if (currentLead) {
         success = await updateLead(currentLead.id, leadData);
       } else {
@@ -74,12 +86,18 @@ export function Dashboard() {
       }
       
       if (success) {
+        // Close modal only after confirmed success
         handleCloseLead();
       }
       
       return success;
     } catch (err) {
       console.error('Error saving lead:', err);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao salvar lead. Tente novamente.',
+        variant: 'destructive',
+      });
       return false;
     }
   };
