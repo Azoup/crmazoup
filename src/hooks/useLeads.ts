@@ -523,8 +523,9 @@ export function useLeads() {
 
   const percentGoal = useMemo(() => {
     if (!settings?.sales_goal) return 0;
-    return Math.min(100, (totalSold / settings.sales_goal) * 100);
-  }, [totalSold, settings?.sales_goal]);
+    // Meta de vendas é calculada apenas com valor de implantação
+    return Math.min(100, (totalImplementation / settings.sales_goal) * 100);
+  }, [totalImplementation, settings?.sales_goal]);
 
   const syncActiveCampaign = async (): Promise<{ imported: number; error?: string }> => {
     if (!user) {

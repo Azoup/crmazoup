@@ -335,6 +335,46 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
                   </div>
                 </div>
 
+                {/* Meeting Status - Shown when lead is in 'reuniao' stage */}
+                {formData.stage === 'reuniao' && (
+                  <div className="bg-primary/5 border border-primary/20 p-4 rounded-lg">
+                    <Label className="mb-3 block font-bold flex items-center gap-2">
+                      <Calendar size={16} className="text-primary" /> Status da Reunião
+                    </Label>
+                    <div className="flex flex-wrap gap-3">
+                      <Button
+                        type="button"
+                        variant={formData.meeting_status === 'compareceu' ? 'default' : 'outline'}
+                        className={formData.meeting_status === 'compareceu' ? 'bg-success hover:bg-success/90' : ''}
+                        onClick={() => setFormData(prev => ({ ...prev, meeting_status: 'compareceu' }))}
+                      >
+                        ✅ Compareceu
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={formData.meeting_status === 'no_show' ? 'default' : 'outline'}
+                        className={formData.meeting_status === 'no_show' ? 'bg-destructive hover:bg-destructive/90' : ''}
+                        onClick={() => setFormData(prev => ({ ...prev, meeting_status: 'no_show' }))}
+                      >
+                        ❌ No Show
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={formData.meeting_status === 'reagendar' ? 'default' : 'outline'}
+                        className={formData.meeting_status === 'reagendar' ? 'bg-warning hover:bg-warning/90 text-warning-foreground' : ''}
+                        onClick={() => setFormData(prev => ({ ...prev, meeting_status: 'reagendar' }))}
+                      >
+                        📅 Reagendar
+                      </Button>
+                    </div>
+                    {formData.meeting_status && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Status atual: <span className="font-semibold capitalize">{formData.meeting_status === 'no_show' ? 'No Show' : formData.meeting_status === 'reagendar' ? 'Reagendar' : 'Compareceu'}</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div className="border border-success/30 bg-success/5 p-4 rounded-lg">
                   <div className="flex justify-between items-center mb-2">
                     <h3 className="font-bold text-success flex items-center gap-2"><MessageCircle size={18} /> WhatsApp Personalizado</h3>
