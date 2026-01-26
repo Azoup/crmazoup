@@ -61,11 +61,14 @@ export function useLeads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sdrIds, setSdrIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<LeadFilters>({
     search: '',
     temperature: 'todos',
     confectionType: '',
   });
+
+  const isManager = profile?.role === 'Gestor';
 
   useEffect(() => {
     if (!user) {
@@ -78,11 +81,33 @@ export function useLeads() {
     const fetchData = async () => {
       setLoading(true);
       
-      const { data: leadsData, error: leadsError } = await supabase
+      // For managers, first get the SDR IDs they manage
+      let managedSdrIds: string[] = [];
+      if (isManager) {
+        const { data: relations } = await supabase
+          .from('manager_sdr_relations')
+          .select('sdr_id')
+          .eq('manager_id', user.id);
+        
+        managedSdrIds = relations?.map(r => r.sdr_id) || [];
+        setSdrIds(managedSdrIds);
+      }
+
+      // Fetch leads - managers see their SDRs' leads, SDRs see their own
+      let leadsQuery = supabase
         .from('leads')
         .select('*')
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
+
+      if (isManager && managedSdrIds.length > 0) {
+        // Manager sees all leads from their SDRs
+        leadsQuery = leadsQuery.in('user_id', managedSdrIds);
+      } else if (!isManager) {
+        // SDR sees only their own leads
+        leadsQuery = leadsQuery.eq('user_id', user.id);
+      }
+
+      const { data: leadsData, error: leadsError } = await leadsQuery;
 
       if (leadsError) {
         console.error('Error fetching leads:', leadsError);
@@ -112,15 +137,31 @@ export function useLeads() {
     };
 
     fetchData();
+  }, [user, isManager]);
 
+  // Separate effect for realtime subscription
+  useEffect(() => {
+    if (!user) return;
+
+    // For managers, subscribe to all lead changes and filter client-side
+    // For SDRs, subscribe only to their own leads
     const channel = supabase
       .channel('leads-changes')
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'leads',
-        filter: `user_id=eq.${user.id}`,
       }, (payload) => {
+        const newLead = payload.new as any;
+        const oldLead = payload.old as any;
+
+        // Filter: managers see SDR leads, SDRs see only their own
+        const isRelevant = isManager 
+          ? sdrIds.includes(newLead?.user_id) || sdrIds.includes(oldLead?.user_id)
+          : newLead?.user_id === user.id || oldLead?.user_id === user.id;
+
+        if (!isRelevant) return;
+
         if (payload.eventType === 'INSERT') {
           setLeads(prev => [transformDbLead(payload.new), ...prev]);
         } else if (payload.eventType === 'UPDATE') {
@@ -134,7 +175,7 @@ export function useLeads() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, isManager, sdrIds]);
 
   const filteredLeads = useMemo(() => {
     return leads.filter(lead => {
