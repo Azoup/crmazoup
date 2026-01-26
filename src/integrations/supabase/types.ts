@@ -24,6 +24,7 @@ export type Database = {
           entry_date: string | null
           history: Json | null
           id: string
+          implementation_value: number | null
           is_new: boolean | null
           last_contact: string | null
           loss_reason: string | null
@@ -33,6 +34,7 @@ export type Database = {
           meeting_needs: string | null
           meeting_pain: string | null
           meeting_status: string | null
+          monthly_value: number | null
           name: string
           next_contact: string | null
           reference_month: string | null
@@ -53,6 +55,7 @@ export type Database = {
           entry_date?: string | null
           history?: Json | null
           id?: string
+          implementation_value?: number | null
           is_new?: boolean | null
           last_contact?: string | null
           loss_reason?: string | null
@@ -62,6 +65,7 @@ export type Database = {
           meeting_needs?: string | null
           meeting_pain?: string | null
           meeting_status?: string | null
+          monthly_value?: number | null
           name: string
           next_contact?: string | null
           reference_month?: string | null
@@ -82,6 +86,7 @@ export type Database = {
           entry_date?: string | null
           history?: Json | null
           id?: string
+          implementation_value?: number | null
           is_new?: boolean | null
           last_contact?: string | null
           loss_reason?: string | null
@@ -91,6 +96,7 @@ export type Database = {
           meeting_needs?: string | null
           meeting_pain?: string | null
           meeting_status?: string | null
+          monthly_value?: number | null
           name?: string
           next_contact?: string | null
           reference_month?: string | null

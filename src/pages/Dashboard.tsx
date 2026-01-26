@@ -32,6 +32,8 @@ export function Dashboard() {
     updateSettings,
     getLeadStatus,
     totalSold,
+    totalImplementation,
+    totalMonthly,
     percentGoal,
     syncActiveCampaign,
   } = useLeads();
@@ -133,6 +135,8 @@ export function Dashboard() {
         {view === 'vendas' && (
           <SalesView
             totalSold={totalSold}
+            totalImplementation={totalImplementation}
+            totalMonthly={totalMonthly}
             salesGoal={settings?.sales_goal || 50000}
             percentGoal={percentGoal}
             leads={leads}

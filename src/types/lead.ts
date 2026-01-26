@@ -22,6 +22,8 @@ export interface Lead {
   website: string | null;
   temperature: LeadTemperature;
   value: number;
+  implementation_value: number;
+  monthly_value: number;
   stage: LeadStage;
   loss_reason: string | null;
   next_contact: string | null;

@@ -32,6 +32,8 @@ function transformDbLead(dbLead: any): Lead {
     website: dbLead.website,
     temperature: dbLead.temperature,
     value: Number(dbLead.value) || 0,
+    implementation_value: Number(dbLead.implementation_value) || 0,
+    monthly_value: Number(dbLead.monthly_value) || 0,
     stage: dbLead.stage,
     loss_reason: dbLead.loss_reason,
     next_contact: dbLead.next_contact,
@@ -178,6 +180,8 @@ export function useLeads() {
           website: leadData.website?.trim() || null,
           temperature: leadData.temperature || 'morno',
           value: Number(leadData.value) || 0,
+          implementation_value: Number(leadData.implementation_value) || 0,
+          monthly_value: Number(leadData.monthly_value) || 0,
           stage: 'prospeccao',
           next_contact: leadData.next_contact || null,
           meeting_pain: leadData.meeting_pain?.trim() || null,
@@ -255,6 +259,8 @@ export function useLeads() {
         website: updates.website ?? currentLead.website ?? null,
         temperature: updates.temperature ?? currentLead.temperature ?? 'morno',
         value: updates.value ?? currentLead.value ?? 0,
+        implementation_value: updates.implementation_value ?? currentLead.implementation_value ?? 0,
+        monthly_value: updates.monthly_value ?? currentLead.monthly_value ?? 0,
         stage: newStage ?? 'prospeccao',
         loss_reason: updates.loss_reason ?? currentLead.loss_reason ?? null,
         next_contact: updates.next_contact ?? currentLead.next_contact ?? null,
@@ -429,7 +435,19 @@ export function useLeads() {
   const totalSold = useMemo(() => {
     return leads
       .filter(l => l.stage === 'venda')
-      .reduce((acc, curr) => acc + (curr.value || 0), 0);
+      .reduce((acc, curr) => acc + (curr.implementation_value || 0) + (curr.monthly_value || 0), 0);
+  }, [leads]);
+
+  const totalImplementation = useMemo(() => {
+    return leads
+      .filter(l => l.stage === 'venda')
+      .reduce((acc, curr) => acc + (curr.implementation_value || 0), 0);
+  }, [leads]);
+
+  const totalMonthly = useMemo(() => {
+    return leads
+      .filter(l => l.stage === 'venda')
+      .reduce((acc, curr) => acc + (curr.monthly_value || 0), 0);
   }, [leads]);
 
   const percentGoal = useMemo(() => {
@@ -490,6 +508,8 @@ export function useLeads() {
     updateSettings,
     getLeadStatus,
     totalSold,
+    totalImplementation,
+    totalMonthly,
     percentGoal,
     syncActiveCampaign,
   };
