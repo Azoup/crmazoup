@@ -21,32 +21,44 @@ function parseHistory(historyJson: Json): LeadHistory[] {
 }
 
 function transformDbLead(dbLead: any): Lead {
+  // Validate temperature - use 'morno' as safe default
+  const validTemperatures = ['frio', 'morno', 'quente'];
+  const safeTemperature = validTemperatures.includes(dbLead.temperature) 
+    ? dbLead.temperature 
+    : 'morno';
+  
+  // Validate stage - use 'prospeccao' as safe default
+  const validStages = ['prospeccao', 'interesse', 'reuniao', 'venda', 'congelados', 'perdidos'];
+  const safeStage = validStages.includes(dbLead.stage) 
+    ? dbLead.stage 
+    : 'prospeccao';
+
   return {
-    id: dbLead.id,
-    user_id: dbLead.user_id,
-    name: dbLead.name,
-    company: dbLead.company,
-    confection_type: dbLead.confection_type,
-    whatsapp: dbLead.whatsapp,
-    email: dbLead.email,
-    website: dbLead.website,
-    temperature: dbLead.temperature,
+    id: dbLead.id || '',
+    user_id: dbLead.user_id || '',
+    name: dbLead.name || 'Sem nome',
+    company: dbLead.company ?? null,
+    confection_type: dbLead.confection_type ?? null,
+    whatsapp: dbLead.whatsapp ?? null,
+    email: dbLead.email ?? null,
+    website: dbLead.website ?? null,
+    temperature: safeTemperature,
     value: Number(dbLead.value) || 0,
     implementation_value: Number(dbLead.implementation_value) || 0,
     monthly_value: Number(dbLead.monthly_value) || 0,
-    stage: dbLead.stage,
-    loss_reason: dbLead.loss_reason,
-    next_contact: dbLead.next_contact,
-    last_contact: dbLead.last_contact,
-    entry_date: dbLead.entry_date,
-    meeting_pain: dbLead.meeting_pain,
-    meeting_needs: dbLead.meeting_needs,
-    meeting_link: dbLead.meeting_link,
-    meeting_date: dbLead.meeting_date,
+    stage: safeStage,
+    loss_reason: dbLead.loss_reason ?? null,
+    next_contact: dbLead.next_contact ?? null,
+    last_contact: dbLead.last_contact ?? null,
+    entry_date: dbLead.entry_date ?? null,
+    meeting_pain: dbLead.meeting_pain ?? null,
+    meeting_needs: dbLead.meeting_needs ?? null,
+    meeting_link: dbLead.meeting_link ?? null,
+    meeting_date: dbLead.meeting_date ?? null,
     history: parseHistory(dbLead.history),
-    created_at: dbLead.created_at,
-    updated_at: dbLead.updated_at,
-    // New fields
+    created_at: dbLead.created_at || new Date().toISOString(),
+    updated_at: dbLead.updated_at || new Date().toISOString(),
+    // New fields with safe defaults
     is_new: dbLead.is_new ?? false,
     manager_notes: dbLead.manager_notes ?? null,
     activecampaign_id: dbLead.activecampaign_id ?? null,

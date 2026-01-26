@@ -34,7 +34,16 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp }: LeadCardPro
   
   const daysSinceContact = getDaysSince(lead.last_contact);
   const isNew = lead.is_new === true;
-  const meetingConfig = lead.meeting_status ? meetingStatusConfig[lead.meeting_status] : null;
+  
+  // Safe temperature access with fallback
+  const safeTemperature: LeadTemperature = 
+    lead.temperature && ['frio', 'morno', 'quente'].includes(lead.temperature) 
+      ? lead.temperature 
+      : 'morno';
+  
+  const meetingConfig = lead.meeting_status && meetingStatusConfig[lead.meeting_status] 
+    ? meetingStatusConfig[lead.meeting_status] 
+    : null;
 
   return (
     <div
@@ -78,12 +87,12 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp }: LeadCardPro
       <p className="text-xs text-muted-foreground mb-2 truncate">{lead.company || 'Sem empresa'}</p>
       
       <div className="flex flex-wrap gap-1 mb-2">
-        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${tempColors[lead.temperature]}`}>
-          {tempLabels[lead.temperature]}
+        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${tempColors[safeTemperature]}`}>
+          {tempLabels[safeTemperature]}
         </span>
-        {lead.value > 0 && (
+        {(lead.value ?? 0) > 0 && (
           <span className="text-[10px] bg-success/10 text-success border border-success/20 px-2 py-0.5 rounded-full font-bold flex items-center gap-0.5">
-            <DollarSign size={8} /> {formatCurrencyCompact(lead.value)}
+            <DollarSign size={8} /> {formatCurrencyCompact(lead.value ?? 0)}
           </span>
         )}
         {lead.activecampaign_id && (

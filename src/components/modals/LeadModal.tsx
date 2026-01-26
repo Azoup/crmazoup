@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Lead, LeadTemperature, LeadHistory } from '@/types/lead';
 import { formatDateTime, getAISuggestion } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,6 +32,7 @@ const ACTIVITY_TYPES = [
 
 export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemplate, onUpdateTemplate }: LeadModalProps) {
   const { profile } = useAuth();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('info');
   const [showLossModal, setShowLossModal] = useState(false);
   const [noteText, setNoteText] = useState('');
@@ -69,7 +71,11 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
   const handleSave = async () => {
     const trimmedName = formData.name?.trim();
     if (!trimmedName) {
-      alert('Por favor, informe o nome do lead.');
+      toast({
+        title: 'Campo obrigatório',
+        description: 'Por favor, informe o nome do lead.',
+        variant: 'destructive',
+      });
       return;
     }
     
@@ -78,16 +84,28 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
       const dataToSave: Partial<Lead> = {
         ...formData,
         name: trimmedName,
+        // Ensure numeric fields are always numbers
+        value: Number(formData.value) || 0,
+        implementation_value: Number(formData.implementation_value) || 0,
+        monthly_value: Number(formData.monthly_value) || 0,
       };
 
       const success = await onSave(dataToSave);
       if (!success) {
-        // Keep modal open and avoid any further state changes that could cascade
-        alert('Não foi possível salvar. Verifique sua conexão e tente novamente.');
+        // Keep modal open - error already shown via toast in parent
+        toast({
+          title: 'Erro ao salvar',
+          description: 'Não foi possível salvar. Verifique sua conexão e tente novamente.',
+          variant: 'destructive',
+        });
       }
     } catch (err) {
       console.error('Error in handleSave:', err);
-      alert('Erro ao salvar. Tente novamente.');
+      toast({
+        title: 'Erro inesperado',
+        description: 'Erro ao salvar. Tente novamente.',
+        variant: 'destructive',
+      });
     } finally {
       setIsSaving(false);
     }
@@ -143,7 +161,11 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
 
   const sendWhatsApp = async () => {
     if (!formData.whatsapp) { 
-      alert("Adicione um número de WhatsApp primeiro."); 
+      toast({
+        title: 'WhatsApp não configurado',
+        description: 'Adicione um número de WhatsApp primeiro.',
+        variant: 'destructive',
+      });
       return; 
     }
     
@@ -181,7 +203,11 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = errorData?.error || 'Erro ao gerar mensagem. Tente novamente.';
-        alert(errorMessage);
+        toast({
+          title: 'Erro na IA',
+          description: errorMessage,
+          variant: 'destructive',
+        });
         setIsGenerating(false);
         return;
       }
@@ -191,11 +217,19 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
         setCurrentTemplate(data.message); 
         onUpdateTemplate(data.message); 
       } else {
-        alert('Não foi possível gerar a mensagem. Tente novamente.');
+        toast({
+          title: 'Erro na geração',
+          description: 'Não foi possível gerar a mensagem. Tente novamente.',
+          variant: 'destructive',
+        });
       }
     } catch (e) { 
       console.error('AI error:', e);
-      alert('Erro de conexão. Verifique sua internet e tente novamente.');
+      toast({
+        title: 'Erro de conexão',
+        description: 'Verifique sua internet e tente novamente.',
+        variant: 'destructive',
+      });
     } finally {
       setIsGenerating(false);
     }
