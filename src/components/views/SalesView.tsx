@@ -7,13 +7,15 @@ import { useState } from 'react';
 
 interface SalesViewProps {
   totalSold: number;
+  totalImplementation: number;
+  totalMonthly: number;
   salesGoal: number;
   percentGoal: number;
   leads: Lead[];
   onUpdateGoal: (goal: number) => void;
 }
 
-export function SalesView({ totalSold, salesGoal, percentGoal, leads, onUpdateGoal }: SalesViewProps) {
+export function SalesView({ totalSold, totalImplementation, totalMonthly, salesGoal, percentGoal, leads, onUpdateGoal }: SalesViewProps) {
   const [editingGoal, setEditingGoal] = useState(false);
   const [newGoal, setNewGoal] = useState(salesGoal.toString());
   
@@ -29,6 +31,7 @@ export function SalesView({ totalSold, salesGoal, percentGoal, leads, onUpdateGo
 
   return (
     <div className="space-y-6">
+      {/* Main metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-card rounded-xl p-6 border border-border shadow-sm">
           <div className="flex items-center justify-between mb-4">
@@ -36,11 +39,11 @@ export function SalesView({ totalSold, salesGoal, percentGoal, leads, onUpdateGo
               <DollarSign className="text-success" size={24} />
             </div>
             <span className="text-xs bg-success/10 text-success px-2 py-1 rounded font-bold">
-              Vendido
+              Total Vendido
             </span>
           </div>
           <h3 className="text-3xl font-bold text-foreground">{formatCurrency(totalSold)}</h3>
-          <p className="text-sm text-muted-foreground mt-1">Total em vendas fechadas</p>
+          <p className="text-sm text-muted-foreground mt-1">Implantação + Mensalidades</p>
         </div>
 
         <div className="bg-card rounded-xl p-6 border border-border shadow-sm">
@@ -96,6 +99,31 @@ export function SalesView({ totalSold, salesGoal, percentGoal, leads, onUpdateGo
         </div>
       </div>
 
+      {/* Implementation vs Monthly breakdown */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-card rounded-xl p-6 border border-border shadow-sm border-l-4 border-l-primary">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-muted-foreground">Implantação</span>
+            <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded font-bold">
+              Único
+            </span>
+          </div>
+          <h3 className="text-2xl font-bold text-primary">{formatCurrency(totalImplementation)}</h3>
+          <p className="text-xs text-muted-foreground mt-1">Valor total de implantações fechadas</p>
+        </div>
+
+        <div className="bg-card rounded-xl p-6 border border-border shadow-sm border-l-4 border-l-success">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-muted-foreground">Mensalidade</span>
+            <span className="text-xs bg-success/10 text-success px-2 py-1 rounded font-bold">
+              Recorrente
+            </span>
+          </div>
+          <h3 className="text-2xl font-bold text-success">{formatCurrency(totalMonthly)}</h3>
+          <p className="text-xs text-muted-foreground mt-1">Receita mensal recorrente (MRR)</p>
+        </div>
+      </div>
+
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
         <div className="p-4 bg-muted border-b border-border">
           <h3 className="font-bold text-foreground flex items-center gap-2">
@@ -111,7 +139,8 @@ export function SalesView({ totalSold, salesGoal, percentGoal, leads, onUpdateGo
                 <th className="text-left p-3 text-sm font-medium text-muted-foreground">Cliente</th>
                 <th className="text-left p-3 text-sm font-medium text-muted-foreground">Empresa</th>
                 <th className="text-left p-3 text-sm font-medium text-muted-foreground">Tipo</th>
-                <th className="text-right p-3 text-sm font-medium text-muted-foreground">Valor</th>
+                <th className="text-right p-3 text-sm font-medium text-muted-foreground">Implantação</th>
+                <th className="text-right p-3 text-sm font-medium text-muted-foreground">Mensalidade</th>
                 <th className="text-left p-3 text-sm font-medium text-muted-foreground">Data</th>
               </tr>
             </thead>
@@ -121,13 +150,14 @@ export function SalesView({ totalSold, salesGoal, percentGoal, leads, onUpdateGo
                   <td className="p-3 text-sm font-medium text-foreground">{lead.name}</td>
                   <td className="p-3 text-sm text-muted-foreground">{lead.company || '-'}</td>
                   <td className="p-3 text-sm text-muted-foreground">{lead.confection_type || '-'}</td>
-                  <td className="p-3 text-sm font-bold text-success text-right">{formatCurrency(lead.value)}</td>
+                  <td className="p-3 text-sm font-bold text-primary text-right">{formatCurrency(lead.implementation_value || 0)}</td>
+                  <td className="p-3 text-sm font-bold text-success text-right">{formatCurrency(lead.monthly_value || 0)}</td>
                   <td className="p-3 text-sm text-muted-foreground">{formatDate(lead.updated_at)}</td>
                 </tr>
               ))}
               {wonLeads.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="p-8 text-center text-muted-foreground">
                     Nenhuma venda fechada ainda. Continue prospectando!
                   </td>
                 </tr>

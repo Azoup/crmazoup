@@ -40,7 +40,8 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
   
   const [formData, setFormData] = useState<Partial<Lead>>({
     name: '', company: '', confection_type: '', whatsapp: '', email: '',
-    temperature: 'morno', value: 0, next_contact: '', stage: 'prospeccao',
+    temperature: 'morno', value: 0, implementation_value: 0, monthly_value: 0,
+    next_contact: '', stage: 'prospeccao',
     meeting_pain: '', meeting_link: '', meeting_date: '', history: []
   });
 
@@ -50,7 +51,8 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
     } else {
       setFormData({
         name: '', company: '', confection_type: '', whatsapp: '', email: '',
-        temperature: 'morno', value: 0, next_contact: '', stage: 'prospeccao',
+        temperature: 'morno', value: 0, implementation_value: 0, monthly_value: 0,
+        next_contact: '', stage: 'prospeccao',
         meeting_pain: '', meeting_link: '', meeting_date: '', history: []
       });
     }
@@ -60,7 +62,8 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: name === 'value' ? Number(value) : value }));
+    const numericFields = ['value', 'implementation_value', 'monthly_value'];
+    setFormData(prev => ({ ...prev, [name]: numericFields.includes(name) ? Number(value) : value }));
   };
 
   const handleSave = async () => {
@@ -287,8 +290,12 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
                     <Input type="email" name="email" value={formData.email || ''} onChange={handleChange} placeholder="email@empresa.com" />
                   </div>
                   <div>
-                    <Label>Valor Estimado (R$)</Label>
-                    <Input type="number" name="value" value={formData.value || 0} onChange={handleChange} min={0} />
+                    <Label>Valor Implantação (R$)</Label>
+                    <Input type="number" name="implementation_value" value={formData.implementation_value || 0} onChange={handleChange} min={0} />
+                  </div>
+                  <div>
+                    <Label>Valor Mensalidade (R$)</Label>
+                    <Input type="number" name="monthly_value" value={formData.monthly_value || 0} onChange={handleChange} min={0} />
                   </div>
                   <div className="md:col-span-2">
                     <Label>Status Térmico</Label>
@@ -426,8 +433,44 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
               </div>
             )}
 
-            {activeTab === 'meeting' && (
+            {activeTab === 'meeting' && lead && (
               <div className="space-y-4">
+                {/* Meeting Status Selector */}
+                <div className="bg-muted p-4 rounded-lg border border-border">
+                  <Label className="mb-3 block font-bold">Status da Reunião</Label>
+                  <div className="flex flex-wrap gap-3">
+                    <Button
+                      type="button"
+                      variant={formData.meeting_status === 'compareceu' ? 'default' : 'outline'}
+                      className={formData.meeting_status === 'compareceu' ? 'bg-success hover:bg-success/90' : ''}
+                      onClick={() => setFormData(prev => ({ ...prev, meeting_status: 'compareceu' }))}
+                    >
+                      ✅ Compareceu
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={formData.meeting_status === 'no_show' ? 'default' : 'outline'}
+                      className={formData.meeting_status === 'no_show' ? 'bg-destructive hover:bg-destructive/90' : ''}
+                      onClick={() => setFormData(prev => ({ ...prev, meeting_status: 'no_show' }))}
+                    >
+                      ❌ No Show
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={formData.meeting_status === 'reagendar' ? 'default' : 'outline'}
+                      className={formData.meeting_status === 'reagendar' ? 'bg-warning hover:bg-warning/90 text-warning-foreground' : ''}
+                      onClick={() => setFormData(prev => ({ ...prev, meeting_status: 'reagendar' }))}
+                    >
+                      📅 Reagendar
+                    </Button>
+                  </div>
+                  {formData.meeting_status && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Status atual: <span className="font-semibold capitalize">{formData.meeting_status === 'no_show' ? 'No Show' : formData.meeting_status === 'reagendar' ? 'Reagendar' : 'Compareceu'}</span>
+                    </p>
+                  )}
+                </div>
+
                 <div>
                   <Label>Dores / Necessidades do Cliente</Label>
                   <Textarea name="meeting_pain" value={formData.meeting_pain || ''} onChange={handleChange} rows={4} placeholder="Quais são as principais dores e necessidades identificadas?" />
