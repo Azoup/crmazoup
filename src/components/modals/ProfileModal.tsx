@@ -40,8 +40,9 @@ export function ProfileModal({ onClose, leads, salesGoal }: ProfileModalProps) {
     onClose();
   };
 
-  const totalSold = leads.filter(l => l.stage === 'venda').reduce((acc, l) => acc + l.value, 0);
-  const percentGoal = salesGoal > 0 ? Math.min(100, (totalSold / salesGoal) * 100) : 0;
+  // Meta de vendas é calculada apenas com valor de implantação
+  const totalImplementation = leads.filter(l => l.stage === 'venda').reduce((acc, l) => acc + (l.implementation_value || 0), 0);
+  const percentGoal = salesGoal > 0 ? Math.min(100, (totalImplementation / salesGoal) * 100) : 0;
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     const [year, month] = selectedMonth.split('-').map(Number);
