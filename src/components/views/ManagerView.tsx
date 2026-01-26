@@ -4,12 +4,13 @@ import { formatCurrency } from '@/lib/utils';
 import { 
   Users, TrendingUp, AlertTriangle, Target, DollarSign, Clock,
   RefreshCw, UserPlus, UserMinus, MessageSquare, Calendar, Phone,
-  Mail, ExternalLink, ChevronDown, ChevronUp, Sparkles
+  Mail, ExternalLink, ChevronDown, ChevronUp, Sparkles, LayoutGrid, BarChart3
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useManagerData } from '@/hooks/useManagerData';
+import { ManagerPipelineView } from './ManagerPipelineView';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface ManagerViewProps {
   leads: Lead[];
@@ -29,7 +37,9 @@ interface ManagerViewProps {
   percentGoal: number;
 }
 
-export function ManagerView({ leads, getLeadStatus, percentGoal }: ManagerViewProps) {
+type ManagerSubView = 'pipeline' | 'metrics';
+
+export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, percentGoal }: ManagerViewProps) {
   const {
     sdrs,
     allLeads,
@@ -40,18 +50,22 @@ export function ManagerView({ leads, getLeadStatus, percentGoal }: ManagerViewPr
     updateLeadManagerNotes,
     syncActiveCampaign,
     refreshData,
+    getLeadStatus,
   } = useManagerData();
 
   const [newSdrId, setNewSdrId] = useState('');
   const [expandedSDR, setExpandedSDR] = useState<string | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [managerNotes, setManagerNotes] = useState('');
+  const [subView, setSubView] = useState<ManagerSubView>('pipeline');
+  const [selectedSDRFilter, setSelectedSDRFilter] = useState<string | null>(null);
 
   // Use allLeads from manager data if available, otherwise use passed leads
   const displayLeads = allLeads.length > 0 ? allLeads : leads;
+  const statusFn = allLeads.length > 0 ? getLeadStatus : externalGetLeadStatus;
 
   const totalLeads = displayLeads.length;
-  const lateLeads = displayLeads.filter(l => getLeadStatus(l) === 'late').length;
+  const lateLeads = displayLeads.filter(l => statusFn(l) === 'late').length;
   const wonLeads = displayLeads.filter(l => l.stage === 'venda').length;
   const lostLeads = displayLeads.filter(l => l.stage === 'perdidos').length;
   const meetingLeads = displayLeads.filter(l => l.stage === 'reuniao').length;
@@ -66,8 +80,12 @@ export function ManagerView({ leads, getLeadStatus, percentGoal }: ManagerViewPr
     perdidos: displayLeads.filter(l => l.stage === 'perdidos').length,
   };
 
-  const totalValue = displayLeads.reduce((acc, l) => acc + (l.value || 0), 0);
-  const wonValue = displayLeads.filter(l => l.stage === 'venda').reduce((acc, l) => acc + (l.value || 0), 0);
+  const totalImplementation = displayLeads
+    .filter(l => l.stage === 'venda')
+    .reduce((acc, l) => acc + (l.implementation_value || 0), 0);
+  const totalMonthly = displayLeads
+    .filter(l => l.stage === 'venda')
+    .reduce((acc, l) => acc + (l.monthly_value || 0), 0);
 
   const handleAddSDR = () => {
     if (newSdrId.trim()) {
@@ -100,7 +118,47 @@ export function ManagerView({ leads, getLeadStatus, percentGoal }: ManagerViewPr
     <div className="space-y-6">
       {/* Action Bar */}
       <div className="flex flex-wrap gap-3 items-center justify-between bg-card p-4 rounded-xl border border-border">
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {/* View Toggle */}
+          <div className="flex gap-1 bg-muted p-1 rounded-lg">
+            <Button
+              variant={subView === 'pipeline' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setSubView('pipeline')}
+              className="gap-2"
+            >
+              <LayoutGrid size={14} /> Pipeline
+            </Button>
+            <Button
+              variant={subView === 'metrics' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setSubView('metrics')}
+              className="gap-2"
+            >
+              <BarChart3 size={14} /> Métricas
+            </Button>
+          </div>
+
+          {/* SDR Filter */}
+          {subView === 'pipeline' && (
+            <Select
+              value={selectedSDRFilter || 'all'}
+              onValueChange={(value) => setSelectedSDRFilter(value === 'all' ? null : value)}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filtrar por SDR" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os SDRs</SelectItem>
+                {sdrs.map(sdr => (
+                  <SelectItem key={sdr.user_id} value={sdr.user_id}>
+                    {sdr.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           <Button 
             onClick={syncActiveCampaign} 
             disabled={syncing}
@@ -108,11 +166,20 @@ export function ManagerView({ leads, getLeadStatus, percentGoal }: ManagerViewPr
             variant="outline"
           >
             <Sparkles size={16} className={syncing ? 'animate-spin' : ''} />
-            {syncing ? 'Sincronizando...' : 'Sincronizar ActiveCampaign'}
+            {syncing ? 'Sincronizando...' : 'Sincronizar AC'}
           </Button>
-          <Button onClick={refreshData} variant="ghost" size="icon">
+          <Button onClick={refreshData} variant="ghost" size="icon" title="Atualizar dados">
             <RefreshCw size={16} />
           </Button>
+
+          {/* Live indicator */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
+            </span>
+            Tempo Real
+          </div>
         </div>
 
         <Dialog>
@@ -142,44 +209,58 @@ export function ManagerView({ leads, getLeadStatus, percentGoal }: ManagerViewPr
         </Dialog>
       </div>
 
-      {/* Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <MetricCard
-          icon={Users}
-          label="Total de Leads"
-          value={totalLeads.toString()}
-          color="text-info"
-          bgColor="bg-info/10"
+      {/* Pipeline View */}
+      {subView === 'pipeline' && (
+        <ManagerPipelineView
+          leads={displayLeads}
+          sdrs={sdrs}
+          getLeadStatus={statusFn}
+          onLeadClick={openLeadNotes}
+          selectedSDR={selectedSDRFilter}
         />
-        <MetricCard
-          icon={Calendar}
-          label="Em Reunião"
-          value={meetingLeads.toString()}
-          color="text-primary"
-          bgColor="bg-primary/10"
-        />
-        <MetricCard
-          icon={AlertTriangle}
-          label="Atrasados"
-          value={lateLeads.toString()}
-          color="text-destructive"
-          bgColor="bg-destructive/10"
-        />
-        <MetricCard
-          icon={TrendingUp}
-          label="Conversão"
-          value={`${conversionRate}%`}
-          color="text-success"
-          bgColor="bg-success/10"
-        />
-        <MetricCard
-          icon={Target}
-          label="Meta"
-          value={`${percentGoal.toFixed(1)}%`}
-          color="text-warning"
-          bgColor="bg-warning/10"
-        />
-      </div>
+      )}
+
+      {/* Metrics View */}
+      {subView === 'metrics' && (
+        <>
+          {/* Metrics */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <MetricCard
+              icon={Users}
+              label="Total de Leads"
+              value={totalLeads.toString()}
+              color="text-info"
+              bgColor="bg-info/10"
+            />
+            <MetricCard
+              icon={Calendar}
+              label="Em Reunião"
+              value={meetingLeads.toString()}
+              color="text-primary"
+              bgColor="bg-primary/10"
+            />
+            <MetricCard
+              icon={AlertTriangle}
+              label="Atrasados"
+              value={lateLeads.toString()}
+              color="text-destructive"
+              bgColor="bg-destructive/10"
+            />
+            <MetricCard
+              icon={TrendingUp}
+              label="Conversão"
+              value={`${conversionRate}%`}
+              color="text-success"
+              bgColor="bg-success/10"
+            />
+            <MetricCard
+              icon={Target}
+              label="Meta"
+              value={`${percentGoal.toFixed(1)}%`}
+              color="text-warning"
+              bgColor="bg-warning/10"
+            />
+          </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* SDR List */}
@@ -304,16 +385,16 @@ export function ManagerView({ leads, getLeadStatus, percentGoal }: ManagerViewPr
             <DollarSign size={18} /> Valores
           </h3>
           <div className="space-y-4">
-            <div className="flex justify-between items-center p-4 bg-muted rounded-lg">
+            <div className="flex justify-between items-center p-4 bg-primary/10 rounded-lg">
               <div>
-                <p className="text-sm text-muted-foreground">Total em Pipeline</p>
-                <p className="text-2xl font-bold text-foreground">{formatCurrency(totalValue)}</p>
+                <p className="text-sm text-primary">Implantação</p>
+                <p className="text-2xl font-bold text-primary">{formatCurrency(totalImplementation)}</p>
               </div>
             </div>
             <div className="flex justify-between items-center p-4 bg-success/10 rounded-lg">
               <div>
-                <p className="text-sm text-success">Valor Fechado</p>
-                <p className="text-2xl font-bold text-success">{formatCurrency(wonValue)}</p>
+                <p className="text-sm text-success">Mensalidade (MRR)</p>
+                <p className="text-2xl font-bold text-success">{formatCurrency(totalMonthly)}</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4 text-center">
@@ -329,6 +410,8 @@ export function ManagerView({ leads, getLeadStatus, percentGoal }: ManagerViewPr
           </div>
         </div>
       </div>
+        </>
+      )}
 
       {/* Lead Notes Dialog */}
       <Dialog open={!!selectedLead} onOpenChange={() => setSelectedLead(null)}>
