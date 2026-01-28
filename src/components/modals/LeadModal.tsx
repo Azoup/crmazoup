@@ -555,7 +555,22 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
                 </div>
                 <div>
                   <Label>Data e Hora da Reunião</Label>
-                  <Input type="datetime-local" name="meeting_date" value={formData.meeting_date || ''} onChange={handleChange} />
+                  <Input 
+                    type="datetime-local" 
+                    name="meeting_date" 
+                    value={formData.meeting_date ? formData.meeting_date.slice(0, 16) : ''} 
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Convert datetime-local format to ISO8601
+                      const isoDate = value ? new Date(value).toISOString() : null;
+                      setFormData(prev => ({ ...prev, meeting_date: isoDate }));
+                    }} 
+                  />
+                  {formData.meeting_date && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      📅 Agendado: {new Date(formData.meeting_date).toLocaleString('pt-BR')}
+                    </p>
+                  )}
                 </div>
               </div>
             )}
