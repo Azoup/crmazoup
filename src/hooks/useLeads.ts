@@ -209,8 +209,12 @@ export function useLeads() {
           setLeads(prev => prev.filter(l => l.id !== oldLead.id));
         }
       })
-      .subscribe((status) => {
+      .subscribe((status, err) => {
         console.log('[Realtime] Subscription status:', status);
+        if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime] Channel error - will retry on next interaction:', err);
+          // Don't crash the app on realtime errors - data is still saved to DB
+        }
       });
 
     return () => {
