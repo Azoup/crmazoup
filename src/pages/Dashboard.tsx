@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Header } from '@/components/layout/Header';
 import { FilterBar } from '@/components/layout/FilterBar';
 import { PipelineView } from '@/components/views/PipelineView';
-import { AgendaView } from '@/components/views/AgendaView';
+import { WeeklyAgendaView } from '@/components/views/WeeklyAgendaView';
 import { SalesView } from '@/components/views/SalesView';
 import { ManagerView } from '@/components/views/ManagerView';
 import { LeadModal } from '@/components/modals/LeadModal';
@@ -52,6 +52,13 @@ export function Dashboard() {
     setSyncing(true);
     await syncActiveCampaign();
     setSyncing(false);
+  };
+
+  const handleGoogleCalendarSync = () => {
+    toast({
+      title: 'Google Agenda',
+      description: 'Funcionalidade de sincronização com Google Agenda em breve! Entre em contato para ativar.',
+    });
   };
 
   const handleOpenLead = (lead: Lead) => {
@@ -147,7 +154,11 @@ export function Dashboard() {
         )}
         
         {view === 'agenda' && (
-          <AgendaView leads={filteredLeads} onOpenLead={handleOpenLead} />
+          <WeeklyAgendaView 
+            leads={filteredLeads} 
+            onOpenLead={handleOpenLead}
+            onGoogleCalendarSync={handleGoogleCalendarSync}
+          />
         )}
         
         {view === 'vendas' && (

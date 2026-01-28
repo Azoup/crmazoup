@@ -5,6 +5,7 @@ import { formatCurrency, cleanPhoneNumber } from '@/lib/utils';
 import { DollarSign } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { MeetingStatusModal } from '@/components/modals/MeetingStatusModal';
+import { useCelebration } from '@/hooks/useCelebration';
 
 interface PipelineViewProps {
   leads: Lead[];
@@ -34,7 +35,8 @@ export function PipelineView({
 }: PipelineViewProps) {
   const { profile } = useAuth();
   const [meetingStatusLead, setMeetingStatusLead] = useState<Lead | null>(null);
-
+  const { celebrateMeeting, celebrateSale } = useCelebration();
+  
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
   
   const handleDrop = async (e: React.DragEvent, targetStage: LeadStage) => {
@@ -45,17 +47,21 @@ export function PipelineView({
     const lead = leads.find(l => l.id === leadId);
     if (!lead || lead.stage === targetStage) return;
     
-    // If moving to 'reuniao' stage, show meeting status modal
+    // If moving to 'reuniao' stage, show meeting status modal and celebrate
     if (targetStage === 'reuniao' && lead.stage !== 'reuniao') {
       setMeetingStatusLead(lead);
+      celebrateMeeting(); // 🎉 Animação de confete laranja + buzina
       return;
     }
     
     const updates: Partial<Lead> = { stage: targetStage };
     
-    if (targetStage === 'venda' && !lead.value) {
-      const val = prompt("Qual o valor da venda (R$)?") || '0';
-      updates.value = Number(val.replace(/\D/g, ''));
+    if (targetStage === 'venda') {
+      if (!lead.value) {
+        const val = prompt("Qual o valor da venda (R$)?") || '0';
+        updates.value = Number(val.replace(/\D/g, ''));
+      }
+      celebrateSale(); // 🏆 Animação de troféu + confete verde
     }
     
     if (targetStage === 'perdidos') {
