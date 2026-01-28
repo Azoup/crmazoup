@@ -73,10 +73,11 @@ export function WeeklyAgendaView({ leads, onOpenLead, onGoogleCalendarSync }: We
                 variant="outline"
                 size="sm"
                 onClick={onGoogleCalendarSync}
-                className="text-xs gap-1"
+                className="text-xs gap-1 border-dashed"
+                title="Funcionalidade em desenvolvimento"
               >
                 <ExternalLink size={14} />
-                Sincronizar Google Agenda
+                🚧 Google Agenda (em breve)
               </Button>
             )}
           </div>

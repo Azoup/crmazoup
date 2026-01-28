@@ -56,8 +56,9 @@ export function Dashboard() {
 
   const handleGoogleCalendarSync = () => {
     toast({
-      title: 'Google Agenda',
-      description: 'Funcionalidade de sincronização com Google Agenda em breve! Entre em contato para ativar.',
+      title: '🚧 Em Desenvolvimento',
+      description: 'A integração com Google Agenda está sendo desenvolvida. Em breve você poderá sincronizar suas reuniões automaticamente!',
+      duration: 5000,
     });
   };
 
