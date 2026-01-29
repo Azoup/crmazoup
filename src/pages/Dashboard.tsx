@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLeads } from '@/hooks/useLeads';
 import { useToast } from '@/hooks/use-toast';
+import { useMeetingReminder } from '@/hooks/useMeetingReminder';
 import { Header } from '@/components/layout/Header';
 import { FilterBar } from '@/components/layout/FilterBar';
 import { PipelineView } from '@/components/views/PipelineView';
@@ -10,7 +11,8 @@ import { SalesView } from '@/components/views/SalesView';
 import { ManagerView } from '@/components/views/ManagerView';
 import { LeadModal } from '@/components/modals/LeadModal';
 import { ProfileModal } from '@/components/modals/ProfileModal';
-import { Lead } from '@/types/lead';
+import { MeetingStatusModal } from '@/components/modals/MeetingStatusModal';
+import { Lead, MeetingStatus } from '@/types/lead';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -45,6 +47,9 @@ export function Dashboard() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [currentLead, setCurrentLead] = useState<Lead | null>(null);
   const [syncing, setSyncing] = useState(false);
+
+  // Hook to monitor past meetings and prompt for status
+  const { pendingReminder, dismissReminder, clearReminder } = useMeetingReminder(leads);
 
   const isManager = profile?.role === 'Gestor';
 
@@ -207,6 +212,34 @@ export function Dashboard() {
           onClose={() => setIsProfileOpen(false)}
           leads={leads}
           salesGoal={settings?.sales_goal || 50000}
+        />
+      )}
+
+      {/* Auto popup for past meetings without status */}
+      {pendingReminder && (
+        <MeetingStatusModal
+          lead={pendingReminder}
+          onClose={() => dismissReminder(pendingReminder.id)}
+          onSelectStatus={async (leadId, status) => {
+            await updateLead(leadId, { meeting_status: status });
+            
+            // Add history entry
+            const statusLabels: Record<string, string> = {
+              compareceu: '✅ Compareceu à reunião',
+              no_show: '❌ No Show - não compareceu',
+              reagendar: '📅 Reunião reagendada',
+            };
+            
+            if (status) {
+              await addHistory(leadId, 'reuniao_status', statusLabels[status] || 'Status de reunião atualizado');
+            }
+            
+            clearReminder();
+            toast({
+              title: 'Status atualizado',
+              description: `Reunião marcada como: ${statusLabels[status || ''] || status}`,
+            });
+          }}
         />
       )}
     </div>

@@ -13,12 +13,22 @@ export const formatDate = (date: string | null | undefined): string => {
 
 export const formatDateTime = (date: string | null | undefined): string => {
   if (!date) return '-';
+  // Handle datetime-local format (YYYY-MM-DDTHH:mm)
+  if (date.length === 16 && date.includes('T')) {
+    const [datePart, timePart] = date.split('T');
+    const [year, month, day] = datePart.split('-');
+    return `${day}/${month}/${year} ${timePart}`;
+  }
   const d = new Date(date);
   return isNaN(d.getTime()) ? '-' : d.toLocaleString('pt-BR');
 };
 
 export const formatTime = (date: string | null | undefined): string => {
   if (!date) return '';
+  // Handle datetime-local format (YYYY-MM-DDTHH:mm)
+  if (date.length === 16 && date.includes('T')) {
+    return date.split('T')[1]; // Returns HH:mm
+  }
   const d = new Date(date);
   return isNaN(d.getTime()) ? '' : d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 };

@@ -42,9 +42,10 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
   
   const [formData, setFormData] = useState<Partial<Lead>>({
     name: '', company: '', confection_type: '', whatsapp: '', email: '',
-    temperature: 'morno', value: 0, implementation_value: 0, monthly_value: 0,
+    temperature: 'frio', value: 0, implementation_value: 0, monthly_value: 0,
     next_contact: '', stage: 'prospeccao',
-    meeting_pain: '', meeting_link: '', meeting_date: '', history: []
+    meeting_pain: '', meeting_link: '', meeting_date: '', history: [],
+    pieces_per_month: null,
   });
 
   useEffect(() => {
@@ -53,9 +54,10 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
     } else {
       setFormData({
         name: '', company: '', confection_type: '', whatsapp: '', email: '',
-        temperature: 'morno', value: 0, implementation_value: 0, monthly_value: 0,
+        temperature: 'frio', value: 0, implementation_value: 0, monthly_value: 0,
         next_contact: '', stage: 'prospeccao',
-        meeting_pain: '', meeting_link: '', meeting_date: '', history: []
+        meeting_pain: '', meeting_link: '', meeting_date: '', history: [],
+        pieces_per_month: null,
       });
     }
     setNoteText('');
@@ -64,8 +66,8 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    const numericFields = ['value', 'implementation_value', 'monthly_value'];
-    setFormData(prev => ({ ...prev, [name]: numericFields.includes(name) ? Number(value) : value }));
+    const numericFields = ['value', 'implementation_value', 'monthly_value', 'pieces_per_month'];
+    setFormData(prev => ({ ...prev, [name]: numericFields.includes(name) ? (value === '' ? null : Number(value)) : value }));
   };
 
   const handleSave = async () => {
@@ -331,6 +333,17 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
                     <Label>Valor Mensalidade (R$)</Label>
                     <Input type="number" name="monthly_value" value={formData.monthly_value || 0} onChange={handleChange} min={0} />
                   </div>
+                  <div>
+                    <Label>Peças Produzidas/Mês</Label>
+                    <Input 
+                      type="number" 
+                      name="pieces_per_month" 
+                      value={formData.pieces_per_month ?? ''} 
+                      onChange={handleChange} 
+                      placeholder="Ex: 5000"
+                      min={0} 
+                    />
+                  </div>
                   <div className="md:col-span-2">
                     <Label>Status Térmico</Label>
                     <div className="flex gap-4 mt-1">
@@ -561,14 +574,14 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
                     value={formData.meeting_date ? formData.meeting_date.slice(0, 16) : ''} 
                     onChange={(e) => {
                       const value = e.target.value;
-                      // Convert datetime-local format to ISO8601
-                      const isoDate = value ? new Date(value).toISOString() : null;
-                      setFormData(prev => ({ ...prev, meeting_date: isoDate }));
+                      // Store the datetime-local value directly (local time, not UTC)
+                      // This preserves the exact time the user selected
+                      setFormData(prev => ({ ...prev, meeting_date: value || null }));
                     }} 
                   />
                   {formData.meeting_date && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      📅 Agendado: {new Date(formData.meeting_date).toLocaleString('pt-BR')}
+                      📅 Agendado: {formData.meeting_date.replace('T', ' às ').slice(0, 16).replace(/-/g, '/')}
                     </p>
                   )}
                 </div>
