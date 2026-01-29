@@ -24,10 +24,23 @@ export function WeeklyAgendaView({ leads, onOpenLead, onGoogleCalendarSync }: We
     return Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   }, [currentWeekStart]);
 
+  // Parse meeting_date properly - handles both datetime-local format and ISO
+  const parseMeetingDate = (dateStr: string): Date => {
+    // If it's datetime-local format (YYYY-MM-DDTHH:mm), parse as local time
+    if (dateStr.length === 16 && dateStr.includes('T')) {
+      const [datePart, timePart] = dateStr.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      const [hours, minutes] = timePart.split(':').map(Number);
+      return new Date(year, month - 1, day, hours, minutes);
+    }
+    // Otherwise parse as ISO
+    return new Date(dateStr);
+  };
+
   const getEventsForDayAndHour = (day: Date, hour: number) => {
     return leads.filter(l => {
       if (!l.meeting_date) return false;
-      const d = new Date(l.meeting_date);
+      const d = parseMeetingDate(l.meeting_date);
       return isSameDay(d, day) && d.getHours() === hour;
     });
   };
@@ -35,17 +48,17 @@ export function WeeklyAgendaView({ leads, onOpenLead, onGoogleCalendarSync }: We
   const getEventsForDay = (day: Date) => {
     return leads.filter(l => {
       if (!l.meeting_date) return false;
-      return isSameDay(new Date(l.meeting_date), day);
+      return isSameDay(parseMeetingDate(l.meeting_date), day);
     });
   };
 
   const todayEvents = useMemo(() => {
     return leads.filter(l => {
       if (!l.meeting_date) return false;
-      return isToday(new Date(l.meeting_date));
+      return isToday(parseMeetingDate(l.meeting_date));
     }).sort((a, b) => {
-      const dateA = new Date(a.meeting_date!);
-      const dateB = new Date(b.meeting_date!);
+      const dateA = parseMeetingDate(a.meeting_date!);
+      const dateB = parseMeetingDate(b.meeting_date!);
       return dateA.getTime() - dateB.getTime();
     });
   }, [leads]);

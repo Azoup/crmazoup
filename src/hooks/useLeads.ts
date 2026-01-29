@@ -21,11 +21,11 @@ function parseHistory(historyJson: Json): LeadHistory[] {
 }
 
 function transformDbLead(dbLead: any): Lead {
-  // Validate temperature - use 'morno' as safe default
+  // Validate temperature - use 'frio' as safe default for new leads
   const validTemperatures = ['frio', 'morno', 'quente'];
   const safeTemperature = validTemperatures.includes(dbLead.temperature) 
     ? dbLead.temperature 
-    : 'morno';
+    : 'frio';
   
   // Validate stage - use 'prospeccao' as safe default
   const validStages = ['prospeccao', 'interesse', 'reuniao', 'venda', 'congelados', 'perdidos'];
@@ -58,12 +58,13 @@ function transformDbLead(dbLead: any): Lead {
     history: parseHistory(dbLead.history),
     created_at: dbLead.created_at || new Date().toISOString(),
     updated_at: dbLead.updated_at || new Date().toISOString(),
-    // New fields with safe defaults
+    // Extended fields with safe defaults
     is_new: dbLead.is_new ?? false,
     manager_notes: dbLead.manager_notes ?? null,
     activecampaign_id: dbLead.activecampaign_id ?? null,
     meeting_status: dbLead.meeting_status ?? null,
     reference_month: dbLead.reference_month ?? null,
+    pieces_per_month: dbLead.pieces_per_month != null ? Number(dbLead.pieces_per_month) : null,
   };
 }
 
@@ -267,7 +268,7 @@ export function useLeads() {
           whatsapp: leadData.whatsapp?.trim() || null,
           email: leadData.email?.trim() || null,
           website: leadData.website?.trim() || null,
-          temperature: leadData.temperature || 'morno',
+          temperature: leadData.temperature || 'frio',
           value: Number(leadData.value) || 0,
           implementation_value: Number(leadData.implementation_value) || 0,
           monthly_value: Number(leadData.monthly_value) || 0,
@@ -280,6 +281,7 @@ export function useLeads() {
           history: history as unknown as Json,
           last_contact: new Date().toISOString(),
           entry_date: new Date().toISOString(),
+          pieces_per_month: leadData.pieces_per_month != null ? Number(leadData.pieces_per_month) : null,
         })
         .select()
         .single();
@@ -346,7 +348,7 @@ export function useLeads() {
         whatsapp: updates.whatsapp ?? currentLead.whatsapp ?? null,
         email: updates.email ?? currentLead.email ?? null,
         website: updates.website ?? currentLead.website ?? null,
-        temperature: updates.temperature ?? currentLead.temperature ?? 'morno',
+        temperature: updates.temperature ?? currentLead.temperature ?? 'frio',
         value: updates.value ?? currentLead.value ?? 0,
         implementation_value: updates.implementation_value ?? currentLead.implementation_value ?? 0,
         monthly_value: updates.monthly_value ?? currentLead.monthly_value ?? 0,
@@ -361,6 +363,7 @@ export function useLeads() {
         history: newHistory as unknown as Json,
         is_new: false,
         meeting_status: updates.meeting_status ?? currentLead.meeting_status ?? null,
+        pieces_per_month: updates.pieces_per_month ?? currentLead.pieces_per_month ?? null,
       };
 
       const { error } = await supabase

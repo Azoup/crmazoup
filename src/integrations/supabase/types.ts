@@ -37,6 +37,7 @@ export type Database = {
           monthly_value: number | null
           name: string
           next_contact: string | null
+          pieces_per_month: number | null
           reference_month: string | null
           stage: string
           temperature: string
@@ -68,6 +69,7 @@ export type Database = {
           monthly_value?: number | null
           name: string
           next_contact?: string | null
+          pieces_per_month?: number | null
           reference_month?: string | null
           stage?: string
           temperature?: string
@@ -99,6 +101,7 @@ export type Database = {
           monthly_value?: number | null
           name?: string
           next_contact?: string | null
+          pieces_per_month?: number | null
           reference_month?: string | null
           stage?: string
           temperature?: string
