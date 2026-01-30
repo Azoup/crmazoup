@@ -28,7 +28,7 @@ function transformDbLead(dbLead: any): Lead {
     : 'frio';
   
   // Validate stage - use 'prospeccao' as safe default
-  const validStages = ['prospeccao', 'interesse', 'reuniao', 'venda', 'congelados', 'perdidos'];
+  const validStages = ['prospeccao', 'interesse', 'reuniao', 'proposta', 'venda', 'congelados', 'perdidos'];
   const safeStage = validStages.includes(dbLead.stage) 
     ? dbLead.stage 
     : 'prospeccao';
