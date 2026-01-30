@@ -245,23 +245,44 @@ export function useManagerData() {
 
   const updateLeadManagerNotes = async (leadId: string, notes: string) => {
     try {
+      // First get the current lead to access its history
+      const currentLead = allLeads.find(l => l.id === leadId);
+      if (!currentLead) {
+        toast({ title: 'Erro', description: 'Lead não encontrado', variant: 'destructive' });
+        return;
+      }
+
+      // Create new history entry for manager notes
+      const newHistoryEntry: LeadHistory = {
+        type: 'nota_gestor',
+        note: `📋 Nota do Gestor: ${notes}`,
+        date: new Date().toISOString(),
+        user: profile?.name.split(' ')[0] || 'Gestor',
+      };
+
+      // Combine with existing history
+      const updatedHistory = [newHistoryEntry, ...(currentLead.history || [])];
+
       const { error } = await supabase
         .from('leads')
-        .update({ manager_notes: notes })
+        .update({ 
+          manager_notes: notes,
+          history: updatedHistory as any
+        })
         .eq('id', leadId);
 
       if (error) throw error;
 
       setAllLeads(prev => prev.map(l => 
-        l.id === leadId ? { ...l, manager_notes: notes } : l
+        l.id === leadId ? { ...l, manager_notes: notes, history: updatedHistory } : l
       ));
 
       setSdrs(prev => prev.map(sdr => ({
         ...sdr,
-        leads: sdr.leads.map(l => l.id === leadId ? { ...l, manager_notes: notes } : l)
+        leads: sdr.leads.map(l => l.id === leadId ? { ...l, manager_notes: notes, history: updatedHistory } : l)
       })));
 
-      toast({ title: 'Sucesso', description: 'Notas do gestor salvas!' });
+      toast({ title: 'Sucesso', description: 'Notas do gestor salvas e registradas no histórico!' });
     } catch (error) {
       console.error('Error updating manager notes:', error);
       toast({ title: 'Erro', description: 'Erro ao salvar notas', variant: 'destructive' });
