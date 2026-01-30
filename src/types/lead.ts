@@ -1,6 +1,6 @@
 export type LeadTemperature = 'frio' | 'morno' | 'quente';
 
-export type LeadStage = 'prospeccao' | 'interesse' | 'reuniao' | 'venda' | 'congelados' | 'perdidos';
+export type LeadStage = 'prospeccao' | 'interesse' | 'reuniao' | 'proposta' | 'venda' | 'congelados' | 'perdidos';
 
 export type MeetingStatus = 'compareceu' | 'no_show' | 'reagendar' | null;
 
@@ -72,6 +72,7 @@ export const STAGE_LABELS: Record<LeadStage, string> = {
   prospeccao: 'Prospecção',
   interesse: 'Interesse',
   reuniao: 'Reunião',
+  proposta: 'Proposta',
   venda: 'Venda',
   congelados: 'Congelados',
   perdidos: 'Perdidos',
@@ -81,6 +82,7 @@ export const STAGE_COLORS: Record<LeadStage, string> = {
   prospeccao: 'border-stage-prospeccao',
   interesse: 'border-stage-interesse',
   reuniao: 'border-stage-reuniao',
+  proposta: 'border-stage-proposta',
   venda: 'border-stage-venda',
   congelados: 'border-stage-congelados',
   perdidos: 'border-stage-perdidos',

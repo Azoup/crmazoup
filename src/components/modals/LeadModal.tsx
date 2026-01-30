@@ -370,7 +370,7 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
                       <>
                         {!['venda', 'perdidos'].includes(formData.stage || '') && (
                           <Button onClick={() => {
-                            const next: Record<string, string> = { prospeccao: 'interesse', interesse: 'reuniao', reuniao: 'venda' };
+                            const next: Record<string, string> = { prospeccao: 'interesse', interesse: 'reuniao', reuniao: 'proposta', proposta: 'venda' };
                             if (next[formData.stage || '']) onSave({ ...formData, stage: next[formData.stage || ''] as any });
                           }}>Avançar <ChevronRight size={16} /></Button>
                         )}

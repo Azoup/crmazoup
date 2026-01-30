@@ -75,6 +75,8 @@ export const getAISuggestion = (lead: { stage: string; confection_type?: string 
       return "IA: Foque na dor do desperdício de tecido.";
     case 'reuniao':
       return "IA: Confirme a reunião e prepare a demo.";
+    case 'proposta':
+      return "IA: Acompanhe a proposta enviada. Destaque o ROI e benefícios.";
     default:
       return "IA: Mantenha o contato ativo.";
   }

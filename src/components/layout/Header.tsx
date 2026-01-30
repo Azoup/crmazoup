@@ -1,13 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Lead } from '@/types/lead';
 import { formatTime } from '@/lib/utils';
 import { 
-  Shirt, Scissors, Cloud, Bell, UserCircle, 
+  Cloud, Bell, UserCircle, 
   LayoutDashboard, CalendarDays, TrendingUp, Users, Sparkles, RefreshCw
 } from 'lucide-react';
-import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { AnimatedLogo } from '@/components/AnimatedLogo';
 
 interface Notification {
   id: string;
@@ -72,12 +72,7 @@ export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncA
   return (
     <header className="bg-primary text-primary-foreground p-4 shadow-lg flex flex-col md:flex-row justify-between items-center sticky top-0 z-20 gap-4">
       <div className="flex items-center gap-3 w-full md:w-auto">
-        <div className="bg-card p-1 rounded-lg shadow-sm h-10 w-10 flex items-center justify-center relative flex-shrink-0">
-          <Shirt className="text-primary" size={24} strokeWidth={2.5} />
-          <div className="absolute -bottom-1 -right-1 bg-card rounded-full p-0.5 border border-border shadow-sm">
-            <Scissors className="text-foreground transform -rotate-12" size={12} strokeWidth={2} />
-          </div>
-        </div>
+        <AnimatedLogo size="md" />
         <div className="flex-1">
           <h1 className="text-xl font-bold tracking-tight leading-tight">CRM - Azoup</h1>
           <p className="text-[10px] text-primary-foreground/70 flex items-center gap-1">

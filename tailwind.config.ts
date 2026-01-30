@@ -68,6 +68,7 @@ export default {
           prospeccao: "hsl(var(--stage-prospeccao))",
           interesse: "hsl(var(--stage-interesse))",
           reuniao: "hsl(var(--stage-reuniao))",
+          proposta: "hsl(var(--stage-proposta))",
           venda: "hsl(var(--stage-venda))",
           congelados: "hsl(var(--stage-congelados))",
           perdidos: "hsl(var(--stage-perdidos))",
