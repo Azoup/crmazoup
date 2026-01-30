@@ -6,38 +6,23 @@ interface AnimatedLogoProps {
 }
 
 export function AnimatedLogo({ size = 'md' }: AnimatedLogoProps) {
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [showCut, setShowCut] = useState(false);
+  const [phase, setPhase] = useState<'idle' | 'cutting' | 'cut'>('idle');
 
   const sizes = {
-    sm: { container: 'h-8 w-8', shirt: 20, scissors: 10 },
-    md: { container: 'h-10 w-10', shirt: 24, scissors: 12 },
-    lg: { container: 'h-14 w-14', shirt: 32, scissors: 16 },
+    sm: { container: 'h-8 w-8', shirt: 18, scissors: 12 },
+    md: { container: 'h-10 w-10', shirt: 22, scissors: 14 },
+    lg: { container: 'h-14 w-14', shirt: 28, scissors: 18 },
   };
 
   useEffect(() => {
-    // Start animation loop
-    const startAnimation = () => {
-      setIsAnimating(true);
-      setShowCut(false);
-      
-      // After scissors reach the shirt, show cut effect
-      setTimeout(() => {
-        setShowCut(true);
-      }, 600);
-      
-      // Reset animation
-      setTimeout(() => {
-        setIsAnimating(false);
-        setShowCut(false);
-      }, 1500);
+    const runAnimation = () => {
+      setPhase('cutting');
+      setTimeout(() => setPhase('cut'), 500);
+      setTimeout(() => setPhase('idle'), 1500);
     };
 
-    // Initial delay before first animation
-    const initialDelay = setTimeout(startAnimation, 2000);
-    
-    // Repeat animation every 8 seconds
-    const interval = setInterval(startAnimation, 8000);
+    const initialDelay = setTimeout(runAnimation, 1500);
+    const interval = setInterval(runAnimation, 6000);
 
     return () => {
       clearTimeout(initialDelay);
@@ -48,53 +33,49 @@ export function AnimatedLogo({ size = 'md' }: AnimatedLogoProps) {
   const { container, shirt, scissors } = sizes[size];
 
   return (
-    <div className={`bg-card p-1 rounded-lg shadow-sm ${container} flex items-center justify-center relative overflow-hidden flex-shrink-0`}>
-      {/* Shirt with cut effect */}
-      <div className={`relative transition-all duration-300 ${showCut ? 'opacity-80' : ''}`}>
+    <div className={`${container} relative flex items-center justify-center bg-card rounded-lg shadow-sm overflow-hidden flex-shrink-0`}>
+      {/* Shirt */}
+      <div className="relative z-10">
         <Shirt 
-          className={`text-primary transition-all duration-300 ${showCut ? 'scale-95' : ''}`} 
-          size={shirt} 
-          strokeWidth={2.5} 
+          className={`text-primary transition-all duration-300 ${phase === 'cut' ? 'opacity-70 scale-90' : ''}`}
+          size={shirt}
+          strokeWidth={2.5}
         />
-        
-        {/* Cut line effect */}
-        {showCut && (
+        {/* Cut line */}
+        {phase === 'cut' && (
           <div 
-            className="absolute top-1/2 left-0 w-full h-0.5 bg-destructive animate-pulse"
-            style={{
-              transform: 'translateY(-50%) rotate(-15deg)',
-              boxShadow: '0 0 4px hsl(var(--destructive))',
+            className="absolute top-1/2 left-0 right-0 h-0.5 bg-destructive"
+            style={{ 
+              transform: 'translateY(-50%) rotate(-20deg)',
+              boxShadow: '0 0 6px hsl(var(--destructive))'
             }}
           />
         )}
       </div>
-      
-      {/* Animated Scissors */}
+
+      {/* Scissors */}
       <div 
-        className={`absolute bg-card rounded-full p-0.5 border border-border shadow-sm transition-all duration-700 ease-in-out ${
-          isAnimating 
-            ? 'bottom-1/3 right-1/4 rotate-[-45deg]' 
-            : '-bottom-1 -right-1 rotate-[-12deg]'
+        className={`absolute z-20 transition-all duration-500 ease-out ${
+          phase === 'idle' 
+            ? '-bottom-2 -right-2 rotate-12 opacity-60' 
+            : phase === 'cutting'
+              ? 'bottom-1/3 right-1/4 -rotate-45 opacity-100'
+              : 'bottom-1/2 right-1/3 -rotate-45 opacity-100'
         }`}
-        style={{
-          transform: isAnimating 
-            ? 'translate(0, 0) rotate(-45deg)' 
-            : 'translate(0, 0) rotate(-12deg)',
-        }}
       >
         <Scissors 
-          className={`text-foreground transition-transform duration-200 ${isAnimating ? 'scale-110' : ''}`} 
-          size={scissors} 
-          strokeWidth={2} 
+          className={`text-foreground transition-transform duration-200 ${phase !== 'idle' ? 'scale-110' : ''}`}
+          size={scissors}
+          strokeWidth={2}
         />
       </div>
-      
-      {/* Sparkle effect when cutting */}
-      {showCut && (
+
+      {/* Sparkles on cut */}
+      {phase === 'cut' && (
         <>
-          <div className="absolute top-1 left-1 w-1 h-1 bg-primary rounded-full animate-ping" />
-          <div className="absolute top-2 right-2 w-1 h-1 bg-primary rounded-full animate-ping" style={{ animationDelay: '0.1s' }} />
-          <div className="absolute bottom-2 left-2 w-0.5 h-0.5 bg-primary rounded-full animate-ping" style={{ animationDelay: '0.2s' }} />
+          <span className="absolute top-1 left-1 w-1.5 h-1.5 bg-primary rounded-full animate-ping" />
+          <span className="absolute top-2 right-1 w-1 h-1 bg-primary rounded-full animate-ping" style={{ animationDelay: '100ms' }} />
+          <span className="absolute bottom-1 left-2 w-1 h-1 bg-primary rounded-full animate-ping" style={{ animationDelay: '200ms' }} />
         </>
       )}
     </div>
