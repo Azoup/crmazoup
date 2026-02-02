@@ -14,6 +14,7 @@ const COLUMNS: { id: LeadStage; title: string }[] = [
   { id: 'prospeccao', title: 'Prospecção' },
   { id: 'interesse', title: 'Interesse' },
   { id: 'reuniao', title: 'Reunião' },
+  { id: 'proposta', title: 'Proposta' },
   { id: 'venda', title: 'Venda' },
   { id: 'congelados', title: 'Congelados' },
   { id: 'perdidos', title: 'Perdidos' },

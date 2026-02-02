@@ -1,19 +1,11 @@
 import { useMemo } from 'react';
 import { Lead, MonthlyMetrics } from '@/types/lead';
 
-// Calculate reference month based on the 26-26 rule
+// Calculate reference month based on calendar month (01 to 30/31)
 export function getCurrentReferenceMonth(): string {
   const today = new Date();
-  const day = today.getDate();
-  
-  // If day >= 26, reference month is next month
-  // If day < 26, reference month is current month
-  if (day >= 26) {
-    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-    return `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`;
-  } else {
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-  }
+  // Simply use the current calendar month
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 }
 
 export function formatReferenceMonth(refMonth: string): string {
