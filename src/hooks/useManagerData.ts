@@ -289,6 +289,30 @@ export function useManagerData() {
     }
   };
 
+  const deleteLead = async (leadId: string) => {
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .delete()
+        .eq('id', leadId);
+
+      if (error) throw error;
+
+      setAllLeads(prev => prev.filter(l => l.id !== leadId));
+      setSdrs(prev => prev.map(sdr => ({
+        ...sdr,
+        leads: sdr.leads.filter(l => l.id !== leadId)
+      })));
+
+      toast({ title: 'Sucesso', description: 'Lead excluído com sucesso!' });
+      return true;
+    } catch (error) {
+      console.error('Error deleting lead:', error);
+      toast({ title: 'Erro', description: 'Erro ao excluir lead', variant: 'destructive' });
+      return false;
+    }
+  };
+
   const syncActiveCampaign = async () => {
     if (!user) return;
 
@@ -360,6 +384,7 @@ export function useManagerData() {
     addSDRById,
     removeSDR,
     updateLeadManagerNotes,
+    deleteLead,
     syncActiveCampaign,
     refreshData: fetchSDRs,
     getLeadStatus,
