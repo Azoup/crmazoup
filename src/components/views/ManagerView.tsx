@@ -4,7 +4,7 @@ import { formatCurrency } from '@/lib/utils';
 import { 
   Users, TrendingUp, AlertTriangle, Target, DollarSign, Clock,
   RefreshCw, UserPlus, UserMinus, MessageSquare, Calendar, Phone,
-  Mail, ExternalLink, ChevronDown, ChevronUp, Sparkles, LayoutGrid, BarChart3
+  Mail, ExternalLink, ChevronDown, ChevronUp, Sparkles, LayoutGrid, BarChart3, Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,6 +48,7 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
     addSDRById,
     removeSDR,
     updateLeadManagerNotes,
+    deleteLead,
     syncActiveCampaign,
     refreshData,
     getLeadStatus,
@@ -482,9 +483,24 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
                 />
               </div>
 
-              <Button onClick={handleSaveManagerNotes} className="w-full">
-                Salvar Notas
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={handleSaveManagerNotes} className="flex-1">
+                  Salvar Notas
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  size="icon"
+                  onClick={async () => {
+                    if (selectedLead && confirm(`Tem certeza que deseja excluir o lead "${selectedLead.name}"?`)) {
+                      const success = await deleteLead(selectedLead.id);
+                      if (success) setSelectedLead(null);
+                    }
+                  }}
+                  title="Excluir lead"
+                >
+                  <Trash2 size={16} />
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>
