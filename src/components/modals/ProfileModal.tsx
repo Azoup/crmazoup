@@ -121,7 +121,7 @@ export function ProfileModal({ onClose, leads, salesGoal }: ProfileModalProps) {
               </div>
 
               <p className="text-xs text-muted-foreground text-center">
-                Período: dia 26 do mês anterior até dia 26 do mês atual
+                Período: dia 01 ao último dia do mês
               </p>
 
               {/* Metrics Grid */}
