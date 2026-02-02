@@ -30,7 +30,9 @@ export function useMeetingReminder(leads: Lead[]) {
       if (dismissedIds.has(lead.id)) return false; // Already dismissed in this session
       
       const meetingTime = parseMeetingDate(lead.meeting_date);
-      return meetingTime < now;
+      // Add 1 hour after the scheduled meeting time before showing reminder
+      const reminderTime = new Date(meetingTime.getTime() + 60 * 60 * 1000);
+      return reminderTime < now;
     });
 
     // Show reminder for the first one found
