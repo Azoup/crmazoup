@@ -40,9 +40,10 @@ interface ValidatedContact {
   email: string | null;
   phone: string | null;
   orgname: string | null;
+  tags: string[];
 }
 
-function validateContact(contact: unknown): ValidatedContact | null {
+function validateContact(contact: unknown, contactTags: Record<string, string[]>): ValidatedContact | null {
   if (!contact || typeof contact !== 'object') return null;
   
   const rawContact = contact as Record<string, unknown>;
@@ -58,8 +59,9 @@ function validateContact(contact: unknown): ValidatedContact | null {
     : null;
   const phone = sanitizePhone(rawContact.phone);
   const orgname = sanitizeString(rawContact.orgname, 200) || null;
+  const tags = contactTags[id] || [];
   
-  return { id, firstName, lastName, email, phone, orgname };
+  return { id, firstName, lastName, email, phone, orgname, tags };
 }
 
 serve(async (req) => {
@@ -131,6 +133,46 @@ serve(async (req) => {
 
     console.log(`Found ${contacts.length} contacts in ActiveCampaign`);
 
+    // Fetch tags for all contacts
+    const contactTags: Record<string, string[]> = {};
+    for (const contact of contacts) {
+      const contactId = String(contact.id);
+      try {
+        const tagsResponse = await fetch(`${acUrl}/api/3/contacts/${contactId}/contactTags`, {
+          headers: {
+            'Api-Token': acApiKey,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (tagsResponse.ok) {
+          const tagsData = await tagsResponse.json();
+          const tagIds = (tagsData.contactTags || []).map((ct: any) => ct.tag);
+          
+          // Fetch tag names
+          const tagNames: string[] = [];
+          for (const tagId of tagIds) {
+            const tagResponse = await fetch(`${acUrl}/api/3/tags/${tagId}`, {
+              headers: {
+                'Api-Token': acApiKey,
+                'Content-Type': 'application/json',
+              },
+            });
+            if (tagResponse.ok) {
+              const tagData = await tagResponse.json();
+              if (tagData.tag?.tag) {
+                tagNames.push(sanitizeString(tagData.tag.tag, 100));
+              }
+            }
+          }
+          contactTags[contactId] = tagNames;
+        }
+      } catch (e) {
+        console.error(`Error fetching tags for contact ${contactId}:`, e);
+      }
+    }
+
+    console.log('Tags fetched for contacts');
+
     // Get existing leads to avoid duplicates
     const { data: existingLeads } = await supabase
       .from('leads')
@@ -155,13 +197,16 @@ serve(async (req) => {
     for (const contact of newContacts) {
       try {
         // Validate and sanitize contact data
-        const validated = validateContact(contact);
+        const validated = validateContact(contact, contactTags);
         if (!validated) {
           errorCount.validation++;
           continue;
         }
         
         const fullName = `${validated.firstName} ${validated.lastName}`.trim();
+        const tagsNote = validated.tags.length > 0 
+          ? ` | Tags: ${validated.tags.join(', ')}`
+          : '';
         
         const leadData = {
           user_id: userId,
@@ -169,14 +214,15 @@ serve(async (req) => {
           email: validated.email,
           whatsapp: validated.phone,
           company: validated.orgname,
+          confection_type: validated.tags.length > 0 ? validated.tags[0] : null,
           stage: 'prospeccao',
-          temperature: 'morno',
+          temperature: 'frio',
           is_new: true,
           activecampaign_id: validated.id,
           value: 0,
           history: [{
             type: 'sistema',
-            note: `Lead importado automaticamente do ActiveCampaign em ${new Date().toLocaleDateString('pt-BR')}`,
+            note: `Lead importado automaticamente do ActiveCampaign em ${new Date().toLocaleDateString('pt-BR')}${tagsNote}`,
             date: new Date().toISOString(),
             user: 'Sistema'
           }]
