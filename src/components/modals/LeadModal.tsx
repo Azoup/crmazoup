@@ -3,6 +3,7 @@ import { Lead, LeadTemperature, LeadHistory } from '@/types/lead';
 import { formatDateTime, getAISuggestion } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -196,9 +197,25 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
   const handleGenerateMessage = async () => {
     setIsGenerating(true);
     try {
+      // Get the user's auth token
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      
+      if (!token) {
+        toast({
+          title: 'Erro de autenticação',
+          description: 'Faça login novamente para usar a IA.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-message`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+        headers: { 
+          'Content-Type': 'application/json', 
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ type: 'whatsapp', lead: formData }),
       });
       
@@ -210,14 +227,17 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
           description: errorMessage,
           variant: 'destructive',
         });
-        setIsGenerating(false);
         return;
       }
       
       const data = await response.json();
       if (data?.message) { 
-        setCurrentTemplate(data.message); 
-        onUpdateTemplate(data.message); 
+        // Set the AI-generated message as the current text (don't overwrite saved template)
+        setCurrentTemplate(data.message);
+        toast({
+          title: '✨ Mensagem gerada',
+          description: 'Mensagem personalizada criada com IA. Edite se necessário e envie!',
+        });
       } else {
         toast({
           title: 'Erro na geração',
@@ -239,6 +259,14 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
 
   const handleSaveTemplate = () => {
     onUpdateTemplate(currentTemplate);
+    toast({
+      title: '✅ Template salvo',
+      description: 'O modelo de mensagem foi atualizado para todos os leads.',
+    });
+  };
+
+  const handleResetTemplate = () => {
+    setCurrentTemplate(msgTemplate);
   };
 
   const getActivityIcon = (type: string) => {
@@ -425,24 +453,33 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
                 <div className="border border-success/30 bg-success/5 p-4 rounded-lg">
                   <div className="flex justify-between items-center mb-2">
                     <h3 className="font-bold text-success flex items-center gap-2"><MessageCircle size={18} /> WhatsApp Personalizado</h3>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={handleGenerateMessage} disabled={isGenerating} className="text-success">
-                        {isGenerating ? <Loader2 className="animate-spin mr-1" size={12} /> : <Sparkles size={12} className="mr-1" />} Gerar com IA
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={handleSaveTemplate} className="text-muted-foreground">
-                        <Save size={12} className="mr-1" /> Salvar Template
-                      </Button>
-                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mb-2">Use {'{nome}'}, {'{empresa}'}, {'{tipo}'} para personalização</p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Use {'{nome}'}, {'{empresa}'}, {'{tipo}'} para personalização automática, ou gere com IA para uma mensagem única.
+                  </p>
                   <Textarea 
-                    className="mb-2" 
-                    rows={3} 
+                    className="mb-3" 
+                    rows={4} 
                     value={currentTemplate} 
                     onChange={(e) => setCurrentTemplate(e.target.value)} 
                     placeholder="Olá {nome}, vi que você trabalha com {tipo}..."
                   />
-                  <Button onClick={sendWhatsApp} className="bg-success hover:bg-success/90">Enviar WhatsApp</Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button onClick={sendWhatsApp} className="bg-success hover:bg-success/90">
+                      <MessageCircle size={14} className="mr-1" /> Enviar WhatsApp
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleGenerateMessage} disabled={isGenerating} className="text-primary border-primary/30">
+                      {isGenerating ? <Loader2 className="animate-spin mr-1" size={14} /> : <Sparkles size={14} className="mr-1" />} Gerar com IA
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={handleSaveTemplate} className="text-muted-foreground">
+                      <Save size={14} className="mr-1" /> Salvar Template
+                    </Button>
+                    {currentTemplate !== msgTemplate && (
+                      <Button variant="ghost" size="sm" onClick={handleResetTemplate} className="text-muted-foreground">
+                        <RefreshCw size={14} className="mr-1" /> Restaurar
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 <div>

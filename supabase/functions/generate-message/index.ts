@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Input validation schema
+// Input validation
 interface LeadInput {
   name?: string;
   company?: string;
@@ -15,23 +15,14 @@ interface LeadInput {
   meeting_pain?: string;
 }
 
-// Sanitize string input: trim, limit length, remove potential injection characters
 function sanitizeString(input: unknown, maxLength: number): string {
   if (typeof input !== 'string') return '';
-  return input
-    .trim()
-    .substring(0, maxLength)
-    .replace(/[<>{}[\]\\]/g, ''); // Remove potentially dangerous characters
+  return input.trim().substring(0, maxLength).replace(/[<>{}[\]\\]/g, '');
 }
 
-// Validate and sanitize lead input
 function validateLead(lead: unknown): LeadInput {
-  if (!lead || typeof lead !== 'object') {
-    return {};
-  }
-  
+  if (!lead || typeof lead !== 'object') return {};
   const rawLead = lead as Record<string, unknown>;
-  
   return {
     name: sanitizeString(rawLead.name, 200),
     company: sanitizeString(rawLead.company, 200),
@@ -41,11 +32,8 @@ function validateLead(lead: unknown): LeadInput {
   };
 }
 
-// Validate type parameter
 function validateType(type: unknown): 'whatsapp' | 'strategy' | null {
-  if (type === 'whatsapp' || type === 'strategy') {
-    return type;
-  }
+  if (type === 'whatsapp' || type === 'strategy') return type;
   return null;
 }
 
@@ -80,24 +68,22 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    const { data: userData, error: userError } = await supabase.auth.getUser();
     
-    if (claimsError || !claimsData?.claims) {
-      console.warn('Invalid JWT token:', claimsError?.message);
+    if (userError || !userData?.user) {
+      console.warn('Invalid JWT token:', userError?.message);
       return new Response(
         JSON.stringify({ error: 'Não autorizado' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const userId = claimsData.claims.sub;
+    const userId = userData.user.id;
     console.log(`Authenticated user: ${userId}`);
     // === END AUTHENTICATION CHECK ===
 
     const body = await req.json();
     
-    // Validate type parameter
     const type = validateType(body.type);
     if (!type) {
       return new Response(JSON.stringify({ error: "Tipo de mensagem inválido" }), {
@@ -106,7 +92,6 @@ serve(async (req) => {
       });
     }
     
-    // Validate and sanitize lead data
     const lead = validateLead(body.lead);
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -125,14 +110,18 @@ serve(async (req) => {
     if (type === "whatsapp") {
       systemPrompt = `Você é um especialista em vendas B2B para confecções têxteis, trabalhando para a Azoup. 
 Escreva mensagens de WhatsApp curtas, profissionais e persuasivas.
-Sempre seja educado e direto. Máximo de 3 frases.`;
+Sempre seja educado e direto. Máximo de 3 frases.
+REGRA OBRIGATÓRIA: A mensagem DEVE começar com o nome do lead. Sempre use o nome exato fornecido.
+Retorne APENAS o texto da mensagem, sem aspas, sem explicações adicionais.`;
       
-      userPrompt = `Gere uma mensagem de WhatsApp para:
-- Nome: ${lead.name || 'Cliente'}
+      const leadName = lead.name || 'Cliente';
+      userPrompt = `Gere uma mensagem de WhatsApp de primeiro contato para:
+- Nome do lead: ${leadName}
 - Empresa: ${lead.company || 'Não informada'}
 - Tipo de confecção: ${lead.confection_type || 'Não informado'}
 - Fase atual: ${lead.stage || 'prospecção'}
 
+A mensagem DEVE obrigatoriamente começar com "Olá ${leadName}" ou "Oi ${leadName}".
 Objetivo: Avançar o lead no funil de vendas de forma natural e consultiva.`;
     } else if (type === "strategy") {
       systemPrompt = `Você é um estrategista de vendas SaaS especializado em soluções para confecções têxteis.
@@ -153,7 +142,7 @@ Gere 3-5 pontos-chave para abordar na reunião.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -162,7 +151,8 @@ Gere 3-5 pontos-chave para abordar na reunião.`;
     });
 
     if (!response.ok) {
-      console.error(`AI gateway error: ${response.status}`);
+      const errorBody = await response.text().catch(() => '');
+      console.error(`AI gateway error: ${response.status} - ${errorBody}`);
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }), {
           status: 429,
@@ -170,19 +160,32 @@ Gere 3-5 pontos-chave para abordar na reunião.`;
         });
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos insuficientes. Adicione créditos em Settings → Workspace → Usage." }), {
+        return new Response(JSON.stringify({ error: "Créditos insuficientes." }), {
           status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ error: "Erro ao gerar mensagem" }), {
+      return new Response(JSON.stringify({ error: "Erro ao gerar mensagem. Tente novamente." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const data = await response.json();
-    const message = data.choices?.[0]?.message?.content || "";
+    let message = data.choices?.[0]?.message?.content || "";
+    
+    // Clean up AI response - remove quotes, markdown artifacts
+    message = message
+      .replace(/^["'`]+|["'`]+$/g, '')
+      .replace(/```[\s\S]*?```/g, '')
+      .trim();
+
+    if (!message) {
+      return new Response(JSON.stringify({ error: "A IA não retornou uma mensagem válida." }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     return new Response(JSON.stringify({ message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
