@@ -63,6 +63,7 @@ function transformDbLead(dbLead: any): Lead {
     activecampaign_id: dbLead.activecampaign_id ?? null,
     meeting_status: dbLead.meeting_status ?? null,
     reference_month: dbLead.reference_month ?? null,
+    responsible_user_id: dbLead.responsible_user_id ?? null,
   };
 }
 
@@ -245,14 +246,12 @@ export function useManagerData() {
 
   const updateLeadManagerNotes = async (leadId: string, notes: string) => {
     try {
-      // First get the current lead to access its history
       const currentLead = allLeads.find(l => l.id === leadId);
       if (!currentLead) {
         toast({ title: 'Erro', description: 'Lead não encontrado', variant: 'destructive' });
         return;
       }
 
-      // Create new history entry for manager notes
       const newHistoryEntry: LeadHistory = {
         type: 'nota_gestor',
         note: `📋 Nota do Gestor: ${notes}`,
@@ -260,7 +259,6 @@ export function useManagerData() {
         user: profile?.name.split(' ')[0] || 'Gestor',
       };
 
-      // Combine with existing history
       const updatedHistory = [newHistoryEntry, ...(currentLead.history || [])];
 
       const { error } = await supabase
@@ -286,6 +284,50 @@ export function useManagerData() {
     } catch (error) {
       console.error('Error updating manager notes:', error);
       toast({ title: 'Erro', description: 'Erro ao salvar notas', variant: 'destructive' });
+    }
+  };
+
+  const updateLeadResponsible = async (leadId: string, responsibleUserId: string) => {
+    try {
+      const currentLead = allLeads.find(l => l.id === leadId);
+      if (!currentLead) return;
+
+      const responsibleName = responsibleUserId === user?.id 
+        ? profile?.name || 'Gestor'
+        : sdrs.find(s => s.user_id === responsibleUserId)?.name || 'SDR';
+
+      const newHistoryEntry: LeadHistory = {
+        type: 'sistema',
+        note: `👤 Responsável alterado para: ${responsibleName}`,
+        date: new Date().toISOString(),
+        user: profile?.name.split(' ')[0] || 'Gestor',
+      };
+
+      const updatedHistory = [newHistoryEntry, ...(currentLead.history || [])];
+
+      const { error } = await supabase
+        .from('leads')
+        .update({ 
+          responsible_user_id: responsibleUserId,
+          history: updatedHistory as any
+        })
+        .eq('id', leadId);
+
+      if (error) throw error;
+
+      setAllLeads(prev => prev.map(l => 
+        l.id === leadId ? { ...l, responsible_user_id: responsibleUserId, history: updatedHistory } : l
+      ));
+
+      setSdrs(prev => prev.map(sdr => ({
+        ...sdr,
+        leads: sdr.leads.map(l => l.id === leadId ? { ...l, responsible_user_id: responsibleUserId, history: updatedHistory } : l)
+      })));
+
+      toast({ title: 'Sucesso', description: `Responsável alterado para ${responsibleName}` });
+    } catch (error) {
+      console.error('Error updating responsible:', error);
+      toast({ title: 'Erro', description: 'Erro ao alterar responsável', variant: 'destructive' });
     }
   };
 
@@ -384,6 +426,7 @@ export function useManagerData() {
     addSDRById,
     removeSDR,
     updateLeadManagerNotes,
+    updateLeadResponsible,
     deleteLead,
     syncActiveCampaign,
     refreshData: fetchSDRs,

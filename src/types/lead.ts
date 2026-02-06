@@ -43,6 +43,7 @@ export interface Lead {
   meeting_status?: MeetingStatus;
   reference_month?: string | null;
   pieces_per_month?: number | null;
+  responsible_user_id?: string | null;
 }
 
 export interface LeadFilters {

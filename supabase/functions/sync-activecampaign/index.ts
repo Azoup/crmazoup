@@ -3,36 +3,28 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Sanitize string input: trim, limit length, remove potentially dangerous characters
 function sanitizeString(input: unknown, maxLength: number): string {
   if (input === null || input === undefined) return '';
   if (typeof input !== 'string') return String(input).substring(0, maxLength);
-  return input
-    .trim()
-    .substring(0, maxLength)
-    .replace(/[<>{}[\]\\]/g, ''); // Remove potentially dangerous characters
+  return input.trim().substring(0, maxLength).replace(/[<>{}[\]\\]/g, '');
 }
 
-// Validate email format
 function isValidEmail(email: unknown): boolean {
   if (typeof email !== 'string') return false;
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email) && email.length <= 255;
 }
 
-// Sanitize phone number
 function sanitizePhone(phone: unknown): string | null {
   if (phone === null || phone === undefined) return null;
   if (typeof phone !== 'string') return null;
-  // Keep only digits, plus, parentheses, spaces, and hyphens
   const sanitized = phone.replace(/[^0-9+() -]/g, '').substring(0, 50);
   return sanitized || null;
 }
 
-// Validate and sanitize contact data from ActiveCampaign
 interface ValidatedContact {
   id: string;
   firstName: string;
@@ -45,29 +37,105 @@ interface ValidatedContact {
 
 function validateContact(contact: unknown, contactTags: Record<string, string[]>): ValidatedContact | null {
   if (!contact || typeof contact !== 'object') return null;
-  
   const rawContact = contact as Record<string, unknown>;
-  
-  // ID is required
   if (!rawContact.id) return null;
   
   const id = String(rawContact.id);
-  const firstName = sanitizeString(rawContact.firstName, 100);
-  const lastName = sanitizeString(rawContact.lastName, 100);
-  const email = rawContact.email && isValidEmail(rawContact.email) 
-    ? sanitizeString(rawContact.email, 255) 
-    : null;
-  const phone = sanitizePhone(rawContact.phone);
-  const orgname = sanitizeString(rawContact.orgname, 200) || null;
-  const tags = contactTags[id] || [];
+  return {
+    id,
+    firstName: sanitizeString(rawContact.firstName, 100),
+    lastName: sanitizeString(rawContact.lastName, 100),
+    email: rawContact.email && isValidEmail(rawContact.email) ? sanitizeString(rawContact.email, 255) : null,
+    phone: sanitizePhone(rawContact.phone),
+    orgname: sanitizeString(rawContact.orgname, 200) || null,
+    tags: contactTags[id] || [],
+  };
+}
+
+// Fetch all contacts with pagination
+async function fetchAllContacts(acUrl: string, acApiKey: string): Promise<any[]> {
+  const allContacts: any[] = [];
+  let offset = 0;
+  const limit = 100;
   
-  return { id, firstName, lastName, email, phone, orgname, tags };
+  while (true) {
+    console.log(`Fetching contacts offset=${offset}...`);
+    const response = await fetch(`${acUrl}/api/3/contacts?limit=${limit}&offset=${offset}&orders[cdate]=DESC`, {
+      headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      console.error('AC API error at offset', offset, await response.text());
+      break;
+    }
+    
+    const data = await response.json();
+    const contacts = data.contacts || [];
+    allContacts.push(...contacts);
+    
+    if (contacts.length < limit) break;
+    offset += limit;
+  }
+  
+  return allContacts;
+}
+
+// Fetch tags for multiple contacts in batches
+async function fetchContactTags(contacts: any[], acUrl: string, acApiKey: string): Promise<Record<string, string[]>> {
+  const contactTags: Record<string, string[]> = {};
+  const tagNameCache: Record<string, string> = {};
+  
+  // Process in batches of 10 to avoid too many concurrent requests
+  const batchSize = 10;
+  for (let i = 0; i < contacts.length; i += batchSize) {
+    const batch = contacts.slice(i, i + batchSize);
+    
+    await Promise.all(batch.map(async (contact: any) => {
+      const contactId = String(contact.id);
+      try {
+        const tagsResponse = await fetch(`${acUrl}/api/3/contacts/${contactId}/contactTags`, {
+          headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' },
+        });
+        
+        if (!tagsResponse.ok) return;
+        
+        const tagsData = await tagsResponse.json();
+        const tagIds = (tagsData.contactTags || []).map((ct: any) => ct.tag);
+        
+        const tagNames: string[] = [];
+        for (const tagId of tagIds) {
+          if (tagNameCache[tagId]) {
+            tagNames.push(tagNameCache[tagId]);
+            continue;
+          }
+          
+          const tagResponse = await fetch(`${acUrl}/api/3/tags/${tagId}`, {
+            headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' },
+          });
+          
+          if (tagResponse.ok) {
+            const tagData = await tagResponse.json();
+            if (tagData.tag?.tag) {
+              const name = sanitizeString(tagData.tag.tag, 100);
+              tagNameCache[tagId] = name;
+              tagNames.push(name);
+            }
+          }
+        }
+        
+        contactTags[contactId] = tagNames;
+      } catch (e) {
+        console.error(`Error fetching tags for contact ${contactId}:`, e);
+      }
+    }));
+  }
+  
+  return contactTags;
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
@@ -97,7 +165,6 @@ serve(async (req) => {
 
     const userId = claimsData.user.id;
     
-    // Get ActiveCampaign credentials from secrets
     const acApiKey = Deno.env.get('ACTIVECAMPAIGN_API_KEY');
     const acUrl = Deno.env.get('ACTIVECAMPAIGN_URL');
 
@@ -109,69 +176,13 @@ serve(async (req) => {
       );
     }
 
-    console.log('Fetching contacts from ActiveCampaign...');
+    console.log('Fetching all contacts from ActiveCampaign...');
+    const contacts = await fetchAllContacts(acUrl, acApiKey);
+    console.log(`Found ${contacts.length} total contacts`);
 
-    // Fetch contacts from ActiveCampaign
-    const acResponse = await fetch(`${acUrl}/api/3/contacts?limit=100&orders[cdate]=DESC`, {
-      headers: {
-        'Api-Token': acApiKey,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!acResponse.ok) {
-      const errorText = await acResponse.text();
-      console.error('ActiveCampaign API error:', errorText);
-      return new Response(
-        JSON.stringify({ error: 'Erro ao sincronizar contatos' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const acData = await acResponse.json();
-    const contacts = acData.contacts || [];
-
-    console.log(`Found ${contacts.length} contacts in ActiveCampaign`);
-
-    // Fetch tags for all contacts
-    const contactTags: Record<string, string[]> = {};
-    for (const contact of contacts) {
-      const contactId = String(contact.id);
-      try {
-        const tagsResponse = await fetch(`${acUrl}/api/3/contacts/${contactId}/contactTags`, {
-          headers: {
-            'Api-Token': acApiKey,
-            'Content-Type': 'application/json',
-          },
-        });
-        if (tagsResponse.ok) {
-          const tagsData = await tagsResponse.json();
-          const tagIds = (tagsData.contactTags || []).map((ct: any) => ct.tag);
-          
-          // Fetch tag names
-          const tagNames: string[] = [];
-          for (const tagId of tagIds) {
-            const tagResponse = await fetch(`${acUrl}/api/3/tags/${tagId}`, {
-              headers: {
-                'Api-Token': acApiKey,
-                'Content-Type': 'application/json',
-              },
-            });
-            if (tagResponse.ok) {
-              const tagData = await tagResponse.json();
-              if (tagData.tag?.tag) {
-                tagNames.push(sanitizeString(tagData.tag.tag, 100));
-              }
-            }
-          }
-          contactTags[contactId] = tagNames;
-        }
-      } catch (e) {
-        console.error(`Error fetching tags for contact ${contactId}:`, e);
-      }
-    }
-
-    console.log('Tags fetched for contacts');
+    console.log('Fetching tags...');
+    const contactTags = await fetchContactTags(contacts, acUrl, acApiKey);
+    console.log('Tags fetched');
 
     // Get existing leads to avoid duplicates
     const { data: existingLeads } = await supabase
@@ -180,9 +191,8 @@ serve(async (req) => {
       .eq('user_id', userId)
       .not('activecampaign_id', 'is', null);
 
-    const existingAcIds = new Set((existingLeads || []).map(l => l.activecampaign_id));
+    const existingAcIds = new Set((existingLeads || []).map((l: any) => l.activecampaign_id));
 
-    // Filter new contacts
     const newContacts = contacts.filter((c: unknown) => {
       if (!c || typeof c !== 'object') return false;
       const id = (c as Record<string, unknown>).id;
@@ -191,56 +201,57 @@ serve(async (req) => {
 
     console.log(`${newContacts.length} new contacts to import`);
 
-    let imported = 0;
-    const errorCount = { validation: 0, database: 0 };
+    // Batch insert for better performance
+    const leadsToInsert: any[] = [];
+    let validationErrors = 0;
 
     for (const contact of newContacts) {
-      try {
-        // Validate and sanitize contact data
-        const validated = validateContact(contact, contactTags);
-        if (!validated) {
-          errorCount.validation++;
-          continue;
-        }
-        
-        const fullName = `${validated.firstName} ${validated.lastName}`.trim();
-        const tagsNote = validated.tags.length > 0 
-          ? ` | Tags: ${validated.tags.join(', ')}`
-          : '';
-        
-        const leadData = {
-          user_id: userId,
-          name: fullName.substring(0, 255) || validated.email || 'Sem nome',
-          email: validated.email,
-          whatsapp: validated.phone,
-          company: validated.orgname,
-          confection_type: validated.tags.length > 0 ? validated.tags[0] : null,
-          stage: 'prospeccao',
-          temperature: 'frio',
-          is_new: true,
-          activecampaign_id: validated.id,
-          value: 0,
-          history: [{
-            type: 'sistema',
-            note: `Lead importado automaticamente do ActiveCampaign em ${new Date().toLocaleDateString('pt-BR')}${tagsNote}`,
-            date: new Date().toISOString(),
-            user: 'Sistema'
-          }]
-        };
+      const validated = validateContact(contact, contactTags);
+      if (!validated) {
+        validationErrors++;
+        continue;
+      }
+      
+      const fullName = `${validated.firstName} ${validated.lastName}`.trim();
+      const tagsNote = validated.tags.length > 0 ? ` | Tags: ${validated.tags.join(', ')}` : '';
+      
+      leadsToInsert.push({
+        user_id: userId,
+        name: fullName.substring(0, 255) || validated.email || 'Sem nome',
+        email: validated.email,
+        whatsapp: validated.phone,
+        company: validated.orgname,
+        confection_type: validated.tags.length > 0 ? validated.tags[0] : null,
+        stage: 'prospeccao',
+        temperature: 'frio',
+        is_new: true,
+        activecampaign_id: validated.id,
+        value: 0,
+        responsible_user_id: userId,
+        history: [{
+          type: 'sistema',
+          note: `Lead importado do ActiveCampaign em ${new Date().toLocaleDateString('pt-BR')}${tagsNote}`,
+          date: new Date().toISOString(),
+          user: 'Sistema'
+        }]
+      });
+    }
 
-        const { error: insertError } = await supabase
-          .from('leads')
-          .insert(leadData);
+    let imported = 0;
+    let dbErrors = 0;
 
-        if (insertError) {
-          console.error('Error inserting lead:', insertError);
-          errorCount.database++;
-        } else {
-          imported++;
-        }
-      } catch (e) {
-        console.error('Error processing contact:', e);
-        errorCount.database++;
+    // Insert in batches of 50
+    for (let i = 0; i < leadsToInsert.length; i += 50) {
+      const batch = leadsToInsert.slice(i, i + 50);
+      const { error: insertError, data: insertedData } = await supabase
+        .from('leads')
+        .insert(batch);
+
+      if (insertError) {
+        console.error('Batch insert error:', insertError);
+        dbErrors += batch.length;
+      } else {
+        imported += batch.length;
       }
     }
 
@@ -252,8 +263,8 @@ serve(async (req) => {
         imported, 
         total: contacts.length,
         skipped: contacts.length - newContacts.length,
-        errors: errorCount.validation + errorCount.database > 0 
-          ? `${errorCount.validation} validação, ${errorCount.database} banco de dados`
+        errors: (validationErrors + dbErrors > 0) 
+          ? `${validationErrors} validação, ${dbErrors} banco de dados`
           : undefined
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
