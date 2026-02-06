@@ -1,17 +1,29 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Lead } from '@/types/lead';
 
-// Parse meeting_date properly - handles both datetime-local format and ISO
+// Parse meeting_date as LOCAL (Brasília) time, stripping any UTC/timezone offset.
+// Meeting dates are stored as "wall time" in the DB — the +00 offset is an artifact
+// of the timestamptz column, not an actual UTC conversion.
 function parseMeetingDate(dateStr: string): Date {
-  // If it's datetime-local format (YYYY-MM-DDTHH:mm), parse as local time
-  if (dateStr.length === 16 && dateStr.includes('T')) {
-    const [datePart, timePart] = dateStr.split('T');
+  // Strip timezone offset (+00, +00:00, -03:00, Z) to get raw local components
+  const cleanStr = dateStr
+    .replace(/[+-]\d{2}(:\d{2})?$/, '')
+    .replace('Z', '')
+    .trim();
+
+  if (cleanStr.includes('T')) {
+    const [datePart, timePart] = cleanStr.split('T');
     const [year, month, day] = datePart.split('-').map(Number);
-    const [hours, minutes] = timePart.split(':').map(Number);
+    const timeParts = timePart.split(':').map(Number);
+    const hours = timeParts[0] || 0;
+    const minutes = timeParts[1] || 0;
+    // Construct as local time (browser timezone = Brasília)
     return new Date(year, month - 1, day, hours, minutes);
   }
-  // Otherwise parse as ISO
-  return new Date(dateStr);
+
+  // Date-only fallback
+  const [year, month, day] = cleanStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
 }
 
 export function useMeetingReminder(leads: Lead[]) {

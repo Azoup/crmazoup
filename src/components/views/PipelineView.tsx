@@ -1,10 +1,8 @@
-import { useState } from 'react';
 import { Lead, LeadStage, LeadHistory, MeetingStatus, STAGE_COLORS } from '@/types/lead';
 import { LeadCard } from '@/components/leads/LeadCard';
 import { formatCurrency, cleanPhoneNumber } from '@/lib/utils';
 import { DollarSign } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { MeetingStatusModal } from '@/components/modals/MeetingStatusModal';
 import { useCelebration } from '@/hooks/useCelebration';
 
 interface PipelineViewProps {
@@ -35,7 +33,6 @@ export function PipelineView({
   msgTemplate 
 }: PipelineViewProps) {
   const { profile } = useAuth();
-  const [meetingStatusLead, setMeetingStatusLead] = useState<Lead | null>(null);
   const { celebrateMeeting, celebrateSale } = useCelebration();
   
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
@@ -48,11 +45,10 @@ export function PipelineView({
     const lead = leads.find(l => l.id === leadId);
     if (!lead || lead.stage === targetStage) return;
     
-    // If moving to 'reuniao' stage, show meeting status modal and celebrate
+    // Moving to 'reuniao' stage - just move, no popup
+    // The meeting status popup will appear 1h after the scheduled meeting time
     if (targetStage === 'reuniao' && lead.stage !== 'reuniao') {
-      setMeetingStatusLead(lead);
       celebrateMeeting(); // 🎉 Animação de confete laranja + buzina
-      return;
     }
     
     const updates: Partial<Lead> = { stage: targetStage };
@@ -73,27 +69,8 @@ export function PipelineView({
     await updateLead(leadId, updates);
   };
 
-  const handleMeetingStatusSelect = async (leadId: string, status: MeetingStatus) => {
-    const updates: Partial<Lead> = { 
-      stage: 'reuniao',
-      meeting_status: status 
-    };
-    
-    await updateLead(leadId, updates);
-    
-    // Add history entry
-    const statusLabels: Record<string, string> = {
-      compareceu: '✅ Compareceu à reunião',
-      no_show: '❌ No Show - não compareceu',
-      reagendar: '📅 Reunião reagendada',
-    };
-    
-    if (status) {
-      await addHistory(leadId, 'reuniao_status', statusLabels[status] || 'Status de reunião atualizado');
-    }
-    
-    setMeetingStatusLead(null);
-  };
+
+
 
   const sendWhatsApp = async (lead: Lead, msg: string = msgTemplate) => {
     if (!lead.whatsapp) {
@@ -169,14 +146,6 @@ export function PipelineView({
           );
         })}
       </div>
-
-      {meetingStatusLead && (
-        <MeetingStatusModal
-          lead={meetingStatusLead}
-          onClose={() => setMeetingStatusLead(null)}
-          onSelectStatus={handleMeetingStatusSelect}
-        />
-      )}
     </div>
   );
 }
