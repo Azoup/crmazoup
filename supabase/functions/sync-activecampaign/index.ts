@@ -52,7 +52,6 @@ function validateContact(contact: unknown, contactTags: Record<string, string[]>
   };
 }
 
-// Fetch all contacts with pagination
 async function fetchAllContacts(acUrl: string, acApiKey: string): Promise<any[]> {
   const allContacts: any[] = [];
   let offset = 0;
@@ -80,12 +79,10 @@ async function fetchAllContacts(acUrl: string, acApiKey: string): Promise<any[]>
   return allContacts;
 }
 
-// Fetch tags for multiple contacts in batches
 async function fetchContactTags(contacts: any[], acUrl: string, acApiKey: string): Promise<Record<string, string[]>> {
   const contactTags: Record<string, string[]> = {};
   const tagNameCache: Record<string, string> = {};
   
-  // Process in batches of 10 to avoid too many concurrent requests
   const batchSize = 10;
   for (let i = 0; i < contacts.length; i += batchSize) {
     const batch = contacts.slice(i, i + batchSize);
@@ -184,28 +181,11 @@ serve(async (req) => {
     const contactTags = await fetchContactTags(contacts, acUrl, acApiKey);
     console.log('Tags fetched');
 
-    // Get existing leads to avoid duplicates
-    const { data: existingLeads } = await supabase
-      .from('leads')
-      .select('activecampaign_id')
-      .eq('user_id', userId)
-      .not('activecampaign_id', 'is', null);
-
-    const existingAcIds = new Set((existingLeads || []).map((l: any) => l.activecampaign_id));
-
-    const newContacts = contacts.filter((c: unknown) => {
-      if (!c || typeof c !== 'object') return false;
-      const id = (c as Record<string, unknown>).id;
-      return id && !existingAcIds.has(String(id));
-    });
-
-    console.log(`${newContacts.length} new contacts to import`);
-
-    // Batch insert for better performance
-    const leadsToInsert: any[] = [];
+    // Build leads to upsert - ALL contacts, using activecampaign_id as the dedup key
+    const leadsToUpsert: any[] = [];
     let validationErrors = 0;
 
-    for (const contact of newContacts) {
+    for (const contact of contacts) {
       const validated = validateContact(contact, contactTags);
       if (!validated) {
         validationErrors++;
@@ -215,7 +195,7 @@ serve(async (req) => {
       const fullName = `${validated.firstName} ${validated.lastName}`.trim();
       const tagsNote = validated.tags.length > 0 ? ` | Tags: ${validated.tags.join(', ')}` : '';
       
-      leadsToInsert.push({
+      leadsToUpsert.push({
         user_id: userId,
         name: fullName.substring(0, 255) || validated.email || 'Sem nome',
         email: validated.email,
@@ -227,7 +207,6 @@ serve(async (req) => {
         is_new: true,
         activecampaign_id: validated.id,
         value: 0,
-        responsible_user_id: userId,
         history: [{
           type: 'sistema',
           note: `Lead importado do ActiveCampaign em ${new Date().toLocaleDateString('pt-BR')}${tagsNote}`,
@@ -237,32 +216,43 @@ serve(async (req) => {
       });
     }
 
+    console.log(`${leadsToUpsert.length} contacts to upsert (dedup by activecampaign_id + user_id)`);
+
     let imported = 0;
     let dbErrors = 0;
 
-    // Insert in batches of 50
-    for (let i = 0; i < leadsToInsert.length; i += 50) {
-      const batch = leadsToInsert.slice(i, i + 50);
-      const { error: insertError, data: insertedData } = await supabase
-        .from('leads')
-        .insert(batch);
+    // Use the admin client for upsert with onConflict
+    const adminSupabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
 
-      if (insertError) {
-        console.error('Batch insert error:', insertError);
+    // Upsert in batches of 50, using activecampaign_id + user_id as conflict key
+    // ignoreDuplicates=true means existing leads are NOT overwritten
+    for (let i = 0; i < leadsToUpsert.length; i += 50) {
+      const batch = leadsToUpsert.slice(i, i + 50);
+      const { error: upsertError } = await adminSupabase
+        .from('leads')
+        .upsert(batch, {
+          onConflict: 'activecampaign_id,user_id',
+          ignoreDuplicates: true,
+        });
+
+      if (upsertError) {
+        console.error('Batch upsert error:', upsertError.message);
         dbErrors += batch.length;
       } else {
         imported += batch.length;
       }
     }
 
-    console.log(`Successfully imported ${imported} leads`);
+    console.log(`Successfully processed ${imported} leads (duplicates skipped)`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         imported, 
         total: contacts.length,
-        skipped: contacts.length - newContacts.length,
         errors: (validationErrors + dbErrors > 0) 
           ? `${validationErrors} validação, ${dbErrors} banco de dados`
           : undefined
