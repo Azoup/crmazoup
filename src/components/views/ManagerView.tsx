@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Lead, LeadStage, STAGE_LABELS } from '@/types/lead';
 import { formatCurrency } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   Users, TrendingUp, AlertTriangle, Target, DollarSign, Clock,
   RefreshCw, UserPlus, UserMinus, MessageSquare, Calendar, Phone,
-  Mail, ExternalLink, ChevronDown, ChevronUp, Sparkles, LayoutGrid, BarChart3, Trash2
+  Mail, ExternalLink, ChevronDown, ChevronUp, Sparkles, LayoutGrid, BarChart3, Trash2, UserCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,6 +41,7 @@ interface ManagerViewProps {
 type ManagerSubView = 'pipeline' | 'metrics';
 
 export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, percentGoal }: ManagerViewProps) {
+  const { user, profile } = useAuth();
   const {
     sdrs,
     allLeads,
@@ -48,6 +50,7 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
     addSDRById,
     removeSDR,
     updateLeadManagerNotes,
+    updateLeadResponsible,
     deleteLead,
     syncActiveCampaign,
     refreshData,
@@ -58,6 +61,7 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
   const [expandedSDR, setExpandedSDR] = useState<string | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [managerNotes, setManagerNotes] = useState('');
+  const [selectedResponsible, setSelectedResponsible] = useState<string>('');
   const [subView, setSubView] = useState<ManagerSubView>('pipeline');
   const [selectedSDRFilter, setSelectedSDRFilter] = useState<string | null>(null);
 
@@ -105,6 +109,7 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
   const openLeadNotes = (lead: Lead) => {
     setSelectedLead(lead);
     setManagerNotes(lead.manager_notes || '');
+    setSelectedResponsible(lead.responsible_user_id || lead.user_id);
   };
 
   const stageColors: Record<LeadStage, string> = {
@@ -470,6 +475,41 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
                   <p className="text-sm">{selectedLead.meeting_needs}</p>
                 </div>
               )}
+
+              {/* Responsible Person Selector */}
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
+                  <UserCheck size={14} /> Responsável pelo Lead
+                </label>
+                <Select
+                  value={selectedResponsible}
+                  onValueChange={(value) => {
+                    setSelectedResponsible(value);
+                    if (selectedLead) {
+                      updateLeadResponsible(selectedLead.id, value);
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o responsável" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {user && (
+                      <SelectItem value={user.id}>
+                        {profile?.name || 'Gestor'} (Gestor)
+                      </SelectItem>
+                    )}
+                    {sdrs.map(sdr => (
+                      <SelectItem key={sdr.user_id} value={sdr.user_id}>
+                        {sdr.name} (SDR)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  As métricas do lead serão atribuídas ao responsável selecionado.
+                </p>
+              </div>
 
               <div>
                 <label className="text-sm font-medium text-foreground mb-2 block">

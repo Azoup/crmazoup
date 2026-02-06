@@ -65,6 +65,7 @@ function transformDbLead(dbLead: any): Lead {
     meeting_status: dbLead.meeting_status ?? null,
     reference_month: dbLead.reference_month ?? null,
     pieces_per_month: dbLead.pieces_per_month != null ? Number(dbLead.pieces_per_month) : null,
+    responsible_user_id: dbLead.responsible_user_id ?? null,
   };
 }
 
@@ -364,6 +365,7 @@ export function useLeads() {
         is_new: false,
         meeting_status: updates.meeting_status ?? currentLead.meeting_status ?? null,
         pieces_per_month: updates.pieces_per_month ?? currentLead.pieces_per_month ?? null,
+        responsible_user_id: updates.responsible_user_id ?? currentLead.responsible_user_id ?? null,
       };
 
       const { error } = await supabase

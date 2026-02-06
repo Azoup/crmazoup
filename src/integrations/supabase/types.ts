@@ -39,6 +39,7 @@ export type Database = {
           next_contact: string | null
           pieces_per_month: number | null
           reference_month: string | null
+          responsible_user_id: string | null
           stage: string
           temperature: string
           updated_at: string
@@ -71,6 +72,7 @@ export type Database = {
           next_contact?: string | null
           pieces_per_month?: number | null
           reference_month?: string | null
+          responsible_user_id?: string | null
           stage?: string
           temperature?: string
           updated_at?: string
@@ -103,6 +105,7 @@ export type Database = {
           next_contact?: string | null
           pieces_per_month?: number | null
           reference_month?: string | null
+          responsible_user_id?: string | null
           stage?: string
           temperature?: string
           updated_at?: string
