@@ -476,40 +476,7 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
                 </div>
               )}
 
-              {/* Responsible Person Selector */}
-              <div>
-                <label className="text-sm font-medium text-foreground mb-2 block flex items-center gap-2">
-                  <UserCheck size={14} /> Responsável pelo Lead
-                </label>
-                <Select
-                  value={selectedResponsible}
-                  onValueChange={(value) => {
-                    setSelectedResponsible(value);
-                    if (selectedLead) {
-                      updateLeadResponsible(selectedLead.id, value);
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o responsável" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {user && (
-                      <SelectItem value={user.id}>
-                        {profile?.name || 'Gestor'} (Gestor)
-                      </SelectItem>
-                    )}
-                    {sdrs.map(sdr => (
-                      <SelectItem key={sdr.user_id} value={sdr.user_id}>
-                        {sdr.name} (SDR)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  As métricas do lead serão atribuídas ao responsável selecionado.
-                </p>
-              </div>
+              {/* Responsible person is now managed by the SDR in the LeadModal */}
 
               <div>
                 <label className="text-sm font-medium text-foreground mb-2 block">

@@ -8,10 +8,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   XCircle, User, MessageCircle, Calendar, Trash2, Save, 
   Sparkles, ChevronRight, RefreshCw, CheckCircle, Loader2, FileText,
-  Phone, Mail, StickyNote, History
+  Phone, Mail, StickyNote, History, UserCheck
 } from 'lucide-react';
 
 interface LeadModalProps {
@@ -32,7 +39,7 @@ const ACTIVITY_TYPES = [
 ];
 
 export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemplate, onUpdateTemplate }: LeadModalProps) {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('info');
   const [showLossModal, setShowLossModal] = useState(false);
@@ -40,14 +47,45 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentTemplate, setCurrentTemplate] = useState(msgTemplate);
   const [isSaving, setIsSaving] = useState(false);
+  const [managerProfile, setManagerProfile] = useState<{ user_id: string; name: string } | null>(null);
   
   const [formData, setFormData] = useState<Partial<Lead>>({
     name: '', company: '', confection_type: '', whatsapp: '', email: '',
     temperature: 'frio', value: 0, implementation_value: 0, monthly_value: 0,
     next_contact: '', stage: 'prospeccao',
     meeting_pain: '', meeting_link: '', meeting_date: '', history: [],
-    pieces_per_month: null,
+    pieces_per_month: null, responsible_user_id: null,
   });
+
+  // Fetch the manager who manages this SDR (if any)
+  useEffect(() => {
+    const fetchManager = async () => {
+      if (!user) return;
+      try {
+        const { data: relations } = await supabase
+          .from('manager_sdr_relations')
+          .select('manager_id')
+          .eq('sdr_id', user.id)
+          .limit(1);
+        
+        if (relations && relations.length > 0) {
+          const managerId = relations[0].manager_id;
+          const { data: mgrProfile } = await supabase
+            .from('profiles')
+            .select('user_id, name')
+            .eq('user_id', managerId)
+            .maybeSingle();
+          
+          if (mgrProfile) {
+            setManagerProfile(mgrProfile);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching manager:', err);
+      }
+    };
+    fetchManager();
+  }, [user]);
 
   useEffect(() => {
     if (lead) {
@@ -58,7 +96,7 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
         temperature: 'frio', value: 0, implementation_value: 0, monthly_value: 0,
         next_contact: '', stage: 'prospeccao',
         meeting_pain: '', meeting_link: '', meeting_date: '', history: [],
-        pieces_per_month: null,
+        pieces_per_month: null, responsible_user_id: null,
       });
     }
     setNoteText('');
@@ -383,6 +421,39 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
                       ))}
                     </div>
                   </div>
+                  {/* Responsible Person Selector - visible to SDRs */}
+                  {lead && (managerProfile || profile?.role === 'Gestor') && (
+                    <div className="md:col-span-2 bg-muted/50 p-3 rounded-lg border border-border">
+                      <Label className="mb-2 block flex items-center gap-2">
+                        <UserCheck size={14} /> Responsável pelo Lead
+                      </Label>
+                      <Select
+                        value={formData.responsible_user_id || formData.user_id || ''}
+                        onValueChange={(value) => {
+                          setFormData(prev => ({ ...prev, responsible_user_id: value }));
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o responsável" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {user && (
+                            <SelectItem value={user.id}>
+                              {profile?.name || 'Eu'} ({profile?.role || 'SDR'})
+                            </SelectItem>
+                          )}
+                          {managerProfile && managerProfile.user_id !== user?.id && (
+                            <SelectItem value={managerProfile.user_id}>
+                              {managerProfile.name} (Gestor)
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        As métricas do lead serão atribuídas ao responsável selecionado.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
