@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { 
   Users, TrendingUp, AlertTriangle, Target, DollarSign, Clock,
   RefreshCw, UserPlus, UserMinus, MessageSquare, Calendar, Phone,
-  Mail, ExternalLink, ChevronDown, ChevronUp, Sparkles, LayoutGrid, BarChart3, Trash2, UserCheck
+  Mail, ExternalLink, ChevronDown, ChevronUp, Sparkles, LayoutGrid, BarChart3, Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -61,7 +61,7 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
   const [expandedSDR, setExpandedSDR] = useState<string | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [managerNotes, setManagerNotes] = useState('');
-  const [selectedResponsible, setSelectedResponsible] = useState<string>('');
+  
   const [subView, setSubView] = useState<ManagerSubView>('pipeline');
   const [selectedSDRFilter, setSelectedSDRFilter] = useState<string | null>(null);
 
@@ -109,7 +109,6 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
   const openLeadNotes = (lead: Lead) => {
     setSelectedLead(lead);
     setManagerNotes(lead.manager_notes || '');
-    setSelectedResponsible(lead.responsible_user_id || lead.user_id);
   };
 
   const stageColors: Record<LeadStage, string> = {
