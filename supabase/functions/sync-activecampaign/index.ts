@@ -56,8 +56,8 @@ async function fetchAllContacts(acUrl: string, acApiKey: string): Promise<any[]>
   const allContacts: any[] = [];
   let offset = 0;
   const limit = 100;
-  // Only fetch contacts created from 2026-01-01 onwards
-  const minDate = '2026-01-01T00:00:00-03:00';
+  // Only fetch contacts created from 2025-12-01 onwards
+  const minDate = '2025-12-01T00:00:00-03:00';
   
   while (true) {
     console.log(`Fetching contacts offset=${offset}...`);
