@@ -56,12 +56,15 @@ async function fetchAllContacts(acUrl: string, acApiKey: string): Promise<any[]>
   const allContacts: any[] = [];
   let offset = 0;
   const limit = 100;
+  // Only fetch contacts created from 2026-01-01 onwards
+  const minDate = '2026-01-01T00:00:00-03:00';
   
   while (true) {
     console.log(`Fetching contacts offset=${offset}...`);
-    const response = await fetch(`${acUrl}/api/3/contacts?limit=${limit}&offset=${offset}&orders[cdate]=DESC`, {
-      headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' },
-    });
+    const response = await fetch(
+      `${acUrl}/api/3/contacts?limit=${limit}&offset=${offset}&orders[cdate]=DESC&filters[created_after]=${encodeURIComponent(minDate)}`,
+      { headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' } }
+    );
     
     if (!response.ok) {
       console.error('AC API error at offset', offset, await response.text());
