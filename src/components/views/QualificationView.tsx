@@ -1,11 +1,12 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { Lead, STAGE_LABELS } from '@/types/lead';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { formatDate } from '@/lib/utils';
 import { 
   ThermometerSun, XCircle, AlertTriangle, TrendingDown, 
-  BarChart3, Users, Snowflake, Target
+  BarChart3, Users, Snowflake, Target, Download
 } from 'lucide-react';
 
 interface QualificationViewProps {
@@ -96,8 +97,59 @@ export function QualificationView({ leads }: QualificationViewProps) {
     'bg-destructive/80', 'bg-warning/80', 'bg-primary/80', 'bg-info/80', 'bg-muted-foreground/50'
   ];
 
+  const downloadCSV = useCallback(() => {
+    const headers = ['Lead', 'Empresa', 'Tipo', 'Status', 'Motivo', 'Data de Atualização'];
+    const rows = stats.disqualified
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      .map(lead => [
+        lead.name,
+        lead.company || '-',
+        lead.confection_type || '-',
+        STAGE_LABELS[lead.stage] || lead.stage,
+        lead.loss_reason || '-',
+        formatDate(lead.updated_at),
+      ]);
+
+    // Summary section
+    const summary = [
+      [],
+      ['--- RESUMO ---'],
+      ['Total de Leads', stats.total.toString()],
+      ['Taxa de Qualificação', `${stats.qualificationRate.toFixed(1)}%`],
+      ['Taxa de Desqualificação', `${stats.disqualificationRate.toFixed(1)}%`],
+      ['Taxa de Conversão', `${stats.conversionRate.toFixed(1)}%`],
+      ['Leads Perdidos', stats.lost.length.toString()],
+      ['Leads Congelados', stats.frozen.length.toString()],
+      [],
+      ['--- MOTIVOS DE PERDA ---'],
+      ...stats.lossReasonStats.map(s => [s.reason, `${s.count} (${s.percent.toFixed(0)}%)`]),
+    ];
+
+    const csvContent = [
+      headers.join(';'),
+      ...rows.map(r => r.map(c => `"${c}"`).join(';')),
+      ...summary.map(r => r.join(';')),
+    ].join('\n');
+
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `relatorio-qualificacao-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [stats]);
+
   return (
     <div className="space-y-6">
+      {/* Download button */}
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={downloadCSV} className="gap-2">
+          <Download size={14} />
+          Baixar Relatório CSV
+        </Button>
+      </div>
       {/* Thermometer Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Main Thermometer */}
