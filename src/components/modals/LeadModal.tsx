@@ -710,7 +710,7 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
           <div className="absolute inset-0 bg-card/95 z-50 flex flex-col items-center justify-center p-8">
             <h3 className="text-xl font-bold text-foreground mb-4">Qual o motivo da perda?</h3>
             <div className="grid grid-cols-2 gap-3 w-full max-w-sm">
-              {['Preço', 'Sem Interesse', 'Já possui sistema', 'Não Responde', 'Outro'].map(reason => (
+              {['Preço', 'Sem Interesse', 'Já possui sistema', 'Não Responde', 'Pequeno', 'Fechou com outra empresa', 'Deixou pro futuro', 'Outro'].map(reason => (
                 <Button key={reason} variant="outline" onClick={() => markAsLost(reason)}>{reason}</Button>
               ))}
             </div>
