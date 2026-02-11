@@ -67,8 +67,10 @@ export function PipelineView({
     }
     
     if (targetStage === 'perdidos') {
-      const reason = prompt("Motivo da perda?") || 'Não Informado';
-      updates.loss_reason = reason;
+      const options = ['Preço', 'Sem Interesse', 'Já possui sistema', 'Não Responde', 'Pequeno', 'Fechou com outra empresa', 'Deixou pro futuro', 'Outro'];
+      const reason = prompt(`Motivo da perda?\n\nOpções:\n${options.map((o, i) => `${i + 1}. ${o}`).join('\n')}\n\nDigite o número ou o motivo:`) || 'Não Informado';
+      const numChoice = parseInt(reason);
+      updates.loss_reason = (numChoice >= 1 && numChoice <= options.length) ? options[numChoice - 1] : reason;
     }
     
     await updateLead(leadId, updates);
