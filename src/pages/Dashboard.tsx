@@ -8,6 +8,7 @@ import { FilterBar } from '@/components/layout/FilterBar';
 import { PipelineView } from '@/components/views/PipelineView';
 import { WeeklyAgendaView } from '@/components/views/WeeklyAgendaView';
 import { SalesView } from '@/components/views/SalesView';
+import { QualificationView } from '@/components/views/QualificationView';
 import { ManagerView } from '@/components/views/ManagerView';
 import { LeadModal } from '@/components/modals/LeadModal';
 import { ProfileModal } from '@/components/modals/ProfileModal';
@@ -17,7 +18,7 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
-type ViewType = 'pipeline' | 'agenda' | 'vendas' | 'gestor';
+type ViewType = 'pipeline' | 'agenda' | 'vendas' | 'qualificacao' | 'gestor';
 
 export function Dashboard() {
   const { profile } = useAuth();
@@ -177,6 +178,10 @@ export function Dashboard() {
             leads={leads}
             onUpdateGoal={(goal) => updateSettings({ sales_goal: goal })}
           />
+        )}
+        
+        {view === 'qualificacao' && (
+          <QualificationView leads={leads} />
         )}
         
         {view === 'gestor' && isManager && (

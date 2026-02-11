@@ -4,7 +4,7 @@ import { Lead } from '@/types/lead';
 import { formatTime } from '@/lib/utils';
 import { 
   Cloud, Bell, UserCircle, 
-  LayoutDashboard, CalendarDays, TrendingUp, Users, Sparkles, RefreshCw
+  LayoutDashboard, CalendarDays, TrendingUp, Users, Sparkles, RefreshCw, ClipboardCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
@@ -141,6 +141,7 @@ export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncA
           <NavButton active={view === 'pipeline'} onClick={() => setView('pipeline')} icon={LayoutDashboard} label="Pipeline" />
           <NavButton active={view === 'agenda'} onClick={() => setView('agenda')} icon={CalendarDays} label="Agenda" />
           <NavButton active={view === 'vendas'} onClick={() => setView('vendas')} icon={TrendingUp} label="Vendas" />
+          <NavButton active={view === 'qualificacao'} onClick={() => setView('qualificacao')} icon={ClipboardCheck} label="Qualificação" />
           {isManager && <NavButton active={view === 'gestor'} onClick={() => setView('gestor')} icon={Users} label="Gestor" />}
         </nav>
         
