@@ -5,13 +5,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { 
   Users, TrendingUp, AlertTriangle, Target, DollarSign, Clock,
   RefreshCw, UserPlus, UserMinus, MessageSquare, Calendar, Phone,
-  Mail, ExternalLink, ChevronDown, ChevronUp, Sparkles, LayoutGrid, BarChart3, Trash2
+  Mail, ExternalLink, ChevronDown, ChevronUp, Sparkles, LayoutGrid, BarChart3, Trash2, FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useManagerData } from '@/hooks/useManagerData';
 import { ManagerPipelineView } from './ManagerPipelineView';
+import { ProposalModal } from '@/components/modals/ProposalModal';
 import {
   Dialog,
   DialogContent,
@@ -61,6 +62,7 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
   const [expandedSDR, setExpandedSDR] = useState<string | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [managerNotes, setManagerNotes] = useState('');
+  const [proposalLead, setProposalLead] = useState<Lead | null>(null);
   
   const [subView, setSubView] = useState<ManagerSubView>('pipeline');
   const [selectedSDRFilter, setSelectedSDRFilter] = useState<string | null>(null);
@@ -493,6 +495,17 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
                 <Button onClick={handleSaveManagerNotes} className="flex-1">
                   Salvar Notas
                 </Button>
+                {selectedLead?.stage === 'proposta' && (
+                  <Button
+                    variant="outline"
+                    className="gap-2 border-primary text-primary"
+                    onClick={() => {
+                      setProposalLead(selectedLead);
+                    }}
+                  >
+                    <FileText size={16} /> Gerar Proposta
+                  </Button>
+                )}
                 <Button 
                   variant="destructive" 
                   size="icon"
@@ -511,6 +524,12 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
           )}
         </DialogContent>
       </Dialog>
+      {/* Proposal Modal */}
+      <ProposalModal
+        lead={proposalLead}
+        open={!!proposalLead}
+        onClose={() => setProposalLead(null)}
+      />
     </div>
   );
 }
