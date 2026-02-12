@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Lead } from '@/types/lead';
 import { formatCurrency, cleanPhoneNumber } from '@/lib/utils';
 import {
@@ -121,10 +121,29 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
   const [selectedPlans, setSelectedPlans] = useState<SelectedPlanConfig[]>([
     { planId: '', customImplementation: '', customMonthly: '', customHours: '' },
   ]);
+  const [companyName, setCompanyName] = useState('');
   const [paymentTerms, setPaymentTerms] = useState('');
   const [responsibleName, setResponsibleName] = useState('Samuel Fernandes');
   const [additionalNotes, setAdditionalNotes] = useState('');
   const [discount, setDiscount] = useState('');
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
+
+  // Load logo as base64 for PDF embedding
+  useEffect(() => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        setLogoBase64(canvas.toDataURL('image/jpeg'));
+      }
+    };
+    img.src = '/images/azoup-logo.jpeg';
+  }, []);
 
   const addPlanSlot = () => {
     setSelectedPlans(prev => [...prev, { planId: '', customImplementation: '', customMonthly: '', customHours: '' }]);
@@ -192,14 +211,31 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
     doc.setFillColor(...darkOrange);
     doc.rect(0, 42, pageWidth, 3, 'F');
 
-    doc.setTextColor(...white);
-    doc.setFontSize(28);
-    doc.setFont('helvetica', 'bold');
-    doc.text('AZOUP', margin, 22);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text('TECNOLOGIA', margin, 30);
+    // Logo
+    if (logoBase64) {
+      try {
+        doc.addImage(logoBase64, 'JPEG', margin, 5, 50, 35);
+      } catch (e) {
+        // Fallback text if logo fails
+        doc.setTextColor(...white);
+        doc.setFontSize(28);
+        doc.setFont('helvetica', 'bold');
+        doc.text('AZOUP', margin, 22);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text('TECNOLOGIA', margin, 30);
+      }
+    } else {
+      doc.setTextColor(...white);
+      doc.setFontSize(28);
+      doc.setFont('helvetica', 'bold');
+      doc.text('AZOUP', margin, 22);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text('TECNOLOGIA', margin, 30);
+    }
 
+    doc.setTextColor(...white);
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
     doc.text('PROPOSTA COMERCIAL', pageWidth - margin, 22, { align: 'right' });
@@ -224,9 +260,8 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.text(`Cliente: ${lead.name}`, margin + 6, y + 16);
-    doc.text(`Empresa: ${lead.company || '-'}`, margin + 6, y + 22);
-    doc.text(`Segmento: ${lead.confection_type || '-'}`, pageWidth / 2 + 5, y + 16);
-    doc.text(`Contato: ${lead.whatsapp || lead.email || '-'}`, pageWidth / 2 + 5, y + 22);
+    doc.text(`Empresa: ${companyName || lead.company || '-'}`, margin + 6, y + 22);
+    doc.text(`Contato: ${lead.whatsapp || lead.email || '-'}`, pageWidth / 2 + 5, y + 16);
 
     y += 38;
 
@@ -358,7 +393,7 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
     doc.text('Proposta válida por 15 dias', pageWidth - margin, footerY + 14, { align: 'right' });
 
     return doc;
-  }, [lead, selectedPlans, paymentTerms, responsibleName, additionalNotes, discount]);
+  }, [lead, selectedPlans, paymentTerms, responsibleName, additionalNotes, discount, companyName, logoBase64]);
 
   const handleDownloadPDF = () => {
     const doc = generatePDF();
@@ -473,6 +508,16 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
           <Button variant="outline" size="sm" onClick={addPlanSlot} className="gap-2 w-full">
             <Plus size={14} /> Adicionar outro plano
           </Button>
+
+          {/* Company Name */}
+          <div>
+            <Label className="text-sm font-bold">Nome da Empresa</Label>
+            <Input
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="Digite o nome da empresa do cliente"
+            />
+          </div>
 
           {/* Payment Terms */}
           <div>
