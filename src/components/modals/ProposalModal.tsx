@@ -203,49 +203,49 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
     const lightGray = [240, 240, 240] as [number, number, number];
     const white = [255, 255, 255] as [number, number, number];
 
-    // --- HEADER ---
+    // --- HEADER (white background) ---
+    // Thin orange accent line at very top
     doc.setFillColor(...orange);
-    doc.rect(0, 0, pageWidth, 45, 'F');
+    doc.rect(0, 0, pageWidth, 3, 'F');
 
-    // Decorative stripe
-    doc.setFillColor(...darkOrange);
-    doc.rect(0, 42, pageWidth, 3, 'F');
-
-    // Logo
+    // Logo - centered, proportional, no compression
     if (logoBase64) {
       try {
-        doc.addImage(logoBase64, 'JPEG', margin, 5, 50, 35);
+        // Use original aspect ratio - logo is roughly 2:1 ratio
+        const logoW = 60;
+        const logoH = 30;
+        const logoX = (pageWidth - logoW) / 2;
+        doc.addImage(logoBase64, 'JPEG', logoX, 8, logoW, logoH);
       } catch (e) {
-        // Fallback text if logo fails
-        doc.setTextColor(...white);
+        doc.setTextColor(...orange);
         doc.setFontSize(28);
         doc.setFont('helvetica', 'bold');
-        doc.text('AZOUP', margin, 22);
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text('TECNOLOGIA', margin, 30);
+        doc.text('AZOUP TECNOLOGIA', pageWidth / 2, 25, { align: 'center' });
       }
     } else {
-      doc.setTextColor(...white);
+      doc.setTextColor(...orange);
       doc.setFontSize(28);
       doc.setFont('helvetica', 'bold');
-      doc.text('AZOUP', margin, 22);
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text('TECNOLOGIA', margin, 30);
+      doc.text('AZOUP TECNOLOGIA', pageWidth / 2, 25, { align: 'center' });
     }
 
-    doc.setTextColor(...white);
+    // Title below logo
+    doc.setTextColor(...orange);
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text('PROPOSTA COMERCIAL', pageWidth - margin, 22, { align: 'right' });
+    doc.text('PROPOSTA COMERCIAL', pageWidth / 2, 46, { align: 'center' });
 
     const today = new Date().toLocaleDateString('pt-BR');
+    doc.setTextColor(...medGray);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text(today, pageWidth - margin, 32, { align: 'right' });
+    doc.text(today, pageWidth / 2, 53, { align: 'center' });
 
-    let y = 55;
+    // Orange divider line
+    doc.setFillColor(...orange);
+    doc.rect(margin, 57, contentWidth, 1.5, 'F');
+
+    let y = 63;
 
     // --- CLIENT INFO ---
     doc.setFillColor(...lightGray);
