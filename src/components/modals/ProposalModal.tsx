@@ -1,6 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Lead } from '@/types/lead';
 import { formatCurrency, cleanPhoneNumber } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
   DialogContent,
@@ -10,7 +13,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -26,6 +28,7 @@ interface ProposalModalProps {
   lead: Lead | null;
   open: boolean;
   onClose: () => void;
+  addHistory?: (leadId: string, type: string, note: string) => Promise<any>;
 }
 
 interface AzoupPlan {
@@ -117,7 +120,9 @@ interface SelectedPlanConfig {
   customHours: string;
 }
 
-export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
+export function ProposalModal({ lead, open, onClose, addHistory }: ProposalModalProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [selectedPlans, setSelectedPlans] = useState<SelectedPlanConfig[]>([
     { planId: '', customImplementation: '', customMonthly: '', customHours: '' },
   ]);
@@ -126,8 +131,16 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
   const [responsibleName, setResponsibleName] = useState('Samuel Fernandes');
   const [responsibleRole, setResponsibleRole] = useState('Diretor Comercial');
   const [additionalNotes, setAdditionalNotes] = useState('');
-  const [discount, setDiscount] = useState('Desconto para pagamento à vista: 10%');
+  const [discount, setDiscount] = useState('Desconto de 10% em pagamento a vista');
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Pre-populate company name from lead data
+  useEffect(() => {
+    if (lead && open) {
+      setCompanyName(lead.company || '');
+    }
+  }, [lead, open]);
 
   // Load logo as base64 for PDF embedding
   useEffect(() => {
@@ -184,6 +197,51 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
       });
   };
 
+  const saveProposalToDb = async (sentViaWhatsapp: boolean) => {
+    if (!lead || !user) return;
+    const plans = getActivePlans();
+    if (plans.length === 0) return;
+
+    const totalImpl = plans.reduce((a, p) => a + p.implementationValue, 0);
+    const totalMonthly = plans.reduce((a, p) => a + p.monthlyValue, 0);
+    const planNames = plans.map(p => p.name).join(', ');
+
+    try {
+      const { error } = await supabase
+        .from('proposals')
+        .insert({
+          lead_id: lead.id,
+          user_id: user.id,
+          company_name: companyName || lead.company || null,
+          plans: plans.map(p => ({ id: p.id, name: p.name, hours: p.hours, implementation: p.implementationValue, monthly: p.monthlyValue })),
+          payment_terms: paymentTerms,
+          discount,
+          responsible_name: responsibleName,
+          responsible_role: responsibleRole,
+          additional_notes: additionalNotes || null,
+          total_implementation: totalImpl,
+          total_monthly: totalMonthly,
+          sent_via_whatsapp: sentViaWhatsapp,
+        });
+
+      if (error) {
+        console.error('Error saving proposal:', error);
+      } else {
+        // Log in lead history
+        if (addHistory) {
+          const action = sentViaWhatsapp ? 'enviada via WhatsApp' : 'baixada em PDF';
+          await addHistory(
+            lead.id,
+            'proposta',
+            `Proposta ${action}: ${planNames} | Impl: ${formatCurrency(totalImpl)} | Mensal: ${formatCurrency(totalMonthly)}`
+          );
+        }
+      }
+    } catch (err) {
+      console.error('Unexpected error saving proposal:', err);
+    }
+  };
+
   const generatePDF = useCallback(() => {
     if (!lead) return;
 
@@ -198,21 +256,17 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
 
     // Colors
     const orange = [232, 120, 12] as [number, number, number];
-    const darkOrange = [200, 100, 10] as [number, number, number];
     const darkGray = [45, 45, 45] as [number, number, number];
     const medGray = [100, 100, 100] as [number, number, number];
     const lightGray = [240, 240, 240] as [number, number, number];
     const white = [255, 255, 255] as [number, number, number];
 
     // --- HEADER (white background) ---
-    // Thin orange accent line at very top
     doc.setFillColor(...orange);
     doc.rect(0, 0, pageWidth, 3, 'F');
 
-    // Logo - centered, proportional, no compression
     if (logoBase64) {
       try {
-        // Use original aspect ratio - logo is roughly 2:1 ratio
         const logoW = 60;
         const logoH = 30;
         const logoX = (pageWidth - logoW) / 2;
@@ -230,7 +284,6 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
       doc.text('AZOUP TECNOLOGIA', pageWidth / 2, 25, { align: 'center' });
     }
 
-    // Title below logo
     doc.setTextColor(...orange);
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
@@ -242,7 +295,6 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
     doc.setFont('helvetica', 'normal');
     doc.text(today, pageWidth / 2, 53, { align: 'center' });
 
-    // Orange divider line
     doc.setFillColor(...orange);
     doc.rect(margin, 57, contentWidth, 1.5, 'F');
 
@@ -267,14 +319,12 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
     y += 38;
 
     // --- PLANS ---
-    plans.forEach((plan, idx) => {
-      // Check if we need a new page
+    plans.forEach((plan) => {
       if (y > pageHeight - 80) {
         doc.addPage();
         y = 20;
       }
 
-      // Plan header
       doc.setFillColor(...orange);
       doc.roundedRect(margin, y, contentWidth, 10, 2, 2, 'F');
       doc.setTextColor(...white);
@@ -283,7 +333,6 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
       doc.text(plan.name, margin + 6, y + 7);
       y += 14;
 
-      // Features
       doc.setTextColor(...darkGray);
       doc.setFontSize(8.5);
       doc.setFont('helvetica', 'normal');
@@ -294,21 +343,19 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
           y = 20;
         }
         const isSubItem = feature.startsWith('  •');
-        const xPos = margin + (isSubItem ? 14 : 6);
         if (!isSubItem) {
           doc.setFont('helvetica', 'bold');
           doc.text('✓', margin + 6, y);
           doc.setFont('helvetica', 'normal');
           doc.text(feature, margin + 12, y);
         } else {
-          doc.text(feature, xPos, y);
+          doc.text(feature, margin + 14, y);
         }
         y += 5;
       });
 
       y += 3;
 
-      // Hours + Values box
       doc.setFillColor(...lightGray);
       doc.roundedRect(margin, y, contentWidth, 22, 2, 2, 'F');
 
@@ -375,7 +422,7 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
       doc.setTextColor(...white);
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.text(`DESCONTO: ${discount}`, pageWidth / 2, y + 7, { align: 'center' });
+      doc.text(discount, pageWidth / 2, y + 7, { align: 'center' });
       y += 16;
     }
 
@@ -397,14 +444,18 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
     return doc;
   }, [lead, selectedPlans, paymentTerms, responsibleName, responsibleRole, additionalNotes, discount, companyName, logoBase64]);
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     const doc = generatePDF();
     if (doc && lead) {
       doc.save(`proposta-${lead.name.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.pdf`);
+      setSaving(true);
+      await saveProposalToDb(false);
+      setSaving(false);
+      toast({ title: 'Proposta salva', description: 'Proposta registrada e PDF baixado com sucesso!' });
     }
   };
 
-  const handleSendWhatsApp = () => {
+  const handleSendWhatsApp = async () => {
     if (!lead?.whatsapp) return;
     const phone = cleanPhoneNumber(lead.whatsapp);
     const plans = getActivePlans();
@@ -423,6 +474,10 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
     );
 
     window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+    setSaving(true);
+    await saveProposalToDb(true);
+    setSaving(false);
+    toast({ title: 'Proposta salva', description: 'Proposta registrada e enviada via WhatsApp!' });
   };
 
   if (!lead) return null;
@@ -534,11 +589,11 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
 
           {/* Discount */}
           <div>
-            <Label className="text-sm font-bold">Desconto (opcional)</Label>
+            <Label className="text-sm font-bold">Desconto (texto livre)</Label>
             <Input
               value={discount}
               onChange={(e) => setDiscount(e.target.value)}
-              placeholder="Ex: 10% para pagamento à vista"
+              placeholder="Ex: Desconto de 10% em pagamento a vista"
             />
           </div>
 
@@ -573,14 +628,14 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">
-            <Button onClick={handleDownloadPDF} className="flex-1 gap-2" disabled={!getActivePlans().length}>
+            <Button onClick={handleDownloadPDF} className="flex-1 gap-2" disabled={!getActivePlans().length || saving}>
               <Download size={16} /> Baixar PDF
             </Button>
             <Button
-              onClick={() => { handleDownloadPDF(); handleSendWhatsApp(); }}
+              onClick={async () => { await handleDownloadPDF(); await handleSendWhatsApp(); }}
               variant="outline"
               className="flex-1 gap-2 border-green-500 text-green-600 hover:bg-green-50"
-              disabled={!lead.whatsapp || !getActivePlans().length}
+              disabled={!lead.whatsapp || !getActivePlans().length || saving}
             >
               <Send size={16} /> Enviar via WhatsApp
             </Button>
