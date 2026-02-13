@@ -122,10 +122,11 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
     { planId: '', customImplementation: '', customMonthly: '', customHours: '' },
   ]);
   const [companyName, setCompanyName] = useState('');
-  const [paymentTerms, setPaymentTerms] = useState('');
+  const [paymentTerms, setPaymentTerms] = useState('Entrada via Pix + 30/60/90/120 dias no boleto');
   const [responsibleName, setResponsibleName] = useState('Samuel Fernandes');
+  const [responsibleRole, setResponsibleRole] = useState('Diretor Comercial');
   const [additionalNotes, setAdditionalNotes] = useState('');
-  const [discount, setDiscount] = useState('');
+  const [discount, setDiscount] = useState('Desconto para pagamento à vista: 10%');
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
 
   // Load logo as base64 for PDF embedding
@@ -386,14 +387,15 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
     doc.setTextColor(...white);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.text('Azoup Tecnologia', margin, footerY + 8);
+    doc.text('Azoup Tecnologia', margin, footerY + 7);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.text(`Responsável: ${responsibleName}`, margin, footerY + 14);
-    doc.text('Proposta válida por 15 dias', pageWidth - margin, footerY + 14, { align: 'right' });
+    doc.text(`Responsável: ${responsibleName}`, margin, footerY + 12);
+    doc.text(`Cargo: ${responsibleRole}`, margin, footerY + 17);
+    doc.text('Proposta válida por 15 dias', pageWidth - margin, footerY + 17, { align: 'right' });
 
     return doc;
-  }, [lead, selectedPlans, paymentTerms, responsibleName, additionalNotes, discount, companyName, logoBase64]);
+  }, [lead, selectedPlans, paymentTerms, responsibleName, responsibleRole, additionalNotes, discount, companyName, logoBase64]);
 
   const handleDownloadPDF = () => {
     const doc = generatePDF();
@@ -417,7 +419,7 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
       `📅 Mensalidade: ${formatCurrency(totalMonthly)}\n` +
       (paymentTerms ? `\n💳 *Pagamento:* ${paymentTerms}\n` : '') +
       `\nO PDF completo será enviado em seguida.\n\n` +
-      `Att, ${responsibleName}\nAzoup Tecnologia`
+      `Att, ${responsibleName}\n${responsibleRole} — Azoup Tecnologia`
     );
 
     window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
@@ -546,6 +548,15 @@ export function ProposalModal({ lead, open, onClose }: ProposalModalProps) {
             <Input
               value={responsibleName}
               onChange={(e) => setResponsibleName(e.target.value)}
+            />
+          </div>
+
+          {/* Cargo */}
+          <div>
+            <Label className="text-sm font-bold">Cargo</Label>
+            <Input
+              value={responsibleRole}
+              onChange={(e) => setResponsibleRole(e.target.value)}
             />
           </div>
 
