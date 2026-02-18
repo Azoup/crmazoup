@@ -87,9 +87,27 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
     fetchManager();
   }, [user]);
 
+  // Track previous lead ID to only reset form when switching leads
+  const [prevLeadId, setPrevLeadId] = useState<string | null>(null);
+
   useEffect(() => {
+    const currentLeadId = lead?.id || null;
+    const isNewLead = currentLeadId !== prevLeadId;
+
+    if (isNewLead) {
+      setPrevLeadId(currentLeadId);
+      setNoteText('');
+      setActiveTab('info');
+    }
+
     if (lead) {
-      setFormData(lead);
+      // Only update formData fields that haven't been locally modified when it's the same lead
+      if (isNewLead) {
+        setFormData(lead);
+      } else {
+        // Update only history from external changes (realtime), preserve user edits
+        setFormData(prev => ({ ...prev, history: lead.history }));
+      }
     } else {
       setFormData({
         name: '', company: '', confection_type: '', whatsapp: '', email: '',
@@ -99,9 +117,11 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
         pieces_per_month: null, responsible_user_id: null,
       });
     }
-    setNoteText('');
+  }, [lead]);
+
+  useEffect(() => {
     setCurrentTemplate(msgTemplate);
-  }, [lead, msgTemplate]);
+  }, [msgTemplate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
