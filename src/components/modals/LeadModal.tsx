@@ -87,6 +87,10 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
     fetchManager();
   }, [user]);
 
+  // Persist drafts in localStorage so data survives browser tab switches
+  const draftKey = lead?.id ? `lead-draft-${lead.id}` : null;
+  const noteDraftKey = lead?.id ? `lead-note-draft-${lead.id}` : null;
+
   // Track previous lead ID to only reset form when switching leads
   const [prevLeadId, setPrevLeadId] = useState<string | null>(null);
 
@@ -96,14 +100,27 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
 
     if (isNewLead) {
       setPrevLeadId(currentLeadId);
-      setNoteText('');
       setActiveTab('info');
     }
 
     if (lead) {
-      // Only update formData fields that haven't been locally modified when it's the same lead
       if (isNewLead) {
-        setFormData(lead);
+        // Restore draft from localStorage if available
+        const savedDraft = draftKey ? localStorage.getItem(draftKey) : null;
+        const savedNote = noteDraftKey ? localStorage.getItem(noteDraftKey) : null;
+
+        if (savedDraft) {
+          try {
+            const parsed = JSON.parse(savedDraft);
+            // Merge saved draft with latest lead data (keep history from DB)
+            setFormData({ ...lead, ...parsed, history: lead.history });
+          } catch {
+            setFormData(lead);
+          }
+        } else {
+          setFormData(lead);
+        }
+        setNoteText(savedNote || '');
       } else {
         // Update only history from external changes (realtime), preserve user edits
         setFormData(prev => ({ ...prev, history: lead.history }));
@@ -116,8 +133,24 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
         meeting_pain: '', meeting_link: '', meeting_date: '', history: [],
         pieces_per_month: null, responsible_user_id: null,
       });
+      setNoteText('');
     }
   }, [lead]);
+
+  // Save formData draft to localStorage on changes
+  useEffect(() => {
+    if (draftKey) {
+      const { history, ...draftData } = formData;
+      localStorage.setItem(draftKey, JSON.stringify(draftData));
+    }
+  }, [formData, draftKey]);
+
+  // Save noteText draft to localStorage on changes
+  useEffect(() => {
+    if (noteDraftKey) {
+      localStorage.setItem(noteDraftKey, noteText);
+    }
+  }, [noteText, noteDraftKey]);
 
   useEffect(() => {
     setCurrentTemplate(msgTemplate);
@@ -152,7 +185,11 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
       };
 
       const success = await onSave(dataToSave);
-      if (!success) {
+      if (success) {
+        // Clear drafts from localStorage on successful save
+        if (draftKey) localStorage.removeItem(draftKey);
+        if (noteDraftKey) localStorage.removeItem(noteDraftKey);
+      } else {
         // Keep modal open - error already shown via toast in parent
         toast({
           title: 'Erro ao salvar',
