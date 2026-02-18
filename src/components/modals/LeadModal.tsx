@@ -90,6 +90,7 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
   // Persist drafts in localStorage so data survives browser tab switches
   const draftKey = lead?.id ? `lead-draft-${lead.id}` : null;
   const noteDraftKey = lead?.id ? `lead-note-draft-${lead.id}` : null;
+  const tabKey = lead?.id ? `lead-tab-${lead.id}` : null;
 
   // Track previous lead ID to only reset form when switching leads
   const [prevLeadId, setPrevLeadId] = useState<string | null>(null);
@@ -100,7 +101,9 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
 
     if (isNewLead) {
       setPrevLeadId(currentLeadId);
-      setActiveTab('info');
+      // Restore saved tab or default to 'info'
+      const savedTab = tabKey ? localStorage.getItem(tabKey) : null;
+      setActiveTab(savedTab || 'info');
     }
 
     if (lead) {
@@ -112,7 +115,6 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
         if (savedDraft) {
           try {
             const parsed = JSON.parse(savedDraft);
-            // Merge saved draft with latest lead data (keep history from DB)
             setFormData({ ...lead, ...parsed, history: lead.history });
           } catch {
             setFormData(lead);
@@ -122,7 +124,6 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
         }
         setNoteText(savedNote || '');
       } else {
-        // Update only history from external changes (realtime), preserve user edits
         setFormData(prev => ({ ...prev, history: lead.history }));
       }
     } else {
@@ -151,6 +152,13 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
       localStorage.setItem(noteDraftKey, noteText);
     }
   }, [noteText, noteDraftKey]);
+
+  // Save active tab to localStorage
+  useEffect(() => {
+    if (tabKey) {
+      localStorage.setItem(tabKey, activeTab);
+    }
+  }, [activeTab, tabKey]);
 
   useEffect(() => {
     setCurrentTemplate(msgTemplate);
@@ -189,6 +197,7 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
         // Clear drafts from localStorage on successful save
         if (draftKey) localStorage.removeItem(draftKey);
         if (noteDraftKey) localStorage.removeItem(noteDraftKey);
+        if (tabKey) localStorage.removeItem(tabKey);
       } else {
         // Keep modal open - error already shown via toast in parent
         toast({
