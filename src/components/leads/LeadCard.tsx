@@ -1,6 +1,6 @@
 import { Lead, LeadTemperature } from '@/types/lead';
 import { getDaysSince, formatCurrencyCompact } from '@/lib/utils';
-import { AlertTriangle, DollarSign, GripVertical, MessageCircle, Sparkles, UserCheck, UserX, Calendar } from 'lucide-react';
+import { AlertTriangle, DollarSign, GripVertical, MessageCircle, Sparkles, UserCheck, UserX, Calendar, Clock } from 'lucide-react';
 
 interface LeadCardProps {
   lead: Lead;
@@ -27,6 +27,32 @@ const meetingStatusConfig: Record<string, { label: string; color: string; icon: 
   reagendar: { label: 'Reagendar', color: 'bg-warning/10 text-warning', icon: Calendar },
 };
 
+function getNextContactStatus(nextContact: string | null | undefined): { label: string; colorClass: string } | null {
+  if (!nextContact) return null;
+  const now = new Date();
+  const contactDate = new Date(nextContact);
+  if (isNaN(contactDate.getTime())) return null;
+
+  const diffMs = contactDate.getTime() - now.getTime();
+  const diffMin = diffMs / (1000 * 60);
+
+  if (diffMin < 0) {
+    // Vencido
+    return { label: formatContactDateTime(contactDate), colorClass: 'bg-destructive/10 text-destructive border-destructive/30' };
+  } else if (diffMin <= 60) {
+    // Próximo de vencer (dentro de 60min)
+    return { label: formatContactDateTime(contactDate), colorClass: 'bg-warning/10 text-warning border-warning/30' };
+  } else {
+    // Dentro do prazo
+    return { label: formatContactDateTime(contactDate), colorClass: 'bg-success/10 text-success border-success/30' };
+  }
+}
+
+function formatContactDateTime(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export function LeadCard({ lead, onClick, status, onQuickWhatsApp }: LeadCardProps) {
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData("leadId", lead.id);
@@ -44,6 +70,10 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp }: LeadCardPro
   const meetingConfig = lead.meeting_status && meetingStatusConfig[lead.meeting_status] 
     ? meetingStatusConfig[lead.meeting_status] 
     : null;
+
+  // Show next contact indicator only for prospeccao and interesse stages
+  const showNextContact = ['prospeccao', 'interesse'].includes(lead.stage);
+  const nextContactStatus = showNextContact ? getNextContactStatus(lead.next_contact) : null;
 
   return (
     <div
@@ -106,8 +136,16 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp }: LeadCardPro
           </span>
         )}
       </div>
+
+      {/* Next contact indicator for prospeccao and interesse */}
+      {nextContactStatus && (
+        <div className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border mb-1 ${nextContactStatus.colorClass}`}>
+          <Clock size={9} />
+          {nextContactStatus.label}
+        </div>
+      )}
       
-      <div className="flex items-center justify-between mt-3 pt-2 border-t border-border">
+      <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
         <div className="text-[10px] text-muted-foreground flex items-center gap-1">
           <GripVertical size={12} className="text-muted-foreground/50" />
           <span className="truncate max-w-[80px]">{lead.confection_type || '-'}</span>

@@ -43,6 +43,9 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('info');
   const [showLossModal, setShowLossModal] = useState(false);
+  const [showFreezeModal, setShowFreezeModal] = useState(false);
+  const [freezeReason, setFreezeReason] = useState('');
+  const [freezeDate, setFreezeDate] = useState('');
   const [noteText, setNoteText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentTemplate, setCurrentTemplate] = useState(msgTemplate);
@@ -223,7 +226,20 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
     if (formData.stage === 'prospeccao') nextDate.setDate(nextDate.getDate() + 2);
     else if (formData.stage === 'interesse') nextDate.setDate(nextDate.getDate() + 3);
     else if (formData.stage === 'reuniao') nextDate.setDate(nextDate.getDate() + 1);
-    setFormData(prev => ({ ...prev, next_contact: nextDate.toISOString().split('T')[0] }));
+    else nextDate.setDate(nextDate.getDate() + 2);
+    
+    // Force time to be within commercial hours (08:30 to 17:50)
+    // Pick a random time between 08:30 and 17:50
+    const hours = [9, 10, 11, 14, 15, 16, 17];
+    const minutes = [0, 30];
+    const randomHour = hours[Math.floor(Math.random() * hours.length)];
+    const randomMinute = minutes[Math.floor(Math.random() * minutes.length)];
+    nextDate.setHours(randomHour, randomMinute, 0, 0);
+    
+    // Format as datetime-local value
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const localStr = `${nextDate.getFullYear()}-${pad(nextDate.getMonth()+1)}-${pad(nextDate.getDate())}T${pad(nextDate.getHours())}:${pad(nextDate.getMinutes())}`;
+    setFormData(prev => ({ ...prev, next_contact: localStr }));
   };
 
   const markAsLost = async (reason: string) => {
@@ -231,6 +247,34 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
     try {
       const success = await onSave({ ...formData, stage: 'perdidos', loss_reason: reason });
       if (success) setShowLossModal(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const markAsFrozen = async () => {
+    if (!freezeReason.trim()) return;
+    setIsSaving(true);
+    try {
+      const frozenNote = `🧊 Lead congelado. Motivo: ${freezeReason}${freezeDate ? `. Retomar em: ${freezeDate}` : ''}`;
+      const newHistory: LeadHistory = { 
+        type: 'sistema', 
+        note: frozenNote,
+        date: new Date().toISOString(), 
+        user: profile?.name.split(' ')[0] || 'Sistema' 
+      };
+      const success = await onSave({ 
+        ...formData, 
+        stage: 'congelados', 
+        loss_reason: freezeReason,
+        next_contact: freezeDate || formData.next_contact,
+        history: [newHistory, ...(formData.history || [])] 
+      });
+      if (success) {
+        setShowFreezeModal(false);
+        setFreezeReason('');
+        setFreezeDate('');
+      }
     } finally {
       setIsSaving(false);
     }
@@ -377,7 +421,7 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
     const activity = ACTIVITY_TYPES.find(a => a.id === type);
     if (activity) return <activity.icon size={14} className={activity.color} />;
     if (type === 'stage_change') return <ChevronRight size={14} className="text-primary" />;
-    if (type === 'criacao') return <Sparkles size={14} className="text-yellow-500" />;
+    if (type === 'criacao') return <Sparkles size={14} className="text-warning" />;
     if (type === 'sistema') return <RefreshCw size={14} className="text-muted-foreground" />;
     return <History size={14} className="text-muted-foreground" />;
   };
@@ -442,11 +486,12 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
                     <Input name="confection_type" value={formData.confection_type || ''} onChange={handleChange} placeholder="Ex: Moda Fitness, Uniformes" />
                   </div>
                   <div className="bg-info/10 p-2 rounded border border-info/20">
-                    <Label className="text-info">Próximo Contato</Label>
+                    <Label className="text-info">Próximo Contato (data e hora)</Label>
                     <div className="flex gap-2">
-                      <Input type="date" name="next_contact" value={formData.next_contact || ''} onChange={handleChange} />
-                      <Button variant="outline" size="sm" onClick={suggestNextContact} title="Sugerir data">✨</Button>
+                      <Input type="datetime-local" name="next_contact" value={formData.next_contact || ''} onChange={handleChange} />
+                      <Button variant="outline" size="sm" onClick={suggestNextContact} title="Sugerir horário comercial">✨</Button>
                     </div>
+                    <p className="text-[10px] text-info/70 mt-1">✨ IA sugere horários dentro do horário comercial (08:30–17:50)</p>
                   </div>
                   <div>
                     <Label>WhatsApp (com DDD)</Label>
@@ -528,7 +573,7 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
               <div className="space-y-6">
                 <div className="bg-muted p-4 rounded-lg border border-border flex justify-between items-center flex-wrap gap-2">
                   <div><span className="text-xs text-muted-foreground uppercase font-bold">Estágio:</span><p className="font-bold text-lg text-primary capitalize">{formData.stage}</p></div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {formData.stage === 'congelados' ? (
                       <Button onClick={reactivate} variant="outline"><RefreshCw size={16} className="mr-2" /> Reativar</Button>
                     ) : (
@@ -538,6 +583,15 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
                             const next: Record<string, string> = { prospeccao: 'interesse', interesse: 'reuniao', reuniao: 'proposta', proposta: 'venda' };
                             if (next[formData.stage || '']) onSave({ ...formData, stage: next[formData.stage || ''] as any });
                           }}>Avançar <ChevronRight size={16} /></Button>
+                        )}
+                        {!['perdidos', 'venda', 'congelados'].includes(formData.stage || '') && (
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setShowFreezeModal(true)} 
+                            className="text-info border-info/30"
+                          >
+                            🧊 Congelar
+                          </Button>
                         )}
                         {!['perdidos', 'venda'].includes(formData.stage || '') && (
                           <Button variant="outline" onClick={() => setShowLossModal(true)} className="text-destructive border-destructive/30">Marcar Perdido</Button>
@@ -621,6 +675,30 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
 
                 <div>
                   <h3 className="font-bold text-foreground mb-2 flex items-center gap-2"><FileText size={18} /> Registrar Atividade</h3>
+                  {/* Quick suggestion chips */}
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {[
+                      'Fiz primeiro contato',
+                      'Segunda tentativa de contato',
+                      'Pediu para ligar semana que vem',
+                      'Não atendeu',
+                      'Deixou recado',
+                      'Demonstrou interesse',
+                      'Enviou proposta por WhatsApp',
+                      'Agendou reunião',
+                      'Pediu mais informações',
+                      'Sem resposta',
+                    ].map(suggestion => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => setNoteText(suggestion)}
+                        className="text-[11px] px-2 py-1 rounded-full border border-border bg-muted hover:bg-primary/10 hover:border-primary/40 text-muted-foreground hover:text-primary transition"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
                   <Textarea 
                     className="mb-3" 
                     rows={3} 
@@ -781,6 +859,56 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
               ))}
             </div>
             <button onClick={() => setShowLossModal(false)} className="mt-6 text-muted-foreground hover:text-foreground underline">Cancelar</button>
+          </div>
+        )}
+
+        {showFreezeModal && (
+          <div className="absolute inset-0 bg-card/95 z-50 flex flex-col items-center justify-center p-8">
+            <h3 className="text-xl font-bold text-foreground mb-2">🧊 Congelar Lead</h3>
+            <p className="text-sm text-muted-foreground mb-4 text-center">Informe o motivo e a data prevista para retomar o contato</p>
+            <div className="w-full max-w-sm space-y-4">
+              <div>
+                <Label>Motivo do congelamento *</Label>
+                <div className="grid grid-cols-2 gap-2 mt-2 mb-2">
+                  {['Sem verba agora', 'Decisão adiada', 'Férias / Afastamento', 'Aguardando sócio', 'Sem interesse no momento', 'Outro'].map(r => (
+                    <Button 
+                      key={r} 
+                      variant={freezeReason === r ? 'default' : 'outline'} 
+                      size="sm"
+                      onClick={() => setFreezeReason(r)}
+                      className="text-xs"
+                    >
+                      {r}
+                    </Button>
+                  ))}
+                </div>
+                <Input
+                  placeholder="Ou descreva outro motivo..."
+                  value={freezeReason}
+                  onChange={(e) => setFreezeReason(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Data para retomar contato</Label>
+                <Input 
+                  type="date" 
+                  value={freezeDate} 
+                  onChange={(e) => setFreezeDate(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <div className="flex gap-3">
+                <Button 
+                  className="flex-1" 
+                  onClick={markAsFrozen} 
+                  disabled={!freezeReason.trim() || isSaving}
+                >
+                  {isSaving ? <Loader2 size={14} className="mr-2 animate-spin" /> : '🧊 '}
+                  Congelar Lead
+                </Button>
+              </div>
+            </div>
+            <button onClick={() => { setShowFreezeModal(false); setFreezeReason(''); setFreezeDate(''); }} className="mt-4 text-muted-foreground hover:text-foreground underline">Cancelar</button>
           </div>
         )}
       </div>
