@@ -98,15 +98,31 @@ export function QualificationView({ leads }: QualificationViewProps) {
   ];
 
   const downloadCSV = useCallback(() => {
-    const headers = ['Lead', 'Empresa', 'Tipo', 'Status', 'Motivo', 'Data de Atualização'];
+    const headers = [
+      'Lead', 'Empresa', 'Tipo de Confecção', 'WhatsApp', 'Email', 'Website',
+      'Status', 'Temperatura', 'Motivo Perda/Congelamento', 'Próximo Contato',
+      'Valor Implantação (R$)', 'Valor Mensalidade (R$)', 'Peças/Mês',
+      'Dores Identificadas', 'Data Reunião', 'Data Entrada', 'Data Atualização',
+    ];
     const rows = stats.disqualified
       .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
       .map(lead => [
         lead.name,
         lead.company || '-',
         lead.confection_type || '-',
+        lead.whatsapp || '-',
+        lead.email || '-',
+        lead.website || '-',
         STAGE_LABELS[lead.stage] || lead.stage,
+        lead.temperature,
         lead.loss_reason || '-',
+        lead.next_contact ? lead.next_contact.replace('T', ' ').slice(0, 16) : '-',
+        String(lead.implementation_value || 0),
+        String(lead.monthly_value || 0),
+        lead.pieces_per_month != null ? String(lead.pieces_per_month) : '-',
+        lead.meeting_pain || '-',
+        lead.meeting_date ? lead.meeting_date.replace('T', ' ').slice(0, 16) : '-',
+        formatDate(lead.entry_date),
         formatDate(lead.updated_at),
       ]);
 
@@ -127,7 +143,7 @@ export function QualificationView({ leads }: QualificationViewProps) {
 
     const csvContent = [
       headers.join(';'),
-      ...rows.map(r => r.map(c => `"${c}"`).join(';')),
+      ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')),
       ...summary.map(r => r.join(';')),
     ].join('\n');
 
@@ -147,7 +163,7 @@ export function QualificationView({ leads }: QualificationViewProps) {
       <div className="flex justify-end">
         <Button variant="outline" size="sm" onClick={downloadCSV} className="gap-2">
           <Download size={14} />
-          Baixar Relatório CSV
+          Baixar Planilha Completa (CSV/Excel)
         </Button>
       </div>
       {/* Thermometer Section */}
@@ -327,8 +343,11 @@ export function QualificationView({ leads }: QualificationViewProps) {
                   <th className="text-left p-3 text-xs font-medium text-muted-foreground">Lead</th>
                   <th className="text-left p-3 text-xs font-medium text-muted-foreground">Empresa</th>
                   <th className="text-left p-3 text-xs font-medium text-muted-foreground">Tipo</th>
+                  <th className="text-left p-3 text-xs font-medium text-muted-foreground">WhatsApp</th>
                   <th className="text-left p-3 text-xs font-medium text-muted-foreground">Status</th>
                   <th className="text-left p-3 text-xs font-medium text-muted-foreground">Motivo</th>
+                  <th className="text-left p-3 text-xs font-medium text-muted-foreground">Implantação</th>
+                  <th className="text-left p-3 text-xs font-medium text-muted-foreground">Mensalidade</th>
                   <th className="text-left p-3 text-xs font-medium text-muted-foreground">Data</th>
                 </tr>
               </thead>
@@ -340,6 +359,7 @@ export function QualificationView({ leads }: QualificationViewProps) {
                       <td className="p-3 text-sm font-medium text-foreground">{lead.name}</td>
                       <td className="p-3 text-sm text-muted-foreground">{lead.company || '-'}</td>
                       <td className="p-3 text-sm text-muted-foreground">{lead.confection_type || '-'}</td>
+                      <td className="p-3 text-sm text-muted-foreground">{lead.whatsapp || '-'}</td>
                       <td className="p-3">
                         <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                           lead.stage === 'perdidos'
@@ -350,12 +370,18 @@ export function QualificationView({ leads }: QualificationViewProps) {
                         </span>
                       </td>
                       <td className="p-3 text-sm text-muted-foreground">{lead.loss_reason || '-'}</td>
+                      <td className="p-3 text-sm text-muted-foreground">
+                        {lead.implementation_value ? `R$ ${Number(lead.implementation_value).toLocaleString('pt-BR')}` : '-'}
+                      </td>
+                      <td className="p-3 text-sm text-muted-foreground">
+                        {lead.monthly_value ? `R$ ${Number(lead.monthly_value).toLocaleString('pt-BR')}` : '-'}
+                      </td>
                       <td className="p-3 text-sm text-muted-foreground">{formatDate(lead.updated_at)}</td>
                     </tr>
                   ))}
                 {stats.disqualified.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                    <td colSpan={9} className="p-8 text-center text-muted-foreground">
                       Nenhum lead desqualificado. Continue prospectando! 🚀
                     </td>
                   </tr>
