@@ -158,7 +158,7 @@ export function PipelineView({
       </div>
       
       {/* Pipeline columns */}
-      <div className="flex gap-3 overflow-x-auto pb-4 h-[calc(100vh-200px)] scrollbar-thin">
+      <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-200px)] scrollbar-thin">
         {COLUMNS.map(col => {
           const colLeads = leads
             .filter(l => l.stage === col.id)
@@ -169,36 +169,36 @@ export function PipelineView({
           return (
             <div
               key={col.id}
-              className="min-w-[270px] w-[270px] bg-card/50 rounded-xl border border-border/40 flex flex-col flex-shrink-0 overflow-hidden"
+              className="min-w-[300px] w-[300px] bg-card/60 rounded-2xl border border-border/40 flex flex-col flex-shrink-0 overflow-hidden shadow-sm"
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, col.id)}
             >
               {/* Column header */}
-              <div className={`px-3 py-2.5 border-b-2 ${STAGE_COLORS[col.id]} ${STAGE_BG[col.id]}`}>
+              <div className={`px-4 py-3 border-b-2 ${STAGE_COLORS[col.id]} ${STAGE_BG[col.id]}`}>
                 <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
                     {selectMode && colLeads.length > 0 && (
                       <Checkbox
                         checked={allColSelected}
                         onCheckedChange={() => handleSelectAllInColumn(colLeads)}
                       />
                     )}
-                    <span className="text-xs">{col.emoji}</span>
-                    <span className="font-semibold text-foreground text-xs">{col.title}</span>
+                    <span className="text-base">{col.emoji}</span>
+                    <span className="font-bold text-foreground text-sm">{col.title}</span>
                   </div>
-                  <span className="bg-foreground/10 text-foreground/70 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center">
+                  <span className="bg-foreground/10 text-foreground/70 w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center">
                     {colLeads.length}
                   </span>
                 </div>
                 {colValue > 0 && (
-                  <div className="text-[10px] text-muted-foreground font-medium flex items-center gap-1 mt-1">
-                    <DollarSign size={9} /> {formatCurrency(colValue)}
+                  <div className="text-xs text-muted-foreground font-medium flex items-center gap-1 mt-1.5">
+                    <DollarSign size={11} /> {formatCurrency(colValue)}
                   </div>
                 )}
               </div>
               
               {/* Cards */}
-              <div className="p-2 flex-1 overflow-y-auto space-y-2 min-h-[200px] scrollbar-thin">
+              <div className="p-3 flex-1 overflow-y-auto space-y-3 min-h-[200px] scrollbar-thin">
                 {colLeads.map(lead => (
                   <div key={lead.id} className="flex items-start gap-1">
                     {selectMode && (

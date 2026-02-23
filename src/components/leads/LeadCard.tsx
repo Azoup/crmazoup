@@ -83,77 +83,77 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp }: LeadCardPro
       draggable
       onDragStart={handleDragStart}
       onClick={onClick}
-      className={`relative p-3 bg-card rounded-lg border border-border/60 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-border transition-all duration-200 group border-l-[3px] ${borderColor} ${
+      className={`relative p-4 bg-card rounded-xl border border-border/60 cursor-grab active:cursor-grabbing hover:shadow-lg hover:border-border hover:-translate-y-0.5 transition-all duration-200 group border-l-4 ${borderColor} ${
         isNew ? 'ring-1 ring-purple-400/20 bg-purple-50/50 dark:bg-purple-950/20' : ''
       }`}
     >
       {/* New lead badge */}
       {isNew && (
-        <div className="absolute -top-1.5 -right-1.5 bg-purple-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-md animate-pulse">
-          <Sparkles size={8} /> NOVO
+        <div className="absolute -top-2 -right-2 bg-purple-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-lg animate-pulse">
+          <Sparkles size={10} /> NOVO
         </div>
       )}
 
       {/* Top row: name + days badge */}
-      <div className="flex justify-between items-start gap-2 mb-1">
-        <h4 className={`font-semibold text-sm leading-tight truncate ${isNew ? 'text-purple-700 dark:text-purple-300' : 'text-foreground'}`}>
+      <div className="flex justify-between items-start gap-2 mb-1.5">
+        <h4 className={`font-bold text-sm leading-tight truncate ${isNew ? 'text-purple-700 dark:text-purple-300' : 'text-foreground'}`}>
           {lead.name || 'Sem nome'}
         </h4>
         {!isNew && (
-          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-md flex-shrink-0 flex items-center gap-0.5 ${
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex-shrink-0 flex items-center gap-0.5 ${
             status === 'late' 
               ? 'bg-destructive/10 text-destructive' 
               : 'text-muted-foreground'
           }`}>
-            {status === 'late' && <AlertTriangle size={8} />}
+            {status === 'late' && <AlertTriangle size={10} />}
             {daysSinceContact > 0 ? `${daysSinceContact}d` : 'hoje'}
           </span>
         )}
       </div>
       
-      <p className="text-[11px] text-muted-foreground mb-2 truncate">{lead.company || 'Sem empresa'}</p>
+      <p className="text-xs text-muted-foreground mb-2.5 truncate">{lead.company || 'Sem empresa'}</p>
       
       {/* Tags */}
-      <div className="flex flex-wrap gap-1 mb-2">
-        <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-semibold ${tempColors[safeTemperature]}`}>
+      <div className="flex flex-wrap gap-1.5 mb-2.5">
+        <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold ${tempColors[safeTemperature]}`}>
           {tempLabels[safeTemperature]}
         </span>
         {(lead.value ?? 0) > 0 && (
-          <span className="text-[9px] bg-success/10 text-success px-1.5 py-0.5 rounded-md font-semibold flex items-center gap-0.5">
-            <DollarSign size={8} /> {formatCurrencyCompact(lead.value ?? 0)}
+          <span className="text-[10px] bg-success/10 text-success px-2 py-0.5 rounded-md font-bold flex items-center gap-0.5">
+            <DollarSign size={10} /> {formatCurrencyCompact(lead.value ?? 0)}
           </span>
         )}
         {lead.activecampaign_id && (
-          <span className="text-[9px] bg-purple-500/10 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded-md font-semibold">
+          <span className="text-[10px] bg-purple-500/10 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-md font-bold">
             AC
           </span>
         )}
         {meetingConfig && (
-          <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-semibold flex items-center gap-0.5 ${meetingConfig.color}`}>
-            <meetingConfig.icon size={8} /> {meetingConfig.label}
+          <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold flex items-center gap-0.5 ${meetingConfig.color}`}>
+            <meetingConfig.icon size={10} /> {meetingConfig.label}
           </span>
         )}
       </div>
 
       {/* Next contact indicator */}
       {nextContactStatus && (
-        <div className={`flex items-center gap-1 text-[9px] font-semibold px-2 py-1 rounded-md border mb-2 ${nextContactStatus.colorClass}`}>
-          <Clock size={9} />
+        <div className={`flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border mb-2.5 ${nextContactStatus.colorClass}`}>
+          <Clock size={11} />
           {nextContactStatus.label}
         </div>
       )}
       
       {/* Footer */}
-      <div className="flex items-center justify-between pt-2 border-t border-border/40">
-        <span className="text-[10px] text-muted-foreground/70 truncate max-w-[100px]">
+      <div className="flex items-center justify-between pt-2.5 border-t border-border/40">
+        <span className="text-[11px] text-muted-foreground/70 truncate max-w-[120px]">
           {lead.confection_type || '-'}
         </span>
         <button
           onClick={onQuickWhatsApp}
-          className="text-success hover:bg-success/10 p-1 rounded-md transition"
+          className="text-success hover:bg-success/10 p-1.5 rounded-lg transition"
           title="WhatsApp"
         >
-          <MessageCircle size={13} />
+          <MessageCircle size={16} />
         </button>
       </div>
     </div>
