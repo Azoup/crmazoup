@@ -32,9 +32,14 @@ function validateLead(lead: unknown): LeadInput {
   };
 }
 
-function validateType(type: unknown): 'whatsapp' | 'strategy' | null {
-  if (type === 'whatsapp' || type === 'strategy') return type;
+function validateType(type: unknown): 'whatsapp' | 'strategy' | 'objection' | null {
+  if (type === 'whatsapp' || type === 'strategy' || type === 'objection') return type;
   return null;
+}
+
+function sanitizeObjection(input: unknown, maxLength: number): string {
+  if (typeof input !== 'string') return '';
+  return input.trim().substring(0, maxLength).replace(/[<>{}[\]\\]/g, '');
 }
 
 serve(async (req) => {
@@ -133,6 +138,26 @@ Forneça insights práticos e acionáveis em formato de bullet points.`;
 - Dores identificadas: ${lead.meeting_pain || 'Não informadas'}
 
 Gere 3-5 pontos-chave para abordar na reunião.`;
+    } else if (type === "objection") {
+      const objection = sanitizeObjection(body.objection, 1000);
+      if (!objection) {
+        return new Response(JSON.stringify({ error: "Descreva a objeção do cliente." }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      systemPrompt = `Você é um especialista em vendas B2B para confecções têxteis, trabalhando para a Azoup (sistema ERP/gestão para confecções).
+Você é mestre em contornar objeções de forma empática, profissional e persuasiva.
+Suas respostas devem ser mensagens prontas para enviar via WhatsApp — curtas, diretas e humanizadas.
+Retorne EXATAMENTE 3 opções de resposta, cada uma numerada (1., 2., 3.), separadas por duas quebras de linha.
+Cada resposta deve ter no máximo 4 frases. Não adicione explicações extras, apenas as 3 mensagens.`;
+
+      userPrompt = `O lead "${lead.name || 'Cliente'}" da empresa "${lead.company || 'Não informada'}" (confecção: ${lead.confection_type || 'Não informado'}) está na fase de PROPOSTA e apresentou a seguinte objeção/desafio:
+
+"${objection}"
+
+Gere 3 respostas persuasivas diferentes para contornar essa objeção via WhatsApp. Cada resposta deve começar com o nome do lead.`;
     }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
