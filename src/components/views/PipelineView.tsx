@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Lead, LeadStage, LeadHistory, MeetingStatus, STAGE_COLORS } from '@/types/lead';
 import { LeadCard } from '@/components/leads/LeadCard';
 import { formatCurrency, cleanPhoneNumber } from '@/lib/utils';
-import { DollarSign, Trash2, CheckSquare, Square, XCircle } from 'lucide-react';
+import { DollarSign, Trash2, CheckSquare, XCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCelebration } from '@/hooks/useCelebration';
 import { useBulkDelete } from '@/hooks/useBulkDelete';
@@ -18,15 +18,25 @@ interface PipelineViewProps {
   msgTemplate: string;
 }
 
-const COLUMNS: { id: LeadStage; title: string }[] = [
-  { id: 'prospeccao', title: 'Prospecção' },
-  { id: 'interesse', title: 'Interesse' },
-  { id: 'reuniao', title: 'Reunião' },
-  { id: 'proposta', title: 'Proposta' },
-  { id: 'venda', title: 'Venda' },
-  { id: 'congelados', title: 'Congelados' },
-  { id: 'perdidos', title: 'Perdidos' },
+const COLUMNS: { id: LeadStage; title: string; emoji: string }[] = [
+  { id: 'prospeccao', title: 'Prospecção', emoji: '🎯' },
+  { id: 'interesse', title: 'Interesse', emoji: '💡' },
+  { id: 'reuniao', title: 'Reunião', emoji: '📅' },
+  { id: 'proposta', title: 'Proposta', emoji: '📋' },
+  { id: 'venda', title: 'Venda', emoji: '🎉' },
+  { id: 'congelados', title: 'Congelados', emoji: '🧊' },
+  { id: 'perdidos', title: 'Perdidos', emoji: '❌' },
 ];
+
+const STAGE_BG: Record<LeadStage, string> = {
+  prospeccao: 'bg-stage-prospeccao/10',
+  interesse: 'bg-stage-interesse/10',
+  reuniao: 'bg-stage-reuniao/10',
+  proposta: 'bg-stage-proposta/10',
+  venda: 'bg-stage-venda/10',
+  congelados: 'bg-stage-congelados/10',
+  perdidos: 'bg-stage-perdidos/10',
+};
 
 export function PipelineView({ 
   leads, 
@@ -39,13 +49,13 @@ export function PipelineView({
   const { profile } = useAuth();
   const { celebrateMeeting, celebrateSale } = useCelebration();
   const [selectMode, setSelectMode] = useState(false);
-  const { selectedIds, toggleSelect, selectAll, clearSelection, deleteSelected, deleting, hasSelection, selectionCount } = useBulkDelete();
+  const { selectedIds, toggleSelect, clearSelection, deleteSelected, deleting, hasSelection, selectionCount } = useBulkDelete();
   
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
   
   const handleDrop = async (e: React.DragEvent, targetStage: LeadStage) => {
     e.preventDefault();
-    if (selectMode) return; // disable drag in select mode
+    if (selectMode) return;
     const leadId = e.dataTransfer.getData("leadId");
     if (!leadId) return;
     
@@ -99,9 +109,7 @@ export function PipelineView({
   const totalPipelineValue = leads.reduce((acc, curr) => acc + (curr.value || 0), 0);
 
   const handleToggleSelectMode = () => {
-    if (selectMode) {
-      clearSelection();
-    }
+    if (selectMode) clearSelection();
     setSelectMode(!selectMode);
   };
 
@@ -109,30 +117,25 @@ export function PipelineView({
     const allIds = columnLeads.map(l => l.id);
     const allSelected = allIds.every(id => selectedIds.has(id));
     if (allSelected) {
-      // Deselect all in this column
-      allIds.forEach(id => {
-        if (selectedIds.has(id)) toggleSelect(id);
-      });
+      allIds.forEach(id => { if (selectedIds.has(id)) toggleSelect(id); });
     } else {
-      // Select all in this column
-      allIds.forEach(id => {
-        if (!selectedIds.has(id)) toggleSelect(id);
-      });
+      allIds.forEach(id => { if (!selectedIds.has(id)) toggleSelect(id); });
     }
   };
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex justify-between items-center mb-2 px-2">
+      {/* Top bar */}
+      <div className="flex justify-between items-center mb-3 px-1">
         <div className="flex items-center gap-2">
           <Button
             variant={selectMode ? 'default' : 'outline'}
             size="sm"
             onClick={handleToggleSelectMode}
-            className="gap-2"
+            className="gap-1.5 h-8 text-xs"
           >
-            {selectMode ? <XCircle size={14} /> : <CheckSquare size={14} />}
-            {selectMode ? 'Cancelar Seleção' : 'Selecionar'}
+            {selectMode ? <XCircle size={13} /> : <CheckSquare size={13} />}
+            {selectMode ? 'Cancelar' : 'Selecionar'}
           </Button>
           {selectMode && hasSelection && (
             <Button
@@ -140,21 +143,22 @@ export function PipelineView({
               size="sm"
               onClick={deleteSelected}
               disabled={deleting}
-              className="gap-2"
+              className="gap-1.5 h-8 text-xs"
             >
-              <Trash2 size={14} />
-              Excluir {selectionCount} lead(s)
+              <Trash2 size={13} />
+              Excluir {selectionCount}
             </Button>
           )}
         </div>
-        <div className="bg-card px-3 py-1 rounded-full border shadow-sm text-xs font-bold text-muted-foreground flex items-center gap-2">
+        <div className="bg-card px-3 py-1.5 rounded-lg border border-border/50 shadow-sm text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
           <DollarSign size={12} className="text-success" /> 
-          Total em Oportunidades: 
-          <span className="text-success text-sm">{formatCurrency(totalPipelineValue)}</span>
+          <span className="hidden sm:inline">Oportunidades:</span>
+          <span className="text-success font-bold">{formatCurrency(totalPipelineValue)}</span>
         </div>
       </div>
       
-      <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-220px)] scrollbar-thin">
+      {/* Pipeline columns */}
+      <div className="flex gap-3 overflow-x-auto pb-4 h-[calc(100vh-200px)] scrollbar-thin">
         {COLUMNS.map(col => {
           const colLeads = leads
             .filter(l => l.stage === col.id)
@@ -165,31 +169,36 @@ export function PipelineView({
           return (
             <div
               key={col.id}
-              className="min-w-[280px] w-[280px] bg-card rounded-xl shadow-sm border border-border flex flex-col flex-shrink-0 transition-colors"
+              className="min-w-[270px] w-[270px] bg-card/50 rounded-xl border border-border/40 flex flex-col flex-shrink-0 overflow-hidden"
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, col.id)}
             >
-              <div className={`p-3 border-b-4 ${STAGE_COLORS[col.id]} bg-muted rounded-t-xl`}>
-                <div className="flex justify-between items-center mb-1">
-                  <div className="flex items-center gap-2">
+              {/* Column header */}
+              <div className={`px-3 py-2.5 border-b-2 ${STAGE_COLORS[col.id]} ${STAGE_BG[col.id]}`}>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-1.5">
                     {selectMode && colLeads.length > 0 && (
                       <Checkbox
                         checked={allColSelected}
                         onCheckedChange={() => handleSelectAllInColumn(colLeads)}
                       />
                     )}
-                    <span className="font-bold text-foreground text-sm">{col.title}</span>
+                    <span className="text-xs">{col.emoji}</span>
+                    <span className="font-semibold text-foreground text-xs">{col.title}</span>
                   </div>
-                  <span className="bg-muted-foreground/20 text-muted-foreground px-2 py-0.5 rounded-full text-xs font-bold">
+                  <span className="bg-foreground/10 text-foreground/70 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center">
                     {colLeads.length}
                   </span>
                 </div>
-                <div className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
-                  <DollarSign size={10} /> {formatCurrency(colValue)}
-                </div>
+                {colValue > 0 && (
+                  <div className="text-[10px] text-muted-foreground font-medium flex items-center gap-1 mt-1">
+                    <DollarSign size={9} /> {formatCurrency(colValue)}
+                  </div>
+                )}
               </div>
               
-              <div className="p-2 flex-1 overflow-y-auto bg-muted/50 space-y-2 min-h-[200px] scrollbar-thin">
+              {/* Cards */}
+              <div className="p-2 flex-1 overflow-y-auto space-y-2 min-h-[200px] scrollbar-thin">
                 {colLeads.map(lead => (
                   <div key={lead.id} className="flex items-start gap-1">
                     {selectMode && (

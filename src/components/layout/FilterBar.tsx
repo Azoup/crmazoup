@@ -1,5 +1,5 @@
 import { LeadFilters } from '@/types/lead';
-import { Filter, Search } from 'lucide-react';
+import { Search, SlidersHorizontal } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 interface FilterBarProps {
@@ -9,29 +9,29 @@ interface FilterBarProps {
 
 export function FilterBar({ filters, setFilters }: FilterBarProps) {
   return (
-    <div className="bg-card p-3 rounded-lg shadow-sm border border-border mb-6 flex flex-col md:flex-row gap-3 items-center">
-      <div className="flex items-center gap-2 text-muted-foreground w-full md:w-auto">
-        <Filter size={18} /> 
-        <span className="font-bold text-sm hidden md:inline">Filtros:</span>
+    <div className="bg-card/80 glass p-3 rounded-xl shadow-sm border border-border/50 mb-5 flex flex-col md:flex-row gap-2.5 items-center">
+      <div className="flex items-center gap-2 text-muted-foreground flex-shrink-0">
+        <SlidersHorizontal size={16} /> 
+        <span className="font-semibold text-xs hidden md:inline">Filtros</span>
       </div>
       
       <div className="relative flex-1 w-full">
-        <Search className="absolute left-2 top-2.5 text-muted-foreground" size={14} />
+        <Search className="absolute left-2.5 top-2.5 text-muted-foreground/60" size={14} />
         <Input
           type="text"
-          placeholder="Buscar..."
-          className="pl-8"
+          placeholder="Buscar por nome, empresa..."
+          className="pl-8 h-9 bg-muted/50 border-border/50 text-sm"
           value={filters.search}
           onChange={(e) => setFilters({ ...filters, search: e.target.value })}
         />
       </div>
       
       <select
-        className="p-2 border rounded text-sm bg-muted outline-none w-full md:w-auto"
+        className="h-9 px-3 border border-border/50 rounded-md text-xs bg-muted/50 outline-none w-full md:w-auto font-medium text-foreground"
         value={filters.temperature}
         onChange={(e) => setFilters({ ...filters, temperature: e.target.value as any })}
       >
-        <option value="todos">Temp: Todos</option>
+        <option value="todos">🌡️ Todos</option>
         <option value="frio">❄️ Frio</option>
         <option value="morno">☕ Morno</option>
         <option value="quente">🔥 Quente</option>
@@ -39,8 +39,8 @@ export function FilterBar({ filters, setFilters }: FilterBarProps) {
       
       <Input
         type="text"
-        placeholder="Tipo (Ex: Jeans)"
-        className="w-full md:w-auto"
+        placeholder="Tipo confecção"
+        className="w-full md:w-36 h-9 bg-muted/50 border-border/50 text-sm"
         value={filters.confectionType}
         onChange={(e) => setFilters({ ...filters, confectionType: e.target.value })}
       />
