@@ -194,10 +194,10 @@ export function Dashboard() {
           setCurrentLead(null);
           setIsLeadModalOpen(true);
         }}
-        className="fixed bottom-8 right-8 h-14 w-14 rounded-full shadow-2xl hover:scale-110 transition z-30 border-2 border-primary bg-foreground text-primary"
+        className="fixed bottom-6 right-6 h-12 w-12 rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 z-30 bg-primary text-primary-foreground"
         size="icon"
       >
-        <Plus size={24} strokeWidth={3} />
+        <Plus size={22} strokeWidth={2.5} />
       </Button>
 
       {isLeadModalOpen && (

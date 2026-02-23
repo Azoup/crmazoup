@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Lead } from '@/types/lead';
 import { formatTime } from '@/lib/utils';
 import { 
-  Cloud, Bell, UserCircle, 
+  Bell, UserCircle, 
   LayoutDashboard, CalendarDays, TrendingUp, Users, Sparkles, RefreshCw, ClipboardCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -66,100 +66,104 @@ export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncA
     return () => clearInterval(checkMeetings);
   }, [leads]);
 
-  // Count new leads from ActiveCampaign
   const newLeadsCount = leads.filter(l => l.is_new).length;
 
   return (
-    <header className="bg-primary text-primary-foreground p-4 shadow-lg flex flex-col md:flex-row justify-between items-center sticky top-0 z-20 gap-4">
-      <div className="flex items-center gap-3 w-full md:w-auto">
-        <AnimatedLogo size="md" />
-        <div className="flex-1">
-          <h1 className="text-xl font-bold tracking-tight leading-tight">CRM - Azoup</h1>
-          <p className="text-[10px] text-primary-foreground/70 flex items-center gap-1">
-            <Cloud size={10} /> {isManager ? 'Modo Gestor' : 'Modo SDR'}
-          </p>
+    <header className="bg-primary text-primary-foreground sticky top-0 z-20 shadow-md">
+      <div className="flex items-center justify-between px-4 h-14 md:h-16">
+        {/* Left: Logo & Brand */}
+        <div className="flex items-center gap-3">
+          <AnimatedLogo size="md" />
+          <div>
+            <h1 className="text-lg font-bold tracking-tight leading-none">Azoup</h1>
+            <p className="text-[10px] text-primary-foreground/60 font-medium">
+              {isManager ? 'Gestor' : 'SDR'}
+            </p>
+          </div>
         </div>
 
-        {/* Sync ActiveCampaign button for SDR */}
-        {!isManager && onSyncActiveCampaign && (
-          <Button
-            onClick={onSyncActiveCampaign}
-            disabled={syncing}
-            variant="secondary"
-            size="sm"
-            className="gap-1 text-xs"
-          >
-            {syncing ? (
-              <RefreshCw size={14} className="animate-spin" />
-            ) : (
-              <Sparkles size={14} />
-            )}
-            <span className="hidden sm:inline">
-              {syncing ? 'Sincronizando...' : 'Sincronizar AC'}
-            </span>
-          </Button>
-        )}
-
-        {/* New leads indicator */}
-        {newLeadsCount > 0 && (
-          <div className="bg-purple-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 animate-pulse">
-            <Sparkles size={12} />
-            {newLeadsCount} {newLeadsCount === 1 ? 'novo' : 'novos'}
-          </div>
-        )}
-
-        {notifications.length > 0 && (
-          <div className="relative group">
-            <button className="p-2 bg-primary/80 rounded-full text-primary-foreground animate-pulse">
-              <Bell size={20} />
-              <span className="absolute -top-1 -right-1 bg-destructive w-4 h-4 rounded-full text-[10px] flex items-center justify-center">
-                {notifications.length}
-              </span>
-            </button>
-            <div className="absolute right-0 mt-2 w-64 bg-card rounded-lg shadow-xl border border-border p-2 z-50 hidden group-hover:block">
-              <p className="text-xs font-bold text-muted-foreground mb-2">Lembretes de Reunião</p>
-              {notifications.map((n, i) => (
-                <div key={i} className="text-xs p-2 bg-destructive/10 text-destructive rounded mb-1 border border-destructive/20">
-                  {n.text} ({n.time})
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <button onClick={onProfileOpen} className="md:hidden p-2 rounded-full hover:bg-primary/80 transition">
-          {profile?.avatar ? (
-            <img src={profile.avatar} alt="Perfil" className="w-8 h-8 rounded-full border-2 border-primary-foreground object-cover" />
-          ) : (
-            <UserCircle size={28} className="text-primary-foreground" />
-          )}
-        </button>
-      </div>
-
-      <div className="flex items-center gap-4 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 justify-between md:justify-end">
-        <nav className="flex gap-2">
+        {/* Center: Navigation */}
+        <nav className="hidden md:flex items-center bg-primary-foreground/10 rounded-lg p-1 gap-0.5">
           <NavButton active={view === 'pipeline'} onClick={() => setView('pipeline')} icon={LayoutDashboard} label="Pipeline" />
           <NavButton active={view === 'agenda'} onClick={() => setView('agenda')} icon={CalendarDays} label="Agenda" />
           <NavButton active={view === 'vendas'} onClick={() => setView('vendas')} icon={TrendingUp} label="Vendas" />
           <NavButton active={view === 'qualificacao'} onClick={() => setView('qualificacao')} icon={ClipboardCheck} label="Qualificação" />
           {isManager && <NavButton active={view === 'gestor'} onClick={() => setView('gestor')} icon={Users} label="Gestor" />}
         </nav>
-        
-        <button
-          onClick={onProfileOpen}
-          className="hidden md:flex items-center gap-2 pl-4 border-l border-primary-foreground/30 hover:opacity-90 transition"
-        >
-          <div className="text-right hidden lg:block">
-            <p className="text-sm font-bold leading-none">{profile?.name.split(' ')[0]}</p>
-            <p className="text-[10px] text-primary-foreground/70">{profile?.role}</p>
-          </div>
-          {profile?.avatar ? (
-            <img src={profile.avatar} alt="Perfil" className="w-9 h-9 rounded-full border-2 border-primary-foreground shadow-sm object-cover" />
-          ) : (
-            <UserCircle size={32} className="text-primary-foreground" />
+
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2">
+          {!isManager && onSyncActiveCampaign && (
+            <Button
+              onClick={onSyncActiveCampaign}
+              disabled={syncing}
+              size="sm"
+              className="gap-1.5 text-xs bg-primary-foreground/15 hover:bg-primary-foreground/25 text-primary-foreground border-0 h-8"
+            >
+              {syncing ? (
+                <RefreshCw size={13} className="animate-spin" />
+              ) : (
+                <Sparkles size={13} />
+              )}
+              <span className="hidden lg:inline">
+                {syncing ? 'Sync...' : 'Sync AC'}
+              </span>
+            </Button>
           )}
-        </button>
+
+          {newLeadsCount > 0 && (
+            <div className="bg-purple-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 animate-pulse shadow-sm">
+              <Sparkles size={10} />
+              {newLeadsCount} {newLeadsCount === 1 ? 'novo' : 'novos'}
+            </div>
+          )}
+
+          {notifications.length > 0 && (
+            <div className="relative group">
+              <button className="relative p-2 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/20 transition">
+                <Bell size={18} />
+                <span className="absolute -top-0.5 -right-0.5 bg-destructive w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-bold">
+                  {notifications.length}
+                </span>
+              </button>
+              <div className="absolute right-0 mt-2 w-72 bg-card rounded-xl shadow-xl border border-border p-3 z-50 hidden group-hover:block">
+                <p className="text-xs font-bold text-muted-foreground mb-2">Lembretes de Reunião</p>
+                {notifications.map((n, i) => (
+                  <div key={i} className="text-xs p-2.5 bg-destructive/10 text-destructive rounded-lg mb-1.5 border border-destructive/20">
+                    {n.text} ({n.time})
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={onProfileOpen}
+            className="flex items-center gap-2.5 pl-2 ml-1 hover:opacity-90 transition"
+          >
+            <div className="text-right hidden lg:block">
+              <p className="text-xs font-semibold leading-none">{profile?.name.split(' ')[0]}</p>
+              <p className="text-[9px] text-primary-foreground/60">{profile?.role}</p>
+            </div>
+            {profile?.avatar ? (
+              <img src={profile.avatar} alt="Perfil" className="w-8 h-8 rounded-full border-2 border-primary-foreground/30 shadow-sm object-cover" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-primary-foreground/15 flex items-center justify-center">
+                <UserCircle size={20} className="text-primary-foreground/80" />
+              </div>
+            )}
+          </button>
+        </div>
       </div>
+
+      {/* Mobile nav */}
+      <nav className="md:hidden flex items-center gap-1 px-3 pb-2 overflow-x-auto scrollbar-thin">
+        <NavButton active={view === 'pipeline'} onClick={() => setView('pipeline')} icon={LayoutDashboard} label="Pipeline" />
+        <NavButton active={view === 'agenda'} onClick={() => setView('agenda')} icon={CalendarDays} label="Agenda" />
+        <NavButton active={view === 'vendas'} onClick={() => setView('vendas')} icon={TrendingUp} label="Vendas" />
+        <NavButton active={view === 'qualificacao'} onClick={() => setView('qualificacao')} icon={ClipboardCheck} label="Qualif." />
+        {isManager && <NavButton active={view === 'gestor'} onClick={() => setView('gestor')} icon={Users} label="Gestor" />}
+      </nav>
     </header>
   );
 }
@@ -175,13 +179,13 @@ function NavButton({ active, onClick, icon: Icon, label }: NavButtonProps) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-3 py-2 rounded transition text-sm flex-shrink-0 ${
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all text-xs font-medium flex-shrink-0 ${
         active 
-          ? 'bg-primary-foreground/20 text-primary-foreground shadow-inner' 
-          : 'text-primary-foreground/80 hover:bg-primary-foreground/10'
+          ? 'bg-primary-foreground text-primary shadow-sm' 
+          : 'text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10'
       }`}
     >
-      <Icon size={16} /> <span className="whitespace-nowrap hidden sm:inline">{label}</span>
+      <Icon size={14} /> <span className="whitespace-nowrap">{label}</span>
     </button>
   );
 }
