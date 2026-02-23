@@ -48,6 +48,9 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
   const [freezeDate, setFreezeDate] = useState('');
   const [noteText, setNoteText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingObjection, setIsGeneratingObjection] = useState(false);
+  const [objectionText, setObjectionText] = useState('');
+  const [objectionResponses, setObjectionResponses] = useState<string[]>([]);
   const [currentTemplate, setCurrentTemplate] = useState(msgTemplate);
   const [isSaving, setIsSaving] = useState(false);
   const [managerProfile, setManagerProfile] = useState<{ user_id: string; name: string } | null>(null);
@@ -417,6 +420,62 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
     setCurrentTemplate(msgTemplate);
   };
 
+  const handleGenerateObjectionResponses = async () => {
+    if (!objectionText.trim()) {
+      toast({ title: 'Campo obrigatório', description: 'Descreva a objeção do cliente.', variant: 'destructive' });
+      return;
+    }
+    setIsGeneratingObjection(true);
+    setObjectionResponses([]);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) {
+        toast({ title: 'Erro de autenticação', description: 'Faça login novamente.', variant: 'destructive' });
+        return;
+      }
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ type: 'objection', lead: formData, objection: objectionText }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        toast({ title: 'Erro na IA', description: errorData?.error || 'Tente novamente.', variant: 'destructive' });
+        return;
+      }
+      const data = await response.json();
+      if (data?.message) {
+        // Parse the 3 responses separated by double newlines or numbered
+        const responses = data.message
+          .split(/\n\s*\n/)
+          .map((r: string) => r.replace(/^\d+\.\s*/, '').trim())
+          .filter((r: string) => r.length > 0);
+        setObjectionResponses(responses.length > 0 ? responses.slice(0, 3) : [data.message]);
+        toast({ title: '✨ Respostas geradas', description: '3 opções de resposta persuasiva prontas!' });
+      }
+    } catch (e) {
+      console.error('Objection AI error:', e);
+      toast({ title: 'Erro de conexão', description: 'Verifique sua internet e tente novamente.', variant: 'destructive' });
+    } finally {
+      setIsGeneratingObjection(false);
+    }
+  };
+
+  const sendObjectionWhatsApp = (message: string) => {
+    if (!formData.whatsapp) {
+      toast({ title: 'WhatsApp não configurado', description: 'Adicione um número de WhatsApp primeiro.', variant: 'destructive' });
+      return;
+    }
+    let finalMsg = message;
+    if (profile?.signature) finalMsg += `\n\n${profile.signature}`;
+    const phone = cleanPhoneNumber(formData.whatsapp);
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(finalMsg)}`, '_blank');
+    if (lead) {
+      addHistory(lead.id, 'whatsapp', `📱 Resposta a objeção enviada: "${finalMsg.substring(0, 100)}..."`);
+    }
+  };
+
   const getActivityIcon = (type: string) => {
     const activity = ACTIVITY_TYPES.find(a => a.id === type);
     if (activity) return <activity.icon size={14} className={activity.color} />;
@@ -672,6 +731,54 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
                     )}
                   </div>
                 </div>
+
+                {/* Objection Handler - Only for Proposta stage */}
+                {formData.stage === 'proposta' && (
+                  <div className="border border-primary/30 bg-primary/5 p-4 rounded-lg">
+                    <h3 className="font-bold text-primary flex items-center gap-2 mb-2">
+                      <Sparkles size={18} /> Contornar Objeções com IA
+                    </h3>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Descreva a objeção ou desafio do cliente e a IA gerará 3 respostas persuasivas para enviar via WhatsApp.
+                    </p>
+                    <Textarea
+                      rows={3}
+                      value={objectionText}
+                      onChange={(e) => setObjectionText(e.target.value)}
+                      placeholder="Ex: O cliente disse que o preço está muito alto comparado ao concorrente..."
+                      className="mb-3"
+                    />
+                    <Button
+                      onClick={handleGenerateObjectionResponses}
+                      disabled={isGeneratingObjection || !objectionText.trim()}
+                      className="mb-3"
+                    >
+                      {isGeneratingObjection ? <Loader2 className="animate-spin mr-2" size={14} /> : <Sparkles size={14} className="mr-2" />}
+                      Gerar 3 Respostas Persuasivas
+                    </Button>
+
+                    {objectionResponses.length > 0 && (
+                      <div className="space-y-3 mt-2">
+                        {objectionResponses.map((resp, idx) => (
+                          <div key={idx} className="bg-card border border-border rounded-lg p-3">
+                            <div className="flex justify-between items-start gap-2 mb-2">
+                              <span className="text-xs font-bold text-primary">Opção {idx + 1}</span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-success border-success/30 h-7 text-xs"
+                                onClick={() => sendObjectionWhatsApp(resp)}
+                              >
+                                <MessageCircle size={12} className="mr-1" /> Enviar
+                              </Button>
+                            </div>
+                            <p className="text-sm text-foreground whitespace-pre-wrap">{resp}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div>
                   <h3 className="font-bold text-foreground mb-2 flex items-center gap-2"><FileText size={18} /> Registrar Atividade</h3>
