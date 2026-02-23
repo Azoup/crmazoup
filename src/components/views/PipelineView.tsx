@@ -18,25 +18,16 @@ interface PipelineViewProps {
   msgTemplate: string;
 }
 
-const COLUMNS: { id: LeadStage; title: string; emoji: string }[] = [
-  { id: 'prospeccao', title: 'Prospecção', emoji: '🎯' },
-  { id: 'interesse', title: 'Interesse', emoji: '💡' },
-  { id: 'reuniao', title: 'Reunião', emoji: '📅' },
-  { id: 'proposta', title: 'Proposta', emoji: '📋' },
-  { id: 'venda', title: 'Venda', emoji: '🎉' },
-  { id: 'congelados', title: 'Congelados', emoji: '🧊' },
-  { id: 'perdidos', title: 'Perdidos', emoji: '❌' },
+const COLUMNS: { id: LeadStage; title: string }[] = [
+  { id: 'prospeccao', title: 'Prospecção' },
+  { id: 'interesse', title: 'Interesse' },
+  { id: 'reuniao', title: 'Reunião' },
+  { id: 'proposta', title: 'Proposta' },
+  { id: 'venda', title: 'Venda' },
+  { id: 'congelados', title: 'Congelados' },
+  { id: 'perdidos', title: 'Perdidos' },
 ];
 
-const STAGE_BG: Record<LeadStage, string> = {
-  prospeccao: 'bg-stage-prospeccao/10',
-  interesse: 'bg-stage-interesse/10',
-  reuniao: 'bg-stage-reuniao/10',
-  proposta: 'bg-stage-proposta/10',
-  venda: 'bg-stage-venda/10',
-  congelados: 'bg-stage-congelados/10',
-  perdidos: 'bg-stage-perdidos/10',
-};
 
 export function PipelineView({ 
   leads, 
@@ -77,7 +68,7 @@ export function PipelineView({
     }
     
     if (targetStage === 'perdidos') {
-      const options = ['Preço', 'Sem Interesse', 'Já possui sistema', 'Não Responde', 'Pequeno', 'Fechou com outra empresa', 'Deixou pro futuro', 'Outro'];
+      const options = ['Preço', 'Sem Interesse', 'Já possui sistema', 'Não Responde', 'Pequeno', 'Fechou com outra empresa', 'Deixou pro futuro', 'Private Label', 'Outro'];
       const reason = prompt(`Motivo da perda?\n\nOpções:\n${options.map((o, i) => `${i + 1}. ${o}`).join('\n')}\n\nDigite o número ou o motivo:`) || 'Não Informado';
       const numChoice = parseInt(reason);
       updates.loss_reason = (numChoice >= 1 && numChoice <= options.length) ? options[numChoice - 1] : reason;
@@ -174,7 +165,7 @@ export function PipelineView({
               onDrop={(e) => handleDrop(e, col.id)}
             >
               {/* Column header */}
-              <div className={`px-4 py-3 border-b-2 ${STAGE_COLORS[col.id]} ${STAGE_BG[col.id]}`}>
+              <div className={`px-4 py-3 border-b-2 ${STAGE_COLORS[col.id]} bg-card`}>
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     {selectMode && colLeads.length > 0 && (
@@ -183,7 +174,6 @@ export function PipelineView({
                         onCheckedChange={() => handleSelectAllInColumn(colLeads)}
                       />
                     )}
-                    <span className="text-base">{col.emoji}</span>
                     <span className="font-bold text-foreground text-sm">{col.title}</span>
                   </div>
                   <span className="bg-foreground/10 text-foreground/70 w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center">
