@@ -35,19 +35,25 @@ interface ValidatedContact {
   tags: string[];
 }
 
-function validateContact(contact: unknown, contactTags: Record<string, string[]>): ValidatedContact | null {
+function validateContact(contact: unknown, contactTags: Record<string, string[]>, orgNames: Record<string, string>): ValidatedContact | null {
   if (!contact || typeof contact !== 'object') return null;
   const rawContact = contact as Record<string, unknown>;
   if (!rawContact.id) return null;
   
   const id = String(rawContact.id);
+  // Try orgname from contact first, then look up by orgid
+  let orgname = sanitizeString(rawContact.orgname, 200) || null;
+  if (!orgname && rawContact.orgid) {
+    orgname = orgNames[String(rawContact.orgid)] || null;
+  }
+  
   return {
     id,
     firstName: sanitizeString(rawContact.firstName, 100),
     lastName: sanitizeString(rawContact.lastName, 100),
     email: rawContact.email && isValidEmail(rawContact.email) ? sanitizeString(rawContact.email, 255) : null,
     phone: sanitizePhone(rawContact.phone),
-    orgname: sanitizeString(rawContact.orgname, 200) || null,
+    orgname,
     tags: contactTags[id] || [],
   };
 }
@@ -133,6 +139,42 @@ async function fetchContactTags(contacts: any[], acUrl: string, acApiKey: string
   return contactTags;
 }
 
+async function fetchOrgNames(contacts: any[], acUrl: string, acApiKey: string): Promise<Record<string, string>> {
+  const orgNames: Record<string, string> = {};
+  const orgIds = new Set<string>();
+  
+  for (const contact of contacts) {
+    if (contact.orgid && String(contact.orgid) !== '0' && !contact.orgname) {
+      orgIds.add(String(contact.orgid));
+    }
+  }
+  
+  console.log(`Fetching ${orgIds.size} organization names...`);
+  
+  const batchSize = 10;
+  const orgIdArray = Array.from(orgIds);
+  for (let i = 0; i < orgIdArray.length; i += batchSize) {
+    const batch = orgIdArray.slice(i, i + batchSize);
+    await Promise.all(batch.map(async (orgId) => {
+      try {
+        const response = await fetch(`${acUrl}/api/3/organizations/${orgId}`, {
+          headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.organization?.name) {
+            orgNames[orgId] = sanitizeString(data.organization.name, 200);
+          }
+        }
+      } catch (e) {
+        console.error(`Error fetching org ${orgId}:`, e);
+      }
+    }));
+  }
+  
+  return orgNames;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -184,12 +226,16 @@ serve(async (req) => {
     const contactTags = await fetchContactTags(contacts, acUrl, acApiKey);
     console.log('Tags fetched');
 
+    console.log('Fetching organization names...');
+    const orgNames = await fetchOrgNames(contacts, acUrl, acApiKey);
+    console.log(`Fetched ${Object.keys(orgNames).length} org names`);
+
     // Build leads to upsert - ALL contacts, using activecampaign_id as the dedup key
     const leadsToUpsert: any[] = [];
     let validationErrors = 0;
 
     for (const contact of contacts) {
-      const validated = validateContact(contact, contactTags);
+      const validated = validateContact(contact, contactTags, orgNames);
       if (!validated) {
         validationErrors++;
         continue;

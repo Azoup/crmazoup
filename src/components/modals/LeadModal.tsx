@@ -462,7 +462,7 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
     }
   };
 
-  const sendObjectionWhatsApp = (message: string) => {
+  const sendObjectionWhatsApp = async (message: string) => {
     if (!formData.whatsapp) {
       toast({ title: 'WhatsApp não configurado', description: 'Adicione um número de WhatsApp primeiro.', variant: 'destructive' });
       return;
@@ -472,7 +472,10 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
     const phone = cleanPhoneNumber(formData.whatsapp);
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(finalMsg)}`, '_blank');
     if (lead) {
-      addHistory(lead.id, 'whatsapp', `📱 Resposta a objeção enviada: "${finalMsg.substring(0, 100)}..."`);
+      const updatedHistory = await addHistory(lead.id, 'whatsapp', `📱 Resposta a objeção enviada: "${finalMsg.substring(0, 100)}..."`);
+      if (updatedHistory) {
+        setFormData(prev => ({ ...prev, history: updatedHistory }));
+      }
     }
   };
 
