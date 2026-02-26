@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.sync-activecampaign]
 verify_jwt = false
+
+[functions.n8n-new-leads]
+verify_jwt = false
+
+[functions.n8n-mark-contacted]
+verify_jwt = false
