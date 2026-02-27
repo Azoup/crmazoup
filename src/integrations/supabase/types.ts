@@ -27,6 +27,7 @@ export type Database = {
           implementation_value: number | null
           is_new: boolean | null
           last_contact: string | null
+          lead_source: string
           loss_reason: string | null
           manager_notes: string | null
           meeting_date: string | null
@@ -60,6 +61,7 @@ export type Database = {
           implementation_value?: number | null
           is_new?: boolean | null
           last_contact?: string | null
+          lead_source?: string
           loss_reason?: string | null
           manager_notes?: string | null
           meeting_date?: string | null
@@ -93,6 +95,7 @@ export type Database = {
           implementation_value?: number | null
           is_new?: boolean | null
           last_contact?: string | null
+          lead_source?: string
           loss_reason?: string | null
           manager_notes?: string | null
           meeting_date?: string | null
@@ -233,6 +236,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          meeting_goal: number | null
           msg_template: string | null
           sales_goal: number | null
           updated_at: string
@@ -241,6 +245,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          meeting_goal?: number | null
           msg_template?: string | null
           sales_goal?: number | null
           updated_at?: string
@@ -249,6 +254,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          meeting_goal?: number | null
           msg_template?: string | null
           sales_goal?: number | null
           updated_at?: string
