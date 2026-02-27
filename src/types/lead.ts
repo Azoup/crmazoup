@@ -2,6 +2,8 @@ export type LeadTemperature = 'frio' | 'morno' | 'quente';
 
 export type LeadStage = 'prospeccao' | 'interesse' | 'reuniao' | 'proposta' | 'venda' | 'congelados' | 'perdidos';
 
+export type LeadSource = 'marketing' | 'prospeccao_ativa' | 'indicacao';
+
 export type MeetingStatus = 'compareceu' | 'no_show' | 'reagendar' | null;
 
 export interface LeadHistory {
@@ -44,6 +46,7 @@ export interface Lead {
   reference_month?: string | null;
   pieces_per_month?: number | null;
   responsible_user_id?: string | null;
+  lead_source?: LeadSource;
 }
 
 export interface LeadFilters {
@@ -57,6 +60,7 @@ export interface UserSettings {
   user_id: string;
   sales_goal: number;
   msg_template: string;
+  meeting_goal?: number;
 }
 
 export interface MonthlyMetrics {

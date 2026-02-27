@@ -1,13 +1,16 @@
-import { useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Lead, STAGE_LABELS } from '@/types/lead';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { formatDate } from '@/lib/utils';
+import { getCurrentReferenceMonth, formatReferenceMonth } from '@/hooks/useMonthlyMetrics';
 import { 
   ThermometerSun, XCircle, AlertTriangle, TrendingDown, 
-  BarChart3, Users, Snowflake, Target, Download
+  BarChart3, Users, Snowflake, Target, Download,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 interface QualificationViewProps {
   leads: Lead[];
@@ -20,24 +23,27 @@ interface LossReasonStat {
 }
 
 export function QualificationView({ leads }: QualificationViewProps) {
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentReferenceMonth());
+
+  // Filter leads by selected month
+  const monthlyLeads = useMemo(() => {
+    return leads.filter(lead => lead.reference_month === selectedMonth);
+  }, [leads, selectedMonth]);
+
   const stats = useMemo(() => {
-    const total = leads.length;
-    const lost = leads.filter(l => l.stage === 'perdidos');
-    const frozen = leads.filter(l => l.stage === 'congelados');
+    const total = monthlyLeads.length;
+    const lost = monthlyLeads.filter(l => l.stage === 'perdidos');
+    const frozen = monthlyLeads.filter(l => l.stage === 'congelados');
     const disqualified = [...lost, ...frozen];
-    const qualified = leads.filter(l => !['perdidos', 'congelados'].includes(l.stage));
-    const inSale = leads.filter(l => l.stage === 'venda');
-    const inMeeting = leads.filter(l => l.stage === 'reuniao');
-    const inProposal = leads.filter(l => l.stage === 'proposta');
+    const qualified = monthlyLeads.filter(l => !['perdidos', 'congelados'].includes(l.stage));
+    const inSale = monthlyLeads.filter(l => l.stage === 'venda');
+    const inMeeting = monthlyLeads.filter(l => l.stage === 'reuniao');
+    const inProposal = monthlyLeads.filter(l => l.stage === 'proposta');
 
-    // Qualification rate = leads that progressed beyond prospeccao / total
-    const progressed = leads.filter(l => l.stage !== 'prospeccao' && l.stage !== 'perdidos' && l.stage !== 'congelados');
+    const progressed = monthlyLeads.filter(l => l.stage !== 'prospeccao' && l.stage !== 'perdidos' && l.stage !== 'congelados');
     const qualificationRate = total > 0 ? (progressed.length / total) * 100 : 0;
-
-    // Conversion funnel rate
     const conversionRate = total > 0 ? (inSale.length / total) * 100 : 0;
 
-    // Loss reasons breakdown
     const lossReasons: Record<string, number> = {};
     lost.forEach(l => {
       const reason = l.loss_reason || 'Não Informado';
@@ -52,7 +58,6 @@ export function QualificationView({ leads }: QualificationViewProps) {
       }))
       .sort((a, b) => b.count - a.count);
 
-    // Stage distribution for disqualified leads
     const disqualificationRate = total > 0 ? (disqualified.length / total) * 100 : 0;
 
     return {
@@ -70,9 +75,8 @@ export function QualificationView({ leads }: QualificationViewProps) {
       disqualificationRate,
       lossReasonStats,
     };
-  }, [leads]);
+  }, [monthlyLeads]);
 
-  // Thermometer color based on qualification rate
   const getThermometerColor = (rate: number) => {
     if (rate >= 60) return 'text-success';
     if (rate >= 35) return 'text-warning';
@@ -97,78 +101,89 @@ export function QualificationView({ leads }: QualificationViewProps) {
     'bg-destructive/80', 'bg-warning/80', 'bg-primary/80', 'bg-info/80', 'bg-muted-foreground/50'
   ];
 
-  const downloadCSV = useCallback(() => {
-    const headers = [
-      'Lead', 'Empresa', 'Tipo de Confecção', 'WhatsApp', 'Email', 'Website',
-      'Status', 'Temperatura', 'Motivo Perda/Congelamento', 'Próximo Contato',
-      'Valor Implantação (R$)', 'Valor Mensalidade (R$)', 'Peças/Mês',
-      'Dores Identificadas', 'Data Reunião', 'Data Entrada', 'Data Atualização',
-    ];
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const date = new Date(year, month - 1, 1);
+    if (direction === 'prev') date.setMonth(date.getMonth() - 1);
+    else date.setMonth(date.getMonth() + 1);
+    setSelectedMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`);
+  };
+
+  const downloadExcel = useCallback(() => {
     const rows = stats.disqualified
       .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-      .map(lead => [
-        lead.name,
-        lead.company || '-',
-        lead.confection_type || '-',
-        lead.whatsapp || '-',
-        lead.email || '-',
-        lead.website || '-',
-        STAGE_LABELS[lead.stage] || lead.stage,
-        lead.temperature,
-        lead.loss_reason || '-',
-        lead.next_contact ? lead.next_contact.replace('T', ' ').slice(0, 16) : '-',
-        String(lead.implementation_value || 0),
-        String(lead.monthly_value || 0),
-        lead.pieces_per_month != null ? String(lead.pieces_per_month) : '-',
-        lead.meeting_pain || '-',
-        lead.meeting_date ? lead.meeting_date.replace('T', ' ').slice(0, 16) : '-',
-        formatDate(lead.entry_date),
-        formatDate(lead.updated_at),
-      ]);
+      .map(lead => ({
+        'Lead': lead.name,
+        'Empresa': lead.company || '-',
+        'Tipo de Confecção': lead.confection_type || '-',
+        'WhatsApp': lead.whatsapp || '-',
+        'Email': lead.email || '-',
+        'Website': lead.website || '-',
+        'Status': STAGE_LABELS[lead.stage] || lead.stage,
+        'Temperatura': lead.temperature,
+        'Motivo Perda/Congelamento': lead.loss_reason || '-',
+        'Próximo Contato': lead.next_contact ? lead.next_contact.replace('T', ' ').slice(0, 16) : '-',
+        'Valor Implantação (R$)': Number(lead.implementation_value || 0),
+        'Valor Mensalidade (R$)': Number(lead.monthly_value || 0),
+        'Peças/Mês': lead.pieces_per_month ?? '-',
+        'Dores Identificadas': lead.meeting_pain || '-',
+        'Data Reunião': lead.meeting_date ? lead.meeting_date.replace('T', ' ').slice(0, 16) : '-',
+        'Data Entrada': formatDate(lead.entry_date),
+        'Data Atualização': formatDate(lead.updated_at),
+        'Origem': lead.lead_source === 'prospeccao_ativa' ? 'Prospecção Ativa' : lead.lead_source === 'indicacao' ? 'Indicação' : 'Marketing',
+      }));
 
-    // Summary section
-    const summary = [
-      [],
-      ['--- RESUMO ---'],
-      ['Total de Leads', stats.total.toString()],
-      ['Taxa de Qualificação', `${stats.qualificationRate.toFixed(1)}%`],
-      ['Taxa de Desqualificação', `${stats.disqualificationRate.toFixed(1)}%`],
-      ['Taxa de Conversão', `${stats.conversionRate.toFixed(1)}%`],
-      ['Leads Perdidos', stats.lost.length.toString()],
-      ['Leads Congelados', stats.frozen.length.toString()],
-      [],
-      ['--- MOTIVOS DE PERDA ---'],
-      ...stats.lossReasonStats.map(s => [s.reason, `${s.count} (${s.percent.toFixed(0)}%)`]),
+    const summaryRows = [
+      {},
+      { 'Lead': '--- RESUMO ---' },
+      { 'Lead': 'Período', 'Empresa': formatReferenceMonth(selectedMonth) },
+      { 'Lead': 'Total de Leads', 'Empresa': stats.total },
+      { 'Lead': 'Taxa de Qualificação', 'Empresa': `${stats.qualificationRate.toFixed(1)}%` },
+      { 'Lead': 'Taxa de Desqualificação', 'Empresa': `${stats.disqualificationRate.toFixed(1)}%` },
+      { 'Lead': 'Taxa de Conversão', 'Empresa': `${stats.conversionRate.toFixed(1)}%` },
+      { 'Lead': 'Leads Perdidos', 'Empresa': stats.lost.length },
+      { 'Lead': 'Leads Congelados', 'Empresa': stats.frozen.length },
+      {},
+      { 'Lead': '--- MOTIVOS DE PERDA ---' },
+      ...stats.lossReasonStats.map(s => ({ 'Lead': s.reason, 'Empresa': `${s.count} (${s.percent.toFixed(0)}%)` })),
     ];
 
-    const csvContent = [
-      headers.join(';'),
-      ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')),
-      ...summary.map(r => r.join(';')),
-    ].join('\n');
+    const ws = XLSX.utils.json_to_sheet([...rows, ...summaryRows]);
+    
+    // Auto-width columns
+    const colWidths = Object.keys(rows[0] || {}).map(key => ({
+      wch: Math.max(key.length, ...rows.map(r => String((r as any)[key] || '').length)) + 2
+    }));
+    ws['!cols'] = colWidths;
 
-    const BOM = '\uFEFF';
-    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `relatorio-qualificacao-${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  }, [stats]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Qualificação');
+    XLSX.writeFile(wb, `relatorio-qualificacao-${selectedMonth}.xlsx`);
+  }, [stats, selectedMonth]);
 
   return (
     <div className="space-y-6">
-      {/* Download button */}
-      <div className="flex justify-end">
-        <Button variant="outline" size="sm" onClick={downloadCSV} className="gap-2">
+      {/* Month Navigator + Download */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-3 bg-card rounded-lg border border-border/50 p-2">
+          <button onClick={() => navigateMonth('prev')} className="p-1.5 hover:bg-muted rounded">
+            <ChevronLeft size={18} />
+          </button>
+          <span className="font-semibold text-foreground min-w-[150px] text-center">
+            {formatReferenceMonth(selectedMonth)}
+          </span>
+          <button onClick={() => navigateMonth('next')} className="p-1.5 hover:bg-muted rounded">
+            <ChevronRight size={18} />
+          </button>
+        </div>
+        <Button variant="outline" size="sm" onClick={downloadExcel} className="gap-2">
           <Download size={14} />
-          Baixar Planilha Completa (CSV/Excel)
+          Baixar Excel (.xlsx)
         </Button>
       </div>
+
       {/* Thermometer Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Main Thermometer */}
         <Card className="md:col-span-1 relative overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -177,19 +192,13 @@ export function QualificationView({ leads }: QualificationViewProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center pt-2">
-            {/* Vertical thermometer */}
             <div className="relative w-16 h-48 rounded-full bg-muted border-2 border-border overflow-hidden flex flex-col justify-end mb-3">
               <div
                 className={`w-full bg-gradient-to-t ${getThermometerBg(stats.qualificationRate)} transition-all duration-1000 rounded-b-full`}
                 style={{ height: `${Math.max(5, stats.qualificationRate)}%` }}
               />
-              {/* Scale marks */}
               {[25, 50, 75].map(mark => (
-                <div
-                  key={mark}
-                  className="absolute left-0 right-0 border-t border-border/50"
-                  style={{ bottom: `${mark}%` }}
-                >
+                <div key={mark} className="absolute left-0 right-0 border-t border-border/50" style={{ bottom: `${mark}%` }}>
                   <span className="absolute -right-8 -top-2 text-[9px] text-muted-foreground">{mark}%</span>
                 </div>
               ))}
@@ -208,14 +217,11 @@ export function QualificationView({ leads }: QualificationViewProps) {
           </CardContent>
         </Card>
 
-        {/* KPI Cards */}
         <div className="md:col-span-2 grid grid-cols-2 gap-4">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3 mb-3">
-                <div className="bg-primary/10 p-2.5 rounded-full">
-                  <Users size={18} className="text-primary" />
-                </div>
+                <div className="bg-primary/10 p-2.5 rounded-full"><Users size={18} className="text-primary" /></div>
                 <div>
                   <p className="text-2xl font-bold text-foreground">{stats.total}</p>
                   <p className="text-xs text-muted-foreground">Total de Leads</p>
@@ -223,13 +229,10 @@ export function QualificationView({ leads }: QualificationViewProps) {
               </div>
             </CardContent>
           </Card>
-
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3 mb-3">
-                <div className="bg-destructive/10 p-2.5 rounded-full">
-                  <XCircle size={18} className="text-destructive" />
-                </div>
+                <div className="bg-destructive/10 p-2.5 rounded-full"><XCircle size={18} className="text-destructive" /></div>
                 <div>
                   <p className="text-2xl font-bold text-foreground">{stats.lost.length}</p>
                   <p className="text-xs text-muted-foreground">Leads Perdidos</p>
@@ -237,13 +240,10 @@ export function QualificationView({ leads }: QualificationViewProps) {
               </div>
             </CardContent>
           </Card>
-
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3 mb-3">
-                <div className="bg-info/10 p-2.5 rounded-full">
-                  <Snowflake size={18} className="text-info" />
-                </div>
+                <div className="bg-info/10 p-2.5 rounded-full"><Snowflake size={18} className="text-info" /></div>
                 <div>
                   <p className="text-2xl font-bold text-foreground">{stats.frozen.length}</p>
                   <p className="text-xs text-muted-foreground">Congelados</p>
@@ -251,13 +251,10 @@ export function QualificationView({ leads }: QualificationViewProps) {
               </div>
             </CardContent>
           </Card>
-
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3 mb-3">
-                <div className="bg-success/10 p-2.5 rounded-full">
-                  <Target size={18} className="text-success" />
-                </div>
+                <div className="bg-success/10 p-2.5 rounded-full"><Target size={18} className="text-success" /></div>
                 <div>
                   <p className="text-2xl font-bold text-foreground">{stats.conversionRate.toFixed(1)}%</p>
                   <p className="text-xs text-muted-foreground">Taxa de Conversão</p>
@@ -268,35 +265,31 @@ export function QualificationView({ leads }: QualificationViewProps) {
         </div>
       </div>
 
-      {/* Disqualification Rate Bar */}
+      {/* Disqualification Rate */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <TrendingDown size={16} className="text-destructive" />
-            Taxa de Desqualificação
+            <TrendingDown size={16} className="text-destructive" /> Taxa de Desqualificação
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <Progress value={stats.disqualificationRate} className="h-4" />
-            </div>
+            <div className="flex-1"><Progress value={stats.disqualificationRate} className="h-4" /></div>
             <span className="text-lg font-bold text-destructive min-w-[60px] text-right">
               {stats.disqualificationRate.toFixed(1)}%
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            {stats.disqualified.length} de {stats.total} leads foram desqualificados (Perdidos + Congelados)
+            {stats.disqualified.length} de {stats.total} leads desqualificados
           </p>
         </CardContent>
       </Card>
 
-      {/* Loss Reasons Breakdown */}
+      {/* Loss Reasons */}
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <BarChart3 size={16} className="text-warning" />
-            Motivos de Perda ({stats.lost.length} leads)
+            <BarChart3 size={16} className="text-warning" /> Motivos de Perda ({stats.lost.length} leads)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -311,18 +304,13 @@ export function QualificationView({ leads }: QualificationViewProps) {
                     </span>
                   </div>
                   <div className="w-full bg-muted rounded-full h-3">
-                    <div
-                      className={`h-3 rounded-full transition-all duration-500 ${lossReasonColors[i % lossReasonColors.length]}`}
-                      style={{ width: `${stat.percent}%` }}
-                    />
+                    <div className={`h-3 rounded-full transition-all duration-500 ${lossReasonColors[i % lossReasonColors.length]}`} style={{ width: `${stat.percent}%` }} />
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Nenhum lead perdido até o momento. 🎉
-            </p>
+            <p className="text-sm text-muted-foreground text-center py-4">Nenhum lead perdido neste mês. 🎉</p>
           )}
         </CardContent>
       </Card>
@@ -331,8 +319,7 @@ export function QualificationView({ leads }: QualificationViewProps) {
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <AlertTriangle size={16} className="text-warning" />
-            Leads Desqualificados ({stats.disqualified.length})
+            <AlertTriangle size={16} className="text-warning" /> Leads Desqualificados ({stats.disqualified.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -346,8 +333,7 @@ export function QualificationView({ leads }: QualificationViewProps) {
                   <th className="text-left p-3 text-xs font-medium text-muted-foreground">WhatsApp</th>
                   <th className="text-left p-3 text-xs font-medium text-muted-foreground">Status</th>
                   <th className="text-left p-3 text-xs font-medium text-muted-foreground">Motivo</th>
-                  <th className="text-left p-3 text-xs font-medium text-muted-foreground">Implantação</th>
-                  <th className="text-left p-3 text-xs font-medium text-muted-foreground">Mensalidade</th>
+                  <th className="text-left p-3 text-xs font-medium text-muted-foreground">Origem</th>
                   <th className="text-left p-3 text-xs font-medium text-muted-foreground">Data</th>
                 </tr>
               </thead>
@@ -362,27 +348,24 @@ export function QualificationView({ leads }: QualificationViewProps) {
                       <td className="p-3 text-sm text-muted-foreground">{lead.whatsapp || '-'}</td>
                       <td className="p-3">
                         <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                          lead.stage === 'perdidos'
-                            ? 'bg-destructive/10 text-destructive'
-                            : 'bg-info/10 text-info'
+                          lead.stage === 'perdidos' ? 'bg-destructive/10 text-destructive' : 'bg-info/10 text-info'
                         }`}>
                           {STAGE_LABELS[lead.stage] || lead.stage}
                         </span>
                       </td>
                       <td className="p-3 text-sm text-muted-foreground">{lead.loss_reason || '-'}</td>
-                      <td className="p-3 text-sm text-muted-foreground">
-                        {lead.implementation_value ? `R$ ${Number(lead.implementation_value).toLocaleString('pt-BR')}` : '-'}
-                      </td>
-                      <td className="p-3 text-sm text-muted-foreground">
-                        {lead.monthly_value ? `R$ ${Number(lead.monthly_value).toLocaleString('pt-BR')}` : '-'}
+                      <td className="p-3">
+                        <span className="text-xs px-2 py-1 rounded-full font-medium bg-muted text-muted-foreground">
+                          {lead.lead_source === 'prospeccao_ativa' ? 'Prosp. Ativa' : lead.lead_source === 'indicacao' ? 'Indicação' : 'Marketing'}
+                        </span>
                       </td>
                       <td className="p-3 text-sm text-muted-foreground">{formatDate(lead.updated_at)}</td>
                     </tr>
                   ))}
                 {stats.disqualified.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="p-8 text-center text-muted-foreground">
-                      Nenhum lead desqualificado. Continue prospectando! 🚀
+                    <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                      Nenhum lead desqualificado neste mês. 🚀
                     </td>
                   </tr>
                 )}

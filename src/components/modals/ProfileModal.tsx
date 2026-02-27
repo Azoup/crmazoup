@@ -3,27 +3,32 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Lead } from '@/types/lead';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { useMonthlyMetrics, getCurrentReferenceMonth, formatReferenceMonth } from '@/hooks/useMonthlyMetrics';
 import { 
   XCircle, LogOut, Save, Users, UserX, Calendar, UserCheck, 
-  DollarSign, AlertTriangle, TrendingUp, ChevronLeft, ChevronRight 
+  DollarSign, AlertTriangle, TrendingUp, ChevronLeft, ChevronRight,
+  Target as TargetIcon
 } from 'lucide-react';
 
 interface ProfileModalProps {
   onClose: () => void;
   leads: Lead[];
   salesGoal: number;
+  meetingGoal?: number;
+  onUpdateSettings?: (updates: any) => void;
 }
 
-export function ProfileModal({ onClose, leads, salesGoal }: ProfileModalProps) {
+export function ProfileModal({ onClose, leads, salesGoal, meetingGoal = 0, onUpdateSettings }: ProfileModalProps) {
   const { profile, updateProfile, signOut } = useAuth();
   const [formData, setFormData] = useState({
     name: profile?.name || '',
     avatar: profile?.avatar || '',
     signature: profile?.signature || '',
+    meetingGoal: meetingGoal,
   });
   const [activeTab, setActiveTab] = useState<'profile' | 'metrics'>('metrics');
   const [selectedMonth, setSelectedMonth] = useState(getCurrentReferenceMonth());
@@ -31,7 +36,10 @@ export function ProfileModal({ onClose, leads, salesGoal }: ProfileModalProps) {
   const metrics = useMonthlyMetrics(leads, selectedMonth);
 
   const handleSave = async () => {
-    await updateProfile(formData);
+    await updateProfile({ name: formData.name, avatar: formData.avatar, signature: formData.signature });
+    if (onUpdateSettings && formData.meetingGoal !== meetingGoal) {
+      onUpdateSettings({ meeting_goal: formData.meetingGoal });
+    }
     onClose();
   };
 
@@ -183,6 +191,33 @@ export function ProfileModal({ onClose, leads, salesGoal }: ProfileModalProps) {
                   bgColor={percentGoal >= 100 ? 'bg-success/10' : 'bg-warning/10'}
                 />
               </div>
+
+              {/* Meeting Goal Fun Tracker */}
+              {formData.meetingGoal > 0 && (
+                <div className="bg-card rounded-lg border border-border/50 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <TargetIcon size={16} className="text-primary" />
+                    <span className="text-sm font-semibold text-foreground">Meta Pessoal de Reuniões 🎯</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <Progress 
+                        value={formData.meetingGoal > 0 ? Math.min(100, (metrics.meetingsAttended / formData.meetingGoal) * 100) : 0} 
+                        className="h-3" 
+                      />
+                    </div>
+                    <span className="text-sm font-bold text-foreground">
+                      {metrics.meetingsAttended}/{formData.meetingGoal}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {metrics.meetingsAttended >= formData.meetingGoal 
+                      ? '🎉 Meta batida! Parabéns!' 
+                      : `Faltam ${formData.meetingGoal - metrics.meetingsAttended} reunião(ões)`
+                    }
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
@@ -205,6 +240,18 @@ export function ProfileModal({ onClose, leads, salesGoal }: ProfileModalProps) {
               <div>
                 <Label>Assinatura WhatsApp</Label>
                 <Textarea value={formData.signature} onChange={e => setFormData({ ...formData, signature: e.target.value })} rows={2} placeholder="Ex: João - Azoup Tecnologia" />
+              </div>
+
+              <div>
+                <Label>Meta Pessoal de Reuniões (mês) 🎯</Label>
+                <Input 
+                  type="number" 
+                  value={formData.meetingGoal || ''} 
+                  onChange={e => setFormData({ ...formData, meetingGoal: Number(e.target.value) || 0 })} 
+                  placeholder="Ex: 10"
+                  min={0}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Meta divertida para acompanhar suas reuniões realizadas</p>
               </div>
 
               <div className="flex gap-2 pt-4">
