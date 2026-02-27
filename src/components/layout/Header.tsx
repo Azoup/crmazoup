@@ -4,7 +4,8 @@ import { Lead } from '@/types/lead';
 import { formatTime } from '@/lib/utils';
 import { 
   Bell, UserCircle, 
-  LayoutDashboard, CalendarDays, TrendingUp, Users, Sparkles, RefreshCw, ClipboardCheck
+  LayoutDashboard, CalendarDays, TrendingUp, Users, Sparkles, RefreshCw, ClipboardCheck,
+  PhoneOutgoing, UserPlus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
@@ -85,6 +86,8 @@ export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncA
         {/* Center: Navigation */}
         <nav className="hidden md:flex items-center bg-primary-foreground/10 rounded-xl p-1 gap-1">
           <NavButton active={view === 'pipeline'} onClick={() => setView('pipeline')} icon={LayoutDashboard} label="Pipeline" />
+          <NavButton active={view === 'prospeccao_ativa'} onClick={() => setView('prospeccao_ativa')} icon={PhoneOutgoing} label="Prosp. Ativa" />
+          <NavButton active={view === 'indicacao'} onClick={() => setView('indicacao')} icon={UserPlus} label="Indicação" />
           <NavButton active={view === 'agenda'} onClick={() => setView('agenda')} icon={CalendarDays} label="Agenda" />
           <NavButton active={view === 'vendas'} onClick={() => setView('vendas')} icon={TrendingUp} label="Vendas" />
           <NavButton active={view === 'qualificacao'} onClick={() => setView('qualificacao')} icon={ClipboardCheck} label="Qualificação" />
@@ -159,6 +162,8 @@ export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncA
       {/* Mobile nav */}
       <nav className="md:hidden flex items-center gap-1 px-4 pb-3 overflow-x-auto scrollbar-thin">
         <NavButton active={view === 'pipeline'} onClick={() => setView('pipeline')} icon={LayoutDashboard} label="Pipeline" />
+        <NavButton active={view === 'prospeccao_ativa'} onClick={() => setView('prospeccao_ativa')} icon={PhoneOutgoing} label="Prosp. Ativa" />
+        <NavButton active={view === 'indicacao'} onClick={() => setView('indicacao')} icon={UserPlus} label="Indicação" />
         <NavButton active={view === 'agenda'} onClick={() => setView('agenda')} icon={CalendarDays} label="Agenda" />
         <NavButton active={view === 'vendas'} onClick={() => setView('vendas')} icon={TrendingUp} label="Vendas" />
         <NavButton active={view === 'qualificacao'} onClick={() => setView('qualificacao')} icon={ClipboardCheck} label="Qualif." />

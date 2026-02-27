@@ -66,6 +66,7 @@ function transformDbLead(dbLead: any): Lead {
     reference_month: dbLead.reference_month ?? null,
     pieces_per_month: dbLead.pieces_per_month != null ? Number(dbLead.pieces_per_month) : null,
     responsible_user_id: dbLead.responsible_user_id ?? null,
+    lead_source: dbLead.lead_source ?? 'marketing',
   };
 }
 
@@ -144,6 +145,7 @@ export function useLeads() {
           user_id: settingsData.user_id,
           sales_goal: Number(settingsData.sales_goal),
           msg_template: settingsData.msg_template,
+          meeting_goal: (settingsData as any).meeting_goal ?? 0,
         });
       }
 
@@ -273,7 +275,8 @@ export function useLeads() {
           value: Number(leadData.value) || 0,
           implementation_value: Number(leadData.implementation_value) || 0,
           monthly_value: Number(leadData.monthly_value) || 0,
-          stage: 'prospeccao',
+          stage: leadData.stage || 'prospeccao',
+          lead_source: leadData.lead_source || 'marketing',
           next_contact: leadData.next_contact || null,
           meeting_pain: leadData.meeting_pain?.trim() || null,
           meeting_needs: leadData.meeting_needs?.trim() || null,
@@ -485,12 +488,14 @@ export function useLeads() {
       return;
     }
 
+    const updatePayload: any = {};
+    if (updates.sales_goal !== undefined) updatePayload.sales_goal = updates.sales_goal;
+    if (updates.msg_template !== undefined) updatePayload.msg_template = updates.msg_template;
+    if (updates.meeting_goal !== undefined) updatePayload.meeting_goal = updates.meeting_goal;
+
     const { error } = await supabase
       .from('user_settings')
-      .update({
-        sales_goal: updates.sales_goal,
-        msg_template: updates.msg_template,
-      })
+      .update(updatePayload)
       .eq('user_id', user.id);
 
     if (error) {

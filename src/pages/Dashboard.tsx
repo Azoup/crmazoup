@@ -6,6 +6,7 @@ import { useMeetingReminder } from '@/hooks/useMeetingReminder';
 import { Header } from '@/components/layout/Header';
 import { FilterBar } from '@/components/layout/FilterBar';
 import { PipelineView } from '@/components/views/PipelineView';
+import { ManualPipelineView } from '@/components/views/ManualPipelineView';
 import { WeeklyAgendaView } from '@/components/views/WeeklyAgendaView';
 import { SalesView } from '@/components/views/SalesView';
 import { QualificationView } from '@/components/views/QualificationView';
@@ -18,7 +19,7 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
-type ViewType = 'pipeline' | 'agenda' | 'vendas' | 'qualificacao' | 'gestor';
+type ViewType = 'pipeline' | 'prospeccao_ativa' | 'indicacao' | 'agenda' | 'vendas' | 'qualificacao' | 'gestor';
 
 export function Dashboard() {
   const { profile } = useAuth();
@@ -151,12 +152,46 @@ export function Dashboard() {
         
         {view === 'pipeline' && (
           <PipelineView
-            leads={filteredLeads}
+            leads={filteredLeads.filter(l => l.lead_source === 'marketing' || !l.lead_source)}
             onOpenLead={handleOpenLead}
             getLeadStatus={getLeadStatus}
             updateLead={updateLead}
             addHistory={addHistory}
             msgTemplate={settings?.msg_template || ''}
+          />
+        )}
+
+        {view === 'prospeccao_ativa' && (
+          <ManualPipelineView
+            leads={leads}
+            allLeads={leads}
+            source="prospeccao_ativa"
+            sourceLabel="Prospecção Ativa"
+            onOpenLead={handleOpenLead}
+            getLeadStatus={getLeadStatus}
+            updateLead={updateLead}
+            addHistory={addHistory}
+            addLead={addLead}
+            deleteLead={deleteLead}
+            msgTemplate={settings?.msg_template || ''}
+            onUpdateTemplate={(template) => updateSettings({ msg_template: template })}
+          />
+        )}
+
+        {view === 'indicacao' && (
+          <ManualPipelineView
+            leads={leads}
+            allLeads={leads}
+            source="indicacao"
+            sourceLabel="Indicação"
+            onOpenLead={handleOpenLead}
+            getLeadStatus={getLeadStatus}
+            updateLead={updateLead}
+            addHistory={addHistory}
+            addLead={addLead}
+            deleteLead={deleteLead}
+            msgTemplate={settings?.msg_template || ''}
+            onUpdateTemplate={(template) => updateSettings({ msg_template: template })}
           />
         )}
         
@@ -217,6 +252,8 @@ export function Dashboard() {
           onClose={() => setIsProfileOpen(false)}
           leads={leads}
           salesGoal={settings?.sales_goal || 50000}
+          meetingGoal={settings?.meeting_goal || 0}
+          onUpdateSettings={updateSettings}
         />
       )}
 
