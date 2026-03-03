@@ -189,24 +189,6 @@ serve(async (req) => {
       );
     }
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabase.auth.getUser(token);
-    
-    if (claimsError || !claimsData?.user) {
-      return new Response(
-        JSON.stringify({ error: 'Não autorizado' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const userId = claimsData.user.id;
-    
     const acApiKey = Deno.env.get('ACTIVECAMPAIGN_API_KEY');
     const acUrl = Deno.env.get('ACTIVECAMPAIGN_URL');
 
@@ -215,6 +197,55 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Serviço de integração não configurado' }),
         { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const adminSupabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
+    // Try to authenticate as a specific user
+    let userIds: string[] = [];
+    const token = authHeader.replace('Bearer ', '');
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: claimsData, error: claimsError } = await supabase.auth.getUser(token);
+    
+    if (!claimsError && claimsData?.user) {
+      // Authenticated user call - sync for this user only
+      userIds = [claimsData.user.id];
+      console.log(`Authenticated sync for user ${userIds[0]}`);
+    } else {
+      // Cron job call (anon key) - sync for ALL users who have leads
+      console.log('Cron sync: fetching all user IDs with leads...');
+      const { data: users } = await adminSupabase
+        .from('leads')
+        .select('user_id')
+        .eq('lead_source', 'marketing')
+        .limit(1000);
+      
+      userIds = [...new Set((users || []).map((u: any) => u.user_id))];
+      
+      if (userIds.length === 0) {
+        // No existing users with leads, try profiles
+        const { data: profiles } = await adminSupabase
+          .from('profiles')
+          .select('user_id')
+          .eq('role', 'SDR');
+        userIds = (profiles || []).map((p: any) => p.user_id);
+      }
+      
+      console.log(`Cron sync for ${userIds.length} users`);
+    }
+
+    if (userIds.length === 0) {
+      return new Response(
+        JSON.stringify({ success: true, imported: 0, total: 0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -230,80 +261,75 @@ serve(async (req) => {
     const orgNames = await fetchOrgNames(contacts, acUrl, acApiKey);
     console.log(`Fetched ${Object.keys(orgNames).length} org names`);
 
-    // Build leads to upsert - ALL contacts, using activecampaign_id as the dedup key
-    const leadsToUpsert: any[] = [];
+    let totalImported = 0;
+    let totalDbErrors = 0;
     let validationErrors = 0;
 
-    for (const contact of contacts) {
-      const validated = validateContact(contact, contactTags, orgNames);
-      if (!validated) {
-        validationErrors++;
-        continue;
-      }
-      
-      const fullName = `${validated.firstName} ${validated.lastName}`.trim();
-      const tagsNote = validated.tags.length > 0 ? ` | Tags: ${validated.tags.join(', ')}` : '';
-      
-      leadsToUpsert.push({
-        user_id: userId,
-        name: fullName.substring(0, 255) || validated.email || 'Sem nome',
-        email: validated.email,
-        whatsapp: validated.phone,
-        company: validated.orgname,
-        confection_type: validated.tags.length > 0 ? validated.tags[0] : null,
-        stage: 'prospeccao',
-        temperature: 'frio',
-        is_new: true,
-        activecampaign_id: validated.id,
-        value: 0,
-        history: [{
-          type: 'sistema',
-          note: `Lead importado do ActiveCampaign em ${new Date().toLocaleDateString('pt-BR')}${tagsNote}`,
-          date: new Date().toISOString(),
-          user: 'Sistema'
-        }]
-      });
-    }
+    // For each user, upsert all contacts
+    for (const userId of userIds) {
+      const leadsToUpsert: any[] = [];
 
-    console.log(`${leadsToUpsert.length} contacts to upsert (dedup by activecampaign_id + user_id)`);
-
-    let imported = 0;
-    let dbErrors = 0;
-
-    // Use the admin client for upsert with onConflict
-    const adminSupabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
-
-    // Upsert in batches of 50, using activecampaign_id + user_id as conflict key
-    // ignoreDuplicates=true means existing leads are NOT overwritten
-    for (let i = 0; i < leadsToUpsert.length; i += 50) {
-      const batch = leadsToUpsert.slice(i, i + 50);
-      const { error: upsertError } = await adminSupabase
-        .from('leads')
-        .upsert(batch, {
-          onConflict: 'activecampaign_id,user_id',
-          ignoreDuplicates: true,
+      for (const contact of contacts) {
+        const validated = validateContact(contact, contactTags, orgNames);
+        if (!validated) {
+          if (userId === userIds[0]) validationErrors++;
+          continue;
+        }
+        
+        const fullName = `${validated.firstName} ${validated.lastName}`.trim();
+        const tagsNote = validated.tags.length > 0 ? ` | Tags: ${validated.tags.join(', ')}` : '';
+        
+        leadsToUpsert.push({
+          user_id: userId,
+          name: fullName.substring(0, 255) || validated.email || 'Sem nome',
+          email: validated.email,
+          whatsapp: validated.phone,
+          company: validated.orgname,
+          confection_type: validated.tags.length > 0 ? validated.tags[0] : null,
+          stage: 'prospeccao',
+          temperature: 'frio',
+          is_new: true,
+          activecampaign_id: validated.id,
+          lead_source: 'marketing',
+          value: 0,
+          history: [{
+            type: 'sistema',
+            note: `Lead importado do ActiveCampaign em ${new Date().toLocaleDateString('pt-BR')}${tagsNote}`,
+            date: new Date().toISOString(),
+            user: 'Sistema'
+          }]
         });
+      }
 
-      if (upsertError) {
-        console.error('Batch upsert error:', upsertError.message);
-        dbErrors += batch.length;
-      } else {
-        imported += batch.length;
+      // Upsert in batches of 50
+      for (let i = 0; i < leadsToUpsert.length; i += 50) {
+        const batch = leadsToUpsert.slice(i, i + 50);
+        const { error: upsertError } = await adminSupabase
+          .from('leads')
+          .upsert(batch, {
+            onConflict: 'activecampaign_id,user_id',
+            ignoreDuplicates: true,
+          });
+
+        if (upsertError) {
+          console.error('Batch upsert error:', upsertError.message);
+          totalDbErrors += batch.length;
+        } else {
+          totalImported += batch.length;
+        }
       }
     }
 
-    console.log(`Successfully processed ${imported} leads (duplicates skipped)`);
+    console.log(`Successfully processed ${totalImported} leads for ${userIds.length} users`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        imported, 
+        imported: totalImported, 
         total: contacts.length,
-        errors: (validationErrors + dbErrors > 0) 
-          ? `${validationErrors} validação, ${dbErrors} banco de dados`
+        users: userIds.length,
+        errors: (validationErrors + totalDbErrors > 0) 
+          ? `${validationErrors} validação, ${totalDbErrors} banco de dados`
           : undefined
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

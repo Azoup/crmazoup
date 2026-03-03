@@ -124,7 +124,7 @@ export function Dashboard() {
       });
       return false;
     }
-  }, [createLeadSource]);
+  };
 
   if (loading) {
     return (
