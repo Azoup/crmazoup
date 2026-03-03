@@ -555,7 +555,7 @@ export function useLeads() {
     return Math.min(100, (totalImplementation / settings.sales_goal) * 100);
   }, [totalImplementation, settings?.sales_goal]);
 
-  const syncActiveCampaign = async (): Promise<{ imported: number; error?: string }> => {
+  const syncActiveCampaign = async (options?: { silent?: boolean }): Promise<{ imported: number; error?: string }> => {
     if (!user) {
       return { imported: 0, error: 'Você precisa estar logado' };
     }
@@ -565,34 +565,65 @@ export function useLeads() {
 
       if (error) {
         console.error('Error syncing ActiveCampaign:', error);
-        toast({ 
-          title: 'Erro', 
-          description: 'Erro ao sincronizar com ActiveCampaign', 
-          variant: 'destructive' 
-        });
+        if (!options?.silent) {
+          toast({ 
+            title: 'Erro', 
+            description: 'Erro ao sincronizar com ActiveCampaign', 
+            variant: 'destructive' 
+          });
+        }
         return { imported: 0, error: error.message };
       }
 
       if (data.success) {
-        toast({ 
-          title: 'Sincronização Concluída', 
-          description: `${data.imported} leads importados do ActiveCampaign` 
-        });
+        if (!options?.silent) {
+          toast({ 
+            title: 'Sincronização Concluída', 
+            description: `${data.imported} leads importados do ActiveCampaign` 
+          });
+        }
         return { imported: data.imported };
       } else {
-        toast({ title: 'Erro', description: data.error, variant: 'destructive' });
+        if (!options?.silent) {
+          toast({ title: 'Erro', description: data.error, variant: 'destructive' });
+        }
         return { imported: 0, error: data.error };
       }
     } catch (err) {
       console.error('Unexpected error syncing:', err);
-      toast({ 
-        title: 'Erro', 
-        description: 'Erro inesperado ao sincronizar', 
-        variant: 'destructive' 
-      });
+      if (!options?.silent) {
+        toast({ 
+          title: 'Erro', 
+          description: 'Erro inesperado ao sincronizar', 
+          variant: 'destructive' 
+        });
+      }
       return { imported: 0, error: 'Erro inesperado' };
     }
   };
+
+  useEffect(() => {
+    if (!user || isManager) return;
+
+    let isRunning = false;
+
+    const runAutoSync = async () => {
+      if (isRunning) return;
+      isRunning = true;
+      await syncActiveCampaign({ silent: true });
+      isRunning = false;
+    };
+
+    // Sync inicial ao abrir o CRM
+    runAutoSync();
+
+    // Sync automático a cada 5 minutos
+    const intervalId = window.setInterval(runAutoSync, 5 * 60 * 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [user?.id, isManager]);
 
   return {
     leads,

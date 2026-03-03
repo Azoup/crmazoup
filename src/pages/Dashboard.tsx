@@ -14,7 +14,7 @@ import { ManagerView } from '@/components/views/ManagerView';
 import { LeadModal } from '@/components/modals/LeadModal';
 import { ProfileModal } from '@/components/modals/ProfileModal';
 import { MeetingStatusModal } from '@/components/modals/MeetingStatusModal';
-import { Lead, MeetingStatus } from '@/types/lead';
+import { Lead, LeadSource } from '@/types/lead';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -49,6 +49,7 @@ export function Dashboard() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [currentLead, setCurrentLead] = useState<Lead | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [createLeadSource, setCreateLeadSource] = useState<LeadSource>('marketing');
 
   // Hook to monitor past meetings and prompt for status
   const { pendingReminder, dismissReminder, clearReminder } = useMeetingReminder(leads);
@@ -71,12 +72,20 @@ export function Dashboard() {
 
   const handleOpenLead = (lead: Lead) => {
     setCurrentLead(lead);
+    setCreateLeadSource((lead.lead_source as LeadSource) || 'marketing');
+    setIsLeadModalOpen(true);
+  };
+
+  const handleOpenNewLead = (source: LeadSource = 'marketing') => {
+    setCurrentLead(null);
+    setCreateLeadSource(source);
     setIsLeadModalOpen(true);
   };
 
   const handleCloseLead = () => {
     setIsLeadModalOpen(false);
     setCurrentLead(null);
+    setCreateLeadSource('marketing');
   };
 
   const handleSaveLead = async (leadData: Partial<Lead>): Promise<boolean> => {
@@ -96,7 +105,7 @@ export function Dashboard() {
       if (currentLead) {
         success = await updateLead(currentLead.id, leadData);
       } else {
-        const newLead = await addLead(leadData);
+        const newLead = await addLead({ ...leadData, lead_source: createLeadSource });
         success = newLead !== null;
       }
       
@@ -115,7 +124,7 @@ export function Dashboard() {
       });
       return false;
     }
-  };
+  }, [createLeadSource]);
 
   if (loading) {
     return (
@@ -168,6 +177,7 @@ export function Dashboard() {
             source="prospeccao_ativa"
             sourceLabel="Prospecção Ativa"
             onOpenLead={handleOpenLead}
+            onCreateLead={handleOpenNewLead}
             getLeadStatus={getLeadStatus}
             updateLead={updateLead}
             addHistory={addHistory}
@@ -185,6 +195,7 @@ export function Dashboard() {
             source="indicacao"
             sourceLabel="Indicação"
             onOpenLead={handleOpenLead}
+            onCreateLead={handleOpenNewLead}
             getLeadStatus={getLeadStatus}
             updateLead={updateLead}
             addHistory={addHistory}
@@ -226,8 +237,8 @@ export function Dashboard() {
 
       <Button
         onClick={() => {
-          setCurrentLead(null);
-          setIsLeadModalOpen(true);
+          const modalSource: LeadSource = view === 'prospeccao_ativa' || view === 'indicacao' ? view : 'marketing';
+          handleOpenNewLead(modalSource);
         }}
         className="fixed bottom-6 right-6 h-12 w-12 rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 z-30 bg-primary text-primary-foreground"
         size="icon"

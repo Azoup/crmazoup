@@ -8,7 +8,6 @@ import { useCelebration } from '@/hooks/useCelebration';
 import { useBulkDelete } from '@/hooks/useBulkDelete';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { LeadModal } from '@/components/modals/LeadModal';
 
 interface ManualPipelineViewProps {
   leads: Lead[];
@@ -16,6 +15,7 @@ interface ManualPipelineViewProps {
   source: LeadSource;
   sourceLabel: string;
   onOpenLead: (lead: Lead) => void;
+  onCreateLead: (source: LeadSource) => void;
   getLeadStatus: (lead: Lead) => 'late' | 'today' | 'ontime' | 'neutral';
   updateLead: (leadId: string, updates: Partial<Lead>) => Promise<boolean>;
   addHistory: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
@@ -41,6 +41,7 @@ export function ManualPipelineView({
   source,
   sourceLabel,
   onOpenLead,
+  onCreateLead,
   getLeadStatus,
   updateLead,
   addHistory,
@@ -53,8 +54,6 @@ export function ManualPipelineView({
   const { celebrateMeeting, celebrateSale } = useCelebration();
   const [selectMode, setSelectMode] = useState(false);
   const { selectedIds, toggleSelect, clearSelection, deleteSelected, deleting, hasSelection, selectionCount } = useBulkDelete();
-  const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
-  const [currentLead, setCurrentLead] = useState<Lead | null>(null);
 
   // Filter leads by source
   const sourceLeads = leads.filter(l => l.lead_source === source);
@@ -118,40 +117,13 @@ export function ManualPipelineView({
     }
   };
 
-  const handleOpenLeadInSource = (lead: Lead) => {
-    setCurrentLead(lead);
-    setIsLeadModalOpen(true);
-  };
-
-  const handleCloseLead = () => {
-    setIsLeadModalOpen(false);
-    setCurrentLead(null);
-  };
-
-  const handleSaveLead = async (leadData: Partial<Lead>): Promise<boolean> => {
-    try {
-      if (!leadData.name?.trim()) return false;
-      
-      if (currentLead) {
-        return await updateLead(currentLead.id, leadData);
-      } else {
-        const newLead = await addLead({ ...leadData, lead_source: source });
-        return newLead !== null;
-      }
-    } catch {
-      return false;
-    }
-  };
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex justify-between items-center mb-3 px-1">
         <div className="flex items-center gap-2">
           <Button
-            onClick={() => {
-              setCurrentLead(null);
-              setIsLeadModalOpen(true);
-            }}
+            onClick={() => onCreateLead(source)}
             size="sm"
             className="gap-1.5 h-8 text-xs"
           >
@@ -225,7 +197,7 @@ export function ManualPipelineView({
                     <div className="flex-1 min-w-0">
                       <LeadCard
                         lead={lead}
-                        onClick={() => !selectMode && handleOpenLeadInSource(lead)}
+                        onClick={() => !selectMode && onOpenLead(lead)}
                         status={getLeadStatus(lead)}
                         onQuickWhatsApp={(e) => {
                           e.stopPropagation();
@@ -241,17 +213,6 @@ export function ManualPipelineView({
         })}
       </div>
 
-      {isLeadModalOpen && (
-        <LeadModal
-          lead={currentLead}
-          onClose={handleCloseLead}
-          onSave={handleSaveLead}
-          onDelete={deleteLead}
-          addHistory={addHistory}
-          msgTemplate={msgTemplate}
-          onUpdateTemplate={onUpdateTemplate}
-        />
-      )}
     </div>
   );
 }
