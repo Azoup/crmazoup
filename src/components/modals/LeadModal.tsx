@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Lead, LeadTemperature, LeadHistory } from '@/types/lead';
+import { Lead, LeadTemperature, LeadHistory, LeadSource } from '@/types/lead';
 import { formatDateTime, getAISuggestion } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -23,6 +23,7 @@ import {
 
 interface LeadModalProps {
   lead: Lead | null;
+  draftScope?: LeadSource;
   onClose: () => void;
   onSave: (data: Partial<Lead>) => Promise<boolean>;
   onDelete: (id: string) => void;
@@ -38,7 +39,7 @@ const ACTIVITY_TYPES = [
   { id: 'nota', label: 'Nota', icon: StickyNote, color: 'text-purple-500' },
 ];
 
-export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemplate, onUpdateTemplate }: LeadModalProps) {
+export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onDelete, addHistory, msgTemplate, onUpdateTemplate }: LeadModalProps) {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('info');
@@ -93,31 +94,37 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
     fetchManager();
   }, [user]);
 
-  // Persist drafts in localStorage so data survives browser tab switches
-  const draftKey = lead?.id ? `lead-draft-${lead.id}` : null;
-  const noteDraftKey = lead?.id ? `lead-note-draft-${lead.id}` : null;
-  const tabKey = lead?.id ? `lead-tab-${lead.id}` : null;
+  // Persist drafts in localStorage so data survives browser tab/window switches
+  const draftIdentity = lead?.id ? `lead-${lead.id}` : `new-${draftScope}`;
+  const draftKey = `lead-draft-${draftIdentity}`;
+  const noteDraftKey = `lead-note-draft-${draftIdentity}`;
+  const tabKey = `lead-tab-${draftIdentity}`;
 
-  // Track previous lead ID to only reset form when switching leads
-  const [prevLeadId, setPrevLeadId] = useState<string | null>(null);
+  const emptyLeadDraft: Partial<Lead> = {
+    name: '', company: '', confection_type: '', whatsapp: '', email: '',
+    temperature: 'frio', value: 0, implementation_value: 0, monthly_value: 0,
+    next_contact: '', stage: 'prospeccao',
+    meeting_pain: '', meeting_link: '', meeting_date: '', history: [],
+    pieces_per_month: null, responsible_user_id: null,
+  };
+
+  // Track previous draft identity to only reset form when switching lead/source
+  const [prevDraftIdentity, setPrevDraftIdentity] = useState<string | null>(null);
 
   useEffect(() => {
-    const currentLeadId = lead?.id || null;
-    const isNewLead = currentLeadId !== prevLeadId;
+    const isDraftChanged = draftIdentity !== prevDraftIdentity;
 
-    if (isNewLead) {
-      setPrevLeadId(currentLeadId);
-      // Restore saved tab or default to 'info'
-      const savedTab = tabKey ? localStorage.getItem(tabKey) : null;
+    if (isDraftChanged) {
+      setPrevDraftIdentity(draftIdentity);
+      const savedTab = localStorage.getItem(tabKey);
       setActiveTab(savedTab || 'info');
     }
 
-    if (lead) {
-      if (isNewLead) {
-        // Restore draft from localStorage if available
-        const savedDraft = draftKey ? localStorage.getItem(draftKey) : null;
-        const savedNote = noteDraftKey ? localStorage.getItem(noteDraftKey) : null;
+    const savedDraft = localStorage.getItem(draftKey);
+    const savedNote = localStorage.getItem(noteDraftKey);
 
+    if (lead) {
+      if (isDraftChanged) {
         if (savedDraft) {
           try {
             const parsed = JSON.parse(savedDraft);
@@ -132,17 +139,23 @@ export function LeadModal({ lead, onClose, onSave, onDelete, addHistory, msgTemp
       } else {
         setFormData(prev => ({ ...prev, history: lead.history }));
       }
-    } else {
-      setFormData({
-        name: '', company: '', confection_type: '', whatsapp: '', email: '',
-        temperature: 'frio', value: 0, implementation_value: 0, monthly_value: 0,
-        next_contact: '', stage: 'prospeccao',
-        meeting_pain: '', meeting_link: '', meeting_date: '', history: [],
-        pieces_per_month: null, responsible_user_id: null,
-      });
-      setNoteText('');
+      return;
     }
-  }, [lead]);
+
+    if (!isDraftChanged) return;
+
+    if (savedDraft) {
+      try {
+        const parsed = JSON.parse(savedDraft);
+        setFormData({ ...emptyLeadDraft, ...parsed });
+      } catch {
+        setFormData(emptyLeadDraft);
+      }
+    } else {
+      setFormData(emptyLeadDraft);
+    }
+    setNoteText(savedNote || '');
+  }, [lead, draftIdentity, draftKey, noteDraftKey, tabKey, prevDraftIdentity]);
 
   // Save formData draft to localStorage on changes
   useEffect(() => {
