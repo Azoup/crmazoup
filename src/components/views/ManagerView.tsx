@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Lead, LeadStage, STAGE_LABELS } from '@/types/lead';
+import { Lead, LeadStage, LeadSource, STAGE_LABELS } from '@/types/lead';
 import { formatCurrency } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
@@ -37,11 +37,13 @@ interface ManagerViewProps {
   leads: Lead[];
   getLeadStatus: (lead: Lead) => 'late' | 'today' | 'ontime' | 'neutral';
   percentGoal: number;
+  onCreateLead?: (source: LeadSource) => void;
+  onOpenLead?: (lead: Lead) => void;
 }
 
 type ManagerSubView = 'pipeline' | 'metrics';
 
-export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, percentGoal }: ManagerViewProps) {
+export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, percentGoal, onCreateLead, onOpenLead }: ManagerViewProps) {
   const { user, profile } = useAuth();
   const {
     sdrs,
@@ -191,31 +193,52 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
           </div>
         </div>
 
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <UserPlus size={16} /> Adicionar SDR
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Adicionar SDR à Equipe</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Peça ao SDR para copiar seu ID de usuário nas configurações do perfil e cole aqui.
-              </p>
-              <Input
-                placeholder="ID do usuário do SDR"
-                value={newSdrId}
-                onChange={(e) => setNewSdrId(e.target.value)}
-              />
-              <Button onClick={handleAddSDR} className="w-full">
-                Adicionar SDR
+        <div className="flex gap-2 items-center flex-wrap">
+          {onCreateLead && (
+            <>
+              <Button
+                onClick={() => onCreateLead('prospeccao_ativa')}
+                variant="outline"
+                className="gap-2"
+              >
+                <UserPlus size={16} /> Novo Lead (Prospecção)
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+              <Button
+                onClick={() => onCreateLead('indicacao')}
+                variant="outline"
+                className="gap-2"
+              >
+                <UserPlus size={16} /> Novo Lead (Indicação)
+              </Button>
+            </>
+          )}
+
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <UserPlus size={16} /> Adicionar SDR
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Adicionar SDR à Equipe</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Peça ao SDR para copiar seu ID de usuário nas configurações do perfil e cole aqui.
+                </p>
+                <Input
+                  placeholder="ID do usuário do SDR"
+                  value={newSdrId}
+                  onChange={(e) => setNewSdrId(e.target.value)}
+                />
+                <Button onClick={handleAddSDR} className="w-full">
+                  Adicionar SDR
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Pipeline View */}
