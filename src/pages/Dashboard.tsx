@@ -231,7 +231,13 @@ export function Dashboard() {
         )}
         
         {view === 'gestor' && isManager && (
-          <ManagerView leads={leads} getLeadStatus={getLeadStatus} percentGoal={percentGoal} />
+          <ManagerView
+            leads={leads}
+            getLeadStatus={getLeadStatus}
+            percentGoal={percentGoal}
+            onCreateLead={handleOpenNewLead}
+            onOpenLead={handleOpenLead}
+          />
         )}
       </main>
 

@@ -104,11 +104,12 @@ export function useManagerData() {
         .select('*')
         .in('user_id', ids);
 
-      // Fetch all leads from these SDRs
+      // Fetch all leads from these SDRs + the manager's own leads
+      const allUserIds = [...ids, user.id];
       const { data: leads } = await supabase
         .from('leads')
         .select('*')
-        .in('user_id', ids)
+        .in('user_id', allUserIds)
         .order('created_at', { ascending: false });
 
       const leadsTyped = (leads || []).map(transformDbLead);
@@ -129,9 +130,10 @@ export function useManagerData() {
     }
   }, [user, isManager]);
 
-  // Set up realtime subscription for SDR leads
+  // Set up realtime subscription for SDR leads + manager's own leads
   useEffect(() => {
     if (!user || !isManager || sdrIds.length === 0) return;
+    const relevantIds = [...sdrIds, user.id];
 
     // Subscribe to all lead changes and filter client-side
     const channel = supabase
@@ -144,8 +146,8 @@ export function useManagerData() {
         const newLead = payload.new as any;
         const oldLead = payload.old as any;
 
-        // Only process if the lead belongs to one of our SDRs
-        if (payload.eventType === 'INSERT' && sdrIds.includes(newLead?.user_id)) {
+        // Only process if the lead belongs to one of our SDRs or the manager
+        if (payload.eventType === 'INSERT' && relevantIds.includes(newLead?.user_id)) {
           const transformedLead = transformDbLead(newLead);
           setAllLeads(prev => [transformedLead, ...prev]);
           setSdrs(prev => prev.map(sdr => 
@@ -153,14 +155,14 @@ export function useManagerData() {
               ? { ...sdr, leads: [transformedLead, ...sdr.leads] }
               : sdr
           ));
-        } else if (payload.eventType === 'UPDATE' && sdrIds.includes(newLead?.user_id)) {
+        } else if (payload.eventType === 'UPDATE' && relevantIds.includes(newLead?.user_id)) {
           const transformedLead = transformDbLead(newLead);
           setAllLeads(prev => prev.map(l => l.id === newLead.id ? transformedLead : l));
           setSdrs(prev => prev.map(sdr => ({
             ...sdr,
             leads: sdr.leads.map(l => l.id === newLead.id ? transformedLead : l)
           })));
-        } else if (payload.eventType === 'DELETE' && sdrIds.includes(oldLead?.user_id)) {
+        } else if (payload.eventType === 'DELETE' && relevantIds.includes(oldLead?.user_id)) {
           setAllLeads(prev => prev.filter(l => l.id !== oldLead.id));
           setSdrs(prev => prev.map(sdr => ({
             ...sdr,
@@ -408,6 +410,79 @@ export function useManagerData() {
     return 'ontime';
   };
 
+  const addLead = async (leadData: Partial<Lead>): Promise<Lead | null> => {
+    if (!user || !profile) {
+      toast({ title: 'Erro', description: 'Você precisa estar logado', variant: 'destructive' });
+      return null;
+    }
+
+    const trimmedName = leadData.name?.trim();
+    if (!trimmedName) {
+      toast({ title: 'Erro', description: 'O nome do lead é obrigatório', variant: 'destructive' });
+      return null;
+    }
+
+    const history: LeadHistory[] = [{
+      type: 'criacao',
+      note: `Lead "${trimmedName}" criado por ${profile.name ?? 'Gestor'}`,
+      date: new Date().toISOString(),
+      user: profile.name?.split(' ')[0] ?? 'Gestor',
+    }];
+
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .insert({
+          user_id: user.id,
+          name: trimmedName,
+          company: leadData.company?.trim() || null,
+          confection_type: leadData.confection_type?.trim() || null,
+          whatsapp: leadData.whatsapp?.trim() || null,
+          email: leadData.email?.trim() || null,
+          website: leadData.website?.trim() || null,
+          temperature: leadData.temperature || 'frio',
+          value: Number(leadData.value) || 0,
+          implementation_value: Number(leadData.implementation_value) || 0,
+          monthly_value: Number(leadData.monthly_value) || 0,
+          stage: leadData.stage || 'prospeccao',
+          lead_source: leadData.lead_source || 'marketing',
+          next_contact: leadData.next_contact || null,
+          meeting_pain: leadData.meeting_pain?.trim() || null,
+          meeting_needs: leadData.meeting_needs?.trim() || null,
+          meeting_link: leadData.meeting_link?.trim() || null,
+          meeting_date: leadData.meeting_date || null,
+          history: history as unknown as Json,
+          last_contact: new Date().toISOString(),
+          entry_date: new Date().toISOString(),
+          pieces_per_month: leadData.pieces_per_month != null ? Number(leadData.pieces_per_month) : null,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error adding lead (manager):', error);
+        toast({ title: 'Erro', description: `Erro ao criar lead: ${error.message}`, variant: 'destructive' });
+        return null;
+      }
+
+      if (!data) {
+        toast({ title: 'Erro', description: 'Não foi possível criar o lead', variant: 'destructive' });
+        return null;
+      }
+
+      const createdLead = transformDbLead(data);
+      // Update local state immediately
+      setAllLeads(prev => (prev.some(l => l.id === createdLead.id) ? prev : [createdLead, ...prev]));
+
+      toast({ title: 'Sucesso', description: 'Lead criado com sucesso!' });
+      return createdLead;
+    } catch (err) {
+      console.error('Unexpected error adding lead (manager):', err);
+      toast({ title: 'Erro', description: 'Erro inesperado ao criar lead', variant: 'destructive' });
+      return null;
+    }
+  };
+
   useEffect(() => {
     if (isManager) {
       fetchSDRs();
@@ -424,6 +499,7 @@ export function useManagerData() {
     isManager,
     addSDR,
     addSDRById,
+    addLead,
     removeSDR,
     updateLeadManagerNotes,
     updateLeadResponsible,
