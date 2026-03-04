@@ -301,8 +301,11 @@ export function useLeads() {
         return null;
       }
 
+      const createdLead = transformDbLead(data);
+      setLeads(prev => (prev.some(l => l.id === createdLead.id) ? prev : [createdLead, ...prev]));
+
       toast({ title: 'Sucesso', description: 'Lead criado com sucesso!' });
-      return transformDbLead(data);
+      return createdLead;
     } catch (err) {
       console.error('Unexpected error adding lead:', err);
       toast({ title: 'Erro', description: 'Erro inesperado ao criar lead', variant: 'destructive' });

@@ -249,6 +249,7 @@ export function Dashboard() {
       {isLeadModalOpen && (
         <LeadModal
           lead={currentLead}
+          draftScope={createLeadSource}
           onClose={handleCloseLead}
           onSave={handleSaveLead}
           onDelete={deleteLead}
