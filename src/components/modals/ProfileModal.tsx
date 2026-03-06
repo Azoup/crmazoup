@@ -231,7 +231,7 @@ export function ProfileModal({ onClose, leads, salesGoal, meetingGoal = 0, onUpd
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="text-center p-3 bg-muted rounded-lg">
-                  <p className="text-2xl font-bold text-foreground">{leads.length}</p>
+                  <p className="text-2xl font-bold text-foreground">{userScopedLeads.length}</p>
                   <p className="text-xs text-muted-foreground">Leads</p>
                 </div>
                 <div className="text-center p-3 bg-success/10 rounded-lg">
