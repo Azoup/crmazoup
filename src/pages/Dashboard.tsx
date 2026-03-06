@@ -190,8 +190,8 @@ export function Dashboard() {
 
         {view === 'indicacao' && (
           <ManualPipelineView
-            leads={leads}
-            allLeads={leads}
+            leads={leads.filter(l => l.user_id === user?.id)}
+            allLeads={leads.filter(l => l.user_id === user?.id)}
             source="indicacao"
             sourceLabel="Indicação"
             onOpenLead={handleOpenLead}
