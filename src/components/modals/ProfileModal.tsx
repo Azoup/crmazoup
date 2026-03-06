@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Lead } from '@/types/lead';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ interface ProfileModalProps {
 }
 
 export function ProfileModal({ onClose, leads, salesGoal, meetingGoal = 0, onUpdateSettings }: ProfileModalProps) {
-  const { profile, updateProfile, signOut } = useAuth();
+  const { user, profile, updateProfile, signOut } = useAuth();
   const [formData, setFormData] = useState({
     name: profile?.name || '',
     avatar: profile?.avatar || '',
@@ -32,8 +32,14 @@ export function ProfileModal({ onClose, leads, salesGoal, meetingGoal = 0, onUpd
   });
   const [activeTab, setActiveTab] = useState<'profile' | 'metrics'>('metrics');
   const [selectedMonth, setSelectedMonth] = useState(getCurrentReferenceMonth());
-  
-  const metrics = useMonthlyMetrics(leads, selectedMonth);
+
+  // Dashboard pessoal do usuário logado (não mistura leads de gestor/SDRs vinculados)
+  const userScopedLeads = useMemo(
+    () => leads.filter((lead) => lead.user_id === user?.id),
+    [leads, user?.id]
+  );
+
+  const metrics = useMonthlyMetrics(userScopedLeads, selectedMonth);
 
   const handleSave = async () => {
     await updateProfile({ name: formData.name, avatar: formData.avatar, signature: formData.signature });
@@ -49,7 +55,9 @@ export function ProfileModal({ onClose, leads, salesGoal, meetingGoal = 0, onUpd
   };
 
   // Meta de vendas é calculada apenas com valor de implantação
-  const totalImplementation = leads.filter(l => l.stage === 'venda').reduce((acc, l) => acc + (l.implementation_value || 0), 0);
+  const totalImplementation = userScopedLeads
+    .filter((l) => l.stage === 'venda')
+    .reduce((acc, l) => acc + (l.implementation_value || 0), 0);
   const percentGoal = salesGoal > 0 ? Math.min(100, (totalImplementation / salesGoal) * 100) : 0;
 
   const navigateMonth = (direction: 'prev' | 'next') => {
@@ -223,7 +231,7 @@ export function ProfileModal({ onClose, leads, salesGoal, meetingGoal = 0, onUpd
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="text-center p-3 bg-muted rounded-lg">
-                  <p className="text-2xl font-bold text-foreground">{leads.length}</p>
+                  <p className="text-2xl font-bold text-foreground">{userScopedLeads.length}</p>
                   <p className="text-xs text-muted-foreground">Leads</p>
                 </div>
                 <div className="text-center p-3 bg-success/10 rounded-lg">
