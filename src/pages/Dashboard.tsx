@@ -161,7 +161,7 @@ export function Dashboard() {
         
         {view === 'pipeline' && (
           <PipelineView
-            leads={filteredLeads.filter(l => l.lead_source === 'marketing' || !l.lead_source)}
+            leads={filteredLeads.filter(l => l.user_id === user?.id && (l.lead_source === 'marketing' || !l.lead_source))}
             onOpenLead={handleOpenLead}
             getLeadStatus={getLeadStatus}
             updateLead={updateLead}
@@ -172,8 +172,8 @@ export function Dashboard() {
 
         {view === 'prospeccao_ativa' && (
           <ManualPipelineView
-            leads={leads}
-            allLeads={leads}
+            leads={leads.filter(l => l.user_id === user?.id)}
+            allLeads={leads.filter(l => l.user_id === user?.id)}
             source="prospeccao_ativa"
             sourceLabel="Prospecção Ativa"
             onOpenLead={handleOpenLead}
