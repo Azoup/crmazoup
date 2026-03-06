@@ -23,7 +23,7 @@ interface ProfileModalProps {
 }
 
 export function ProfileModal({ onClose, leads, salesGoal, meetingGoal = 0, onUpdateSettings }: ProfileModalProps) {
-  const { profile, updateProfile, signOut } = useAuth();
+  const { user, profile, updateProfile, signOut } = useAuth();
   const [formData, setFormData] = useState({
     name: profile?.name || '',
     avatar: profile?.avatar || '',
@@ -32,8 +32,14 @@ export function ProfileModal({ onClose, leads, salesGoal, meetingGoal = 0, onUpd
   });
   const [activeTab, setActiveTab] = useState<'profile' | 'metrics'>('metrics');
   const [selectedMonth, setSelectedMonth] = useState(getCurrentReferenceMonth());
-  
-  const metrics = useMonthlyMetrics(leads, selectedMonth);
+
+  // Dashboard pessoal do usuário logado (não mistura leads de gestor/SDRs vinculados)
+  const userScopedLeads = useMemo(
+    () => leads.filter((lead) => lead.user_id === user?.id),
+    [leads, user?.id]
+  );
+
+  const metrics = useMonthlyMetrics(userScopedLeads, selectedMonth);
 
   const handleSave = async () => {
     await updateProfile({ name: formData.name, avatar: formData.avatar, signature: formData.signature });
