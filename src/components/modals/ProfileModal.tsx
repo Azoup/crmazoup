@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Lead } from '@/types/lead';
 import { Button } from '@/components/ui/button';
