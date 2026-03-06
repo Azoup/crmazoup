@@ -76,7 +76,7 @@ export function useLeads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sdrIds, setSdrIds] = useState<string[]>([]);
+  
   const [filters, setFilters] = useState<LeadFilters>({
     search: '',
     temperature: 'todos',
