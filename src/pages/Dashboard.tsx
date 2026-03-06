@@ -22,7 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 type ViewType = 'pipeline' | 'prospeccao_ativa' | 'indicacao' | 'agenda' | 'vendas' | 'qualificacao' | 'gestor';
 
 export function Dashboard() {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const {
     filteredLeads,
