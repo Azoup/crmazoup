@@ -31,7 +31,12 @@ export function useMonthlyMetrics(leads: Lead[], referenceMonth?: string): Month
   
   return useMemo(() => {
     // Filter leads by reference month (based on entry_date)
-    const monthlyLeads = leads.filter(lead => lead.reference_month === currentMonth);
+    // Only count marketing leads (from ActiveCampaign) for SDR metrics
+    // Leads from prospeccao_ativa/indicacao belong to the manager's own count
+    const monthlyLeads = leads.filter(lead => 
+      lead.reference_month === currentMonth && 
+      (!lead.lead_source || lead.lead_source === 'marketing')
+    );
     
     // Total leads received in the month
     const totalLeads = monthlyLeads.length;
