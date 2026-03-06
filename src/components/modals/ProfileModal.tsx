@@ -55,7 +55,9 @@ export function ProfileModal({ onClose, leads, salesGoal, meetingGoal = 0, onUpd
   };
 
   // Meta de vendas é calculada apenas com valor de implantação
-  const totalImplementation = leads.filter(l => l.stage === 'venda').reduce((acc, l) => acc + (l.implementation_value || 0), 0);
+  const totalImplementation = userScopedLeads
+    .filter((l) => l.stage === 'venda')
+    .reduce((acc, l) => acc + (l.implementation_value || 0), 0);
   const percentGoal = salesGoal > 0 ? Math.min(100, (totalImplementation / salesGoal) * 100) : 0;
 
   const navigateMonth = (direction: 'prev' | 'next') => {
