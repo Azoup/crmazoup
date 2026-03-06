@@ -89,27 +89,19 @@ export function useManagerData() {
         .eq('manager_id', user.id);
 
       const ids = relations?.map(r => r.sdr_id) || [];
-      setSdrIds(ids);
 
-      if (ids.length === 0) {
-        setSdrs([]);
-        setAllLeads([]);
-        setLoading(false);
-        return;
-      }
+      // Fetch SDR profiles (if manager has linked SDRs)
+      const { data: sdrProfiles } = ids.length > 0
+        ? await supabase
+            .from('profiles')
+            .select('*')
+            .in('user_id', ids)
+        : { data: [] as any[] };
 
-      // Fetch SDR profiles
-      const { data: sdrProfiles } = await supabase
-        .from('profiles')
-        .select('*')
-        .in('user_id', ids);
-
-      // Fetch all leads from these SDRs + the manager's own leads
-      const allUserIds = [...ids, user.id];
+      // Fetch all leads visible to manager by RLS (próprios + SDRs vinculados)
       const { data: leads } = await supabase
         .from('leads')
         .select('*')
-        .in('user_id', allUserIds)
         .order('created_at', { ascending: false });
 
       const leadsTyped = (leads || []).map(transformDbLead);

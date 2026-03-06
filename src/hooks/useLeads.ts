@@ -96,33 +96,11 @@ export function useLeads() {
     const fetchData = async () => {
       setLoading(true);
       
-      // For managers, first get the SDR IDs they manage
-      let managedSdrIds: string[] = [];
-      if (isManager) {
-        const { data: relations } = await supabase
-          .from('manager_sdr_relations')
-          .select('sdr_id')
-          .eq('manager_id', user.id);
-        
-        managedSdrIds = relations?.map(r => r.sdr_id) || [];
-        setSdrIds(managedSdrIds);
-      }
-
-      // Fetch leads - managers see their SDRs' leads, SDRs see their own
-      let leadsQuery = supabase
+      // Fetch leads according to RLS visibility (own, responsible, equipe/gestão)
+      const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select('*')
         .order('created_at', { ascending: false });
-
-      if (isManager && managedSdrIds.length > 0) {
-        // Manager sees all leads from their SDRs
-        leadsQuery = leadsQuery.in('user_id', managedSdrIds);
-      } else if (!isManager) {
-        // SDR sees only their own leads
-        leadsQuery = leadsQuery.eq('user_id', user.id);
-      }
-
-      const { data: leadsData, error: leadsError } = await leadsQuery;
 
       if (leadsError) {
         console.error('Error fetching leads:', leadsError);
