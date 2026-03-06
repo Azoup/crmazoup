@@ -76,7 +76,7 @@ export function useLeads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sdrIds, setSdrIds] = useState<string[]>([]);
+  
   const [filters, setFilters] = useState<LeadFilters>({
     search: '',
     temperature: 'todos',
@@ -96,33 +96,11 @@ export function useLeads() {
     const fetchData = async () => {
       setLoading(true);
       
-      // For managers, first get the SDR IDs they manage
-      let managedSdrIds: string[] = [];
-      if (isManager) {
-        const { data: relations } = await supabase
-          .from('manager_sdr_relations')
-          .select('sdr_id')
-          .eq('manager_id', user.id);
-        
-        managedSdrIds = relations?.map(r => r.sdr_id) || [];
-        setSdrIds(managedSdrIds);
-      }
-
-      // Fetch leads - managers see their SDRs' leads, SDRs see their own
-      let leadsQuery = supabase
+      // Fetch leads according to RLS visibility (own, responsible, equipe/gestão)
+      const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select('*')
         .order('created_at', { ascending: false });
-
-      if (isManager && managedSdrIds.length > 0) {
-        // Manager sees all leads from their SDRs
-        leadsQuery = leadsQuery.in('user_id', managedSdrIds);
-      } else if (!isManager) {
-        // SDR sees only their own leads
-        leadsQuery = leadsQuery.eq('user_id', user.id);
-      }
-
-      const { data: leadsData, error: leadsError } = await leadsQuery;
 
       if (leadsError) {
         console.error('Error fetching leads:', leadsError);
@@ -155,22 +133,11 @@ export function useLeads() {
     fetchData();
   }, [user, isManager]);
 
-  // Separate effect for realtime subscription
-  // Wait for sdrIds to be loaded for managers before subscribing
+  // Realtime subscription (RLS já entrega apenas os registros visíveis para o usuário)
   useEffect(() => {
     if (!user) return;
-    
-    // For managers, wait until sdrIds are loaded
-    if (isManager && sdrIds.length === 0 && !loading) {
-      console.log('[Realtime] Manager has no SDRs linked yet');
-      return;
-    }
 
-    console.log('[Realtime] Setting up subscription', { 
-      isManager, 
-      userId: user.id, 
-      sdrIds: sdrIds.length > 0 ? sdrIds : 'N/A' 
-    });
+    console.log('[Realtime] Setting up subscription', { userId: user.id, isManager });
 
     const channelName = `leads-realtime-${user.id}-${Date.now()}`;
     const channel = supabase
@@ -182,34 +149,29 @@ export function useLeads() {
       }, (payload) => {
         const newLead = payload.new as any;
         const oldLead = payload.old as any;
-        const leadUserId = newLead?.user_id || oldLead?.user_id;
 
-        console.log('[Realtime] Received event:', payload.eventType, { leadUserId });
+        console.log('[Realtime] Received event:', payload.eventType, { id: newLead?.id || oldLead?.id });
 
-        // Filter: managers see SDR leads, SDRs see only their own
-        let isRelevant = false;
-        if (isManager) {
-          isRelevant = sdrIds.includes(leadUserId);
-        } else {
-          isRelevant = leadUserId === user.id;
+        if (payload.eventType === 'INSERT' && newLead?.id) {
+          setLeads(prev => {
+            const transformedLead = transformDbLead(newLead);
+            if (prev.some(l => l.id === transformedLead.id)) return prev;
+            return [transformedLead, ...prev];
+          });
+          return;
         }
 
-        console.log('[Realtime] Is relevant?', isRelevant, { isManager, sdrIds, leadUserId });
-
-        if (!isRelevant) return;
-
-        if (payload.eventType === 'INSERT') {
-          console.log('[Realtime] Adding new lead');
+        if (payload.eventType === 'UPDATE' && newLead?.id) {
           setLeads(prev => {
-            // Avoid duplicates
-            if (prev.some(l => l.id === newLead.id)) return prev;
-            return [transformDbLead(newLead), ...prev];
+            const transformedLead = transformDbLead(newLead);
+            const exists = prev.some(l => l.id === transformedLead.id);
+            if (!exists) return [transformedLead, ...prev];
+            return prev.map(l => l.id === transformedLead.id ? transformedLead : l);
           });
-        } else if (payload.eventType === 'UPDATE') {
-          console.log('[Realtime] Updating lead');
-          setLeads(prev => prev.map(l => l.id === newLead.id ? transformDbLead(newLead) : l));
-        } else if (payload.eventType === 'DELETE') {
-          console.log('[Realtime] Deleting lead');
+          return;
+        }
+
+        if (payload.eventType === 'DELETE' && oldLead?.id) {
           setLeads(prev => prev.filter(l => l.id !== oldLead.id));
         }
       })
@@ -217,7 +179,6 @@ export function useLeads() {
         console.log('[Realtime] Subscription status:', status);
         if (status === 'CHANNEL_ERROR') {
           console.error('[Realtime] Channel error - will retry on next interaction:', err);
-          // Don't crash the app on realtime errors - data is still saved to DB
         }
       });
 
@@ -225,7 +186,7 @@ export function useLeads() {
       console.log('[Realtime] Cleaning up subscription');
       supabase.removeChannel(channel);
     };
-  }, [user, isManager, sdrIds, loading]);
+  }, [user?.id, isManager]);
 
   const filteredLeads = useMemo(() => {
     return leads.filter(lead => {

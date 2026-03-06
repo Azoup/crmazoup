@@ -71,7 +71,6 @@ export function useManagerData() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [sdrs, setSdrs] = useState<SDRWithLeads[]>([]);
-  const [sdrIds, setSdrIds] = useState<string[]>([]);
   const [allLeads, setAllLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -89,31 +88,22 @@ export function useManagerData() {
         .eq('manager_id', user.id);
 
       const ids = relations?.map(r => r.sdr_id) || [];
-      setSdrIds(ids);
 
-      if (ids.length === 0) {
-        setSdrs([]);
-        setAllLeads([]);
-        setLoading(false);
-        return;
-      }
+      // Fetch SDR profiles (if manager has linked SDRs)
+      const { data: sdrProfiles } = ids.length > 0
+        ? await supabase
+            .from('profiles')
+            .select('*')
+            .in('user_id', ids)
+        : { data: [] as any[] };
 
-      // Fetch SDR profiles
-      const { data: sdrProfiles } = await supabase
-        .from('profiles')
-        .select('*')
-        .in('user_id', ids);
-
-      // Fetch all leads from these SDRs + the manager's own leads
-      const allUserIds = [...ids, user.id];
+      // Fetch all leads visible to manager by RLS (próprios + SDRs vinculados)
       const { data: leads } = await supabase
         .from('leads')
         .select('*')
-        .in('user_id', allUserIds)
         .order('created_at', { ascending: false });
 
       const leadsTyped = (leads || []).map(transformDbLead);
-
       setAllLeads(leadsTyped);
 
       // Group leads by SDR
@@ -130,12 +120,10 @@ export function useManagerData() {
     }
   }, [user, isManager]);
 
-  // Set up realtime subscription for SDR leads + manager's own leads
+  // Set up realtime subscription for all leads visible to manager
   useEffect(() => {
-    if (!user || !isManager || sdrIds.length === 0) return;
-    const relevantIds = [...sdrIds, user.id];
+    if (!user || !isManager) return;
 
-    // Subscribe to all lead changes and filter client-side
     const channel = supabase
       .channel('manager-leads-realtime')
       .on('postgres_changes', {
@@ -146,23 +134,34 @@ export function useManagerData() {
         const newLead = payload.new as any;
         const oldLead = payload.old as any;
 
-        // Only process if the lead belongs to one of our SDRs or the manager
-        if (payload.eventType === 'INSERT' && relevantIds.includes(newLead?.user_id)) {
+        if (payload.eventType === 'INSERT' && newLead?.id) {
           const transformedLead = transformDbLead(newLead);
-          setAllLeads(prev => [transformedLead, ...prev]);
-          setSdrs(prev => prev.map(sdr => 
-            sdr.user_id === newLead.user_id 
-              ? { ...sdr, leads: [transformedLead, ...sdr.leads] }
+          setAllLeads(prev => prev.some(l => l.id === transformedLead.id) ? prev : [transformedLead, ...prev]);
+          setSdrs(prev => prev.map(sdr =>
+            sdr.user_id === newLead.user_id
+              ? { ...sdr, leads: sdr.leads.some(l => l.id === transformedLead.id) ? sdr.leads : [transformedLead, ...sdr.leads] }
               : sdr
           ));
-        } else if (payload.eventType === 'UPDATE' && relevantIds.includes(newLead?.user_id)) {
+          return;
+        }
+
+        if (payload.eventType === 'UPDATE' && newLead?.id) {
           const transformedLead = transformDbLead(newLead);
-          setAllLeads(prev => prev.map(l => l.id === newLead.id ? transformedLead : l));
+          setAllLeads(prev => {
+            const exists = prev.some(l => l.id === transformedLead.id);
+            if (!exists) return [transformedLead, ...prev];
+            return prev.map(l => l.id === transformedLead.id ? transformedLead : l);
+          });
           setSdrs(prev => prev.map(sdr => ({
             ...sdr,
-            leads: sdr.leads.map(l => l.id === newLead.id ? transformedLead : l)
+            leads: sdr.leads.some(l => l.id === transformedLead.id)
+              ? sdr.leads.map(l => l.id === transformedLead.id ? transformedLead : l)
+              : (sdr.user_id === newLead.user_id ? [transformedLead, ...sdr.leads] : sdr.leads)
           })));
-        } else if (payload.eventType === 'DELETE' && relevantIds.includes(oldLead?.user_id)) {
+          return;
+        }
+
+        if (payload.eventType === 'DELETE' && oldLead?.id) {
           setAllLeads(prev => prev.filter(l => l.id !== oldLead.id));
           setSdrs(prev => prev.map(sdr => ({
             ...sdr,
@@ -175,7 +174,7 @@ export function useManagerData() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, isManager, sdrIds]);
+  }, [user?.id, isManager]);
 
   const addSDR = async (email: string) => {
     if (!user) return;
