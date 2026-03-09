@@ -243,13 +243,23 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
 
       {/* Pipeline View */}
       {subView === 'pipeline' && (
-        <ManagerPipelineView
-          leads={displayLeads}
-          sdrs={sdrs}
-          getLeadStatus={statusFn}
-          onLeadClick={openLeadNotes}
-          selectedSDR={selectedSDRFilter}
-        />
+        loading ? (
+          <div className="text-center text-muted-foreground py-12">Carregando pipeline...</div>
+        ) : (
+          <ManagerPipelineView
+            leads={displayLeads}
+            sdrs={sdrs}
+            getLeadStatus={statusFn}
+            onLeadClick={(lead) => {
+              if (onOpenLead) {
+                onOpenLead(lead);
+              } else {
+                openLeadNotes(lead);
+              }
+            }}
+            selectedSDR={selectedSDRFilter}
+          />
+        )
       )}
 
       {/* Metrics View */}

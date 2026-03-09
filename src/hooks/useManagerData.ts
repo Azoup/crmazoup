@@ -80,6 +80,7 @@ export function useManagerData() {
   const fetchSDRs = useCallback(async () => {
     if (!user || !isManager) return;
 
+    setLoading(true);
     try {
       // Get SDRs linked to this manager
       const { data: relations } = await supabase
@@ -89,30 +90,40 @@ export function useManagerData() {
 
       const ids = relations?.map(r => r.sdr_id) || [];
 
-      // Fetch SDR profiles (if manager has linked SDRs)
-      const { data: sdrProfiles } = ids.length > 0
-        ? await supabase
-            .from('profiles')
-            .select('*')
-            .in('user_id', ids)
-        : { data: [] as any[] };
+      // Fetch SDR profiles AND manager's own profile in parallel
+      const [sdrProfilesResult, managerProfileResult, leadsResult] = await Promise.all([
+        ids.length > 0
+          ? supabase.from('profiles').select('*').in('user_id', ids)
+          : Promise.resolve({ data: [] as any[] }),
+        supabase.from('profiles').select('*').eq('user_id', user.id).single(),
+        supabase.from('leads').select('*').order('created_at', { ascending: false }),
+      ]);
 
-      // Fetch all leads visible to manager by RLS (próprios + SDRs vinculados)
-      const { data: leads } = await supabase
-        .from('leads')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      const leadsTyped = (leads || []).map(transformDbLead);
+      const sdrProfiles = sdrProfilesResult.data || [];
+      const managerProfile = managerProfileResult.data;
+      const leadsTyped = (leadsResult.data || []).map(transformDbLead);
       setAllLeads(leadsTyped);
 
-      // Group leads by SDR
-      const sdrsWithLeads: SDRWithLeads[] = (sdrProfiles || []).map(sdr => ({
-        ...sdr,
-        leads: leadsTyped.filter(l => l.user_id === sdr.user_id)
-      }));
+      // Build SDR list including the manager themselves
+      const allProfiles: SDRWithLeads[] = [];
 
-      setSdrs(sdrsWithLeads);
+      // Add manager's own profile first
+      if (managerProfile) {
+        allProfiles.push({
+          ...managerProfile,
+          leads: leadsTyped.filter(l => l.user_id === managerProfile.user_id),
+        });
+      }
+
+      // Add SDR profiles
+      sdrProfiles.forEach((sdr: any) => {
+        allProfiles.push({
+          ...sdr,
+          leads: leadsTyped.filter(l => l.user_id === sdr.user_id),
+        });
+      });
+
+      setSdrs(allProfiles);
     } catch (error) {
       console.error('Error fetching SDR data:', error);
     } finally {
