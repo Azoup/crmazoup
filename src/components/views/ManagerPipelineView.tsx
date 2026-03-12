@@ -1,6 +1,7 @@
-import { Lead, LeadStage, STAGE_COLORS, STAGE_LABELS, MEETING_STATUS_LABELS } from '@/types/lead';
+import { Lead, LeadStage, LeadHistory, STAGE_COLORS, STAGE_LABELS, MEETING_STATUS_LABELS } from '@/types/lead';
 import { formatCurrency } from '@/lib/utils';
 import { DollarSign, Users, Sparkles, UserCheck, UserX, Calendar } from 'lucide-react';
+import { useCelebration } from '@/hooks/useCelebration';
 
 interface ManagerPipelineViewProps {
   leads: Lead[];
@@ -8,6 +9,8 @@ interface ManagerPipelineViewProps {
   getLeadStatus: (lead: Lead) => 'late' | 'today' | 'ontime' | 'neutral';
   onLeadClick?: (lead: Lead) => void;
   selectedSDR: string | null;
+  updateLead?: (leadId: string, updates: Partial<Lead>) => Promise<boolean>;
+  addHistory?: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
 }
 
 const COLUMNS: { id: LeadStage; title: string }[] = [
