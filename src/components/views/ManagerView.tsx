@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Lead, LeadStage, LeadSource, STAGE_LABELS } from '@/types/lead';
+import { Lead, LeadStage, LeadHistory, LeadSource, STAGE_LABELS } from '@/types/lead';
 import { formatCurrency } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
