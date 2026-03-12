@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Lead, LeadStage, LeadSource, STAGE_LABELS } from '@/types/lead';
+import { Lead, LeadStage, LeadHistory, LeadSource, STAGE_LABELS } from '@/types/lead';
 import { formatCurrency } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
@@ -39,11 +39,13 @@ interface ManagerViewProps {
   percentGoal: number;
   onCreateLead?: (source: LeadSource) => void;
   onOpenLead?: (lead: Lead) => void;
+  updateLead?: (leadId: string, updates: Partial<Lead>) => Promise<boolean>;
+  addHistory?: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
 }
 
 type ManagerSubView = 'pipeline' | 'metrics';
 
-export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, percentGoal, onCreateLead, onOpenLead }: ManagerViewProps) {
+export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, percentGoal, onCreateLead, onOpenLead, updateLead: externalUpdateLead, addHistory: externalAddHistory }: ManagerViewProps) {
   const { user, profile } = useAuth();
   const {
     sdrs,
@@ -258,6 +260,8 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
               }
             }}
             selectedSDR={selectedSDRFilter}
+            updateLead={externalUpdateLead}
+            addHistory={externalAddHistory}
           />
         )
       )}

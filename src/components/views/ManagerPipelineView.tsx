@@ -1,6 +1,7 @@
-import { Lead, LeadStage, STAGE_COLORS, STAGE_LABELS, MEETING_STATUS_LABELS } from '@/types/lead';
+import { Lead, LeadStage, LeadHistory, STAGE_COLORS, STAGE_LABELS, MEETING_STATUS_LABELS } from '@/types/lead';
 import { formatCurrency } from '@/lib/utils';
 import { DollarSign, Users, Sparkles, UserCheck, UserX, Calendar } from 'lucide-react';
+import { useCelebration } from '@/hooks/useCelebration';
 
 interface ManagerPipelineViewProps {
   leads: Lead[];
@@ -8,6 +9,8 @@ interface ManagerPipelineViewProps {
   getLeadStatus: (lead: Lead) => 'late' | 'today' | 'ontime' | 'neutral';
   onLeadClick?: (lead: Lead) => void;
   selectedSDR: string | null;
+  updateLead?: (leadId: string, updates: Partial<Lead>) => Promise<boolean>;
+  addHistory?: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
 }
 
 const COLUMNS: { id: LeadStage; title: string }[] = [
@@ -25,12 +28,51 @@ export function ManagerPipelineView({
   sdrs,
   getLeadStatus, 
   onLeadClick,
-  selectedSDR 
+  selectedSDR,
+  updateLead,
+  addHistory,
 }: ManagerPipelineViewProps) {
+  const { celebrateMeeting, celebrateSale } = useCelebration();
+
   // Filter leads by selected SDR
   const filteredLeads = selectedSDR 
     ? leads.filter(l => l.user_id === selectedSDR)
     : leads;
+
+  const handleDragOver = (e: React.DragEvent) => e.preventDefault();
+
+  const handleDrop = async (e: React.DragEvent, targetStage: LeadStage) => {
+    e.preventDefault();
+    if (!updateLead) return;
+    const leadId = e.dataTransfer.getData("leadId");
+    if (!leadId) return;
+
+    const lead = filteredLeads.find(l => l.id === leadId);
+    if (!lead || lead.stage === targetStage) return;
+
+    if (targetStage === 'reuniao' && lead.stage !== 'reuniao') {
+      celebrateMeeting();
+    }
+
+    const updates: Partial<Lead> = { stage: targetStage };
+
+    if (targetStage === 'venda') {
+      if (!lead.value) {
+        const val = prompt("Qual o valor da venda (R$)?") || '0';
+        updates.value = Number(val.replace(/\D/g, ''));
+      }
+      celebrateSale();
+    }
+
+    if (targetStage === 'perdidos') {
+      const options = ['Preço', 'Sem Interesse', 'Já possui sistema', 'Não Responde', 'Pequeno', 'Fechou com outra empresa', 'Deixou pro futuro', 'Private Label', 'Outro'];
+      const reason = prompt(`Motivo da perda?\n\nOpções:\n${options.map((o, i) => `${i + 1}. ${o}`).join('\n')}\n\nDigite o número ou o motivo:`) || 'Não Informado';
+      const numChoice = parseInt(reason);
+      updates.loss_reason = (numChoice >= 1 && numChoice <= options.length) ? options[numChoice - 1] : reason;
+    }
+
+    await updateLead(leadId, updates);
+  };
 
   const totalPipelineValue = filteredLeads.reduce((acc, curr) => 
     acc + (curr.implementation_value || 0) + (curr.monthly_value || 0), 0);
@@ -82,6 +124,8 @@ export function ManagerPipelineView({
             <div
               key={col.id}
               className="min-w-[280px] w-[280px] bg-card rounded-xl shadow-sm border border-border flex flex-col flex-shrink-0"
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, col.id)}
             >
               <div className={`p-3 border-b-4 ${STAGE_COLORS[col.id]} bg-muted rounded-t-xl`}>
                 <div className="flex justify-between items-center mb-1">
@@ -102,6 +146,8 @@ export function ManagerPipelineView({
                   return (
                     <div
                       key={lead.id}
+                      draggable={!!updateLead}
+                      onDragStart={(e) => e.dataTransfer.setData("leadId", lead.id)}
                       onClick={() => onLeadClick?.(lead)}
                       className={`bg-card p-3 rounded-lg border shadow-sm cursor-pointer hover:shadow-md transition-all ${
                         status === 'late' ? 'border-l-4 border-l-destructive' :
