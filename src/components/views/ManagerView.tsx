@@ -45,7 +45,7 @@ interface ManagerViewProps {
 
 type ManagerSubView = 'pipeline' | 'metrics';
 
-export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, percentGoal, onCreateLead, onOpenLead }: ManagerViewProps) {
+export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, percentGoal, onCreateLead, onOpenLead, updateLead: externalUpdateLead, addHistory: externalAddHistory }: ManagerViewProps) {
   const { user, profile } = useAuth();
   const {
     sdrs,
