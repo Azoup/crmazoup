@@ -28,12 +28,51 @@ export function ManagerPipelineView({
   sdrs,
   getLeadStatus, 
   onLeadClick,
-  selectedSDR 
+  selectedSDR,
+  updateLead,
+  addHistory,
 }: ManagerPipelineViewProps) {
+  const { celebrateMeeting, celebrateSale } = useCelebration();
+
   // Filter leads by selected SDR
   const filteredLeads = selectedSDR 
     ? leads.filter(l => l.user_id === selectedSDR)
     : leads;
+
+  const handleDragOver = (e: React.DragEvent) => e.preventDefault();
+
+  const handleDrop = async (e: React.DragEvent, targetStage: LeadStage) => {
+    e.preventDefault();
+    if (!updateLead) return;
+    const leadId = e.dataTransfer.getData("leadId");
+    if (!leadId) return;
+
+    const lead = filteredLeads.find(l => l.id === leadId);
+    if (!lead || lead.stage === targetStage) return;
+
+    if (targetStage === 'reuniao' && lead.stage !== 'reuniao') {
+      celebrateMeeting();
+    }
+
+    const updates: Partial<Lead> = { stage: targetStage };
+
+    if (targetStage === 'venda') {
+      if (!lead.value) {
+        const val = prompt("Qual o valor da venda (R$)?") || '0';
+        updates.value = Number(val.replace(/\D/g, ''));
+      }
+      celebrateSale();
+    }
+
+    if (targetStage === 'perdidos') {
+      const options = ['Preço', 'Sem Interesse', 'Já possui sistema', 'Não Responde', 'Pequeno', 'Fechou com outra empresa', 'Deixou pro futuro', 'Private Label', 'Outro'];
+      const reason = prompt(`Motivo da perda?\n\nOpções:\n${options.map((o, i) => `${i + 1}. ${o}`).join('\n')}\n\nDigite o número ou o motivo:`) || 'Não Informado';
+      const numChoice = parseInt(reason);
+      updates.loss_reason = (numChoice >= 1 && numChoice <= options.length) ? options[numChoice - 1] : reason;
+    }
+
+    await updateLead(leadId, updates);
+  };
 
   const totalPipelineValue = filteredLeads.reduce((acc, curr) => 
     acc + (curr.implementation_value || 0) + (curr.monthly_value || 0), 0);
