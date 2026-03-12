@@ -146,6 +146,8 @@ export function ManagerPipelineView({
                   return (
                     <div
                       key={lead.id}
+                      draggable={!!updateLead}
+                      onDragStart={(e) => e.dataTransfer.setData("leadId", lead.id)}
                       onClick={() => onLeadClick?.(lead)}
                       className={`bg-card p-3 rounded-lg border shadow-sm cursor-pointer hover:shadow-md transition-all ${
                         status === 'late' ? 'border-l-4 border-l-destructive' :
