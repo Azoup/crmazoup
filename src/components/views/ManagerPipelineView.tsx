@@ -124,6 +124,8 @@ export function ManagerPipelineView({
             <div
               key={col.id}
               className="min-w-[280px] w-[280px] bg-card rounded-xl shadow-sm border border-border flex flex-col flex-shrink-0"
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, col.id)}
             >
               <div className={`p-3 border-b-4 ${STAGE_COLORS[col.id]} bg-muted rounded-t-xl`}>
                 <div className="flex justify-between items-center mb-1">
