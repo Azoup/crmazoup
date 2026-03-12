@@ -39,6 +39,8 @@ interface ManagerViewProps {
   percentGoal: number;
   onCreateLead?: (source: LeadSource) => void;
   onOpenLead?: (lead: Lead) => void;
+  updateLead?: (leadId: string, updates: Partial<Lead>) => Promise<boolean>;
+  addHistory?: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
 }
 
 type ManagerSubView = 'pipeline' | 'metrics';

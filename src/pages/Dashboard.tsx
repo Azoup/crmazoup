@@ -237,6 +237,8 @@ export function Dashboard() {
             percentGoal={percentGoal}
             onCreateLead={handleOpenNewLead}
             onOpenLead={handleOpenLead}
+            updateLead={updateLead}
+            addHistory={addHistory}
           />
         )}
       </main>
