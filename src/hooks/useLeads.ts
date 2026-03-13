@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Lead, LeadHistory, LeadFilters, UserSettings } from '@/types/lead';
 import { useToast } from '@/hooks/use-toast';
 import { Json } from '@/integrations/supabase/types';
+import { useNewLeadSound } from '@/hooks/useNewLeadSound';
 
 function parseHistory(historyJson: Json): LeadHistory[] {
   if (!historyJson) return [];
@@ -73,6 +74,7 @@ function transformDbLead(dbLead: any): Lead {
 export function useLeads() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const { playNewLeadSound } = useNewLeadSound();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -156,6 +158,14 @@ export function useLeads() {
           setLeads(prev => {
             const transformedLead = transformDbLead(newLead);
             if (prev.some(l => l.id === transformedLead.id)) return prev;
+            // Play notification sound for new leads
+            if (transformedLead.is_new) {
+              playNewLeadSound();
+              toast({
+                title: '🎉 Novo Lead!',
+                description: `${transformedLead.name} acabou de chegar!`,
+              });
+            }
             return [transformedLead, ...prev];
           });
           return;
