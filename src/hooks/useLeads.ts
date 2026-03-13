@@ -158,6 +158,14 @@ export function useLeads() {
           setLeads(prev => {
             const transformedLead = transformDbLead(newLead);
             if (prev.some(l => l.id === transformedLead.id)) return prev;
+            // Play notification sound for new leads
+            if (transformedLead.is_new) {
+              playNewLeadSound();
+              toast({
+                title: '🎉 Novo Lead!',
+                description: `${transformedLead.name} acabou de chegar!`,
+              });
+            }
             return [transformedLead, ...prev];
           });
           return;
