@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Lead, LeadHistory, LeadFilters, UserSettings } from '@/types/lead';
 import { useToast } from '@/hooks/use-toast';
 import { Json } from '@/integrations/supabase/types';
+import { useNewLeadSound } from '@/hooks/useNewLeadSound';
 
 function parseHistory(historyJson: Json): LeadHistory[] {
   if (!historyJson) return [];
