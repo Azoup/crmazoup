@@ -74,6 +74,7 @@ function transformDbLead(dbLead: any): Lead {
 export function useLeads() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const { playNewLeadSound } = useNewLeadSound();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
