@@ -70,6 +70,7 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
   
   const [subView, setSubView] = useState<ManagerSubView>('pipeline');
   const [selectedSDRFilter, setSelectedSDRFilter] = useState<string | null>(null);
+  const [managerSearch, setManagerSearch] = useState('');
 
   // Use allLeads from manager data if available, otherwise use passed leads
   const displayLeads = allLeads.length > 0 ? allLeads : leads;
@@ -152,24 +153,36 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
             </Button>
           </div>
 
-          {/* SDR Filter */}
+          {/* SDR Filter + Search */}
           {subView === 'pipeline' && (
-            <Select
-              value={selectedSDRFilter || 'all'}
-              onValueChange={(value) => setSelectedSDRFilter(value === 'all' ? null : value)}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filtrar por SDR" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os SDRs</SelectItem>
-                {sdrs.map(sdr => (
-                  <SelectItem key={sdr.user_id} value={sdr.user_id}>
-                    {sdr.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <>
+              <Select
+                value={selectedSDRFilter || 'all'}
+                onValueChange={(value) => setSelectedSDRFilter(value === 'all' ? null : value)}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filtrar por SDR" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os SDRs</SelectItem>
+                  {sdrs.map(sdr => (
+                    <SelectItem key={sdr.user_id} value={sdr.user_id}>
+                      {sdr.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 text-muted-foreground/60" size={14} />
+                <Input
+                  type="text"
+                  placeholder="Buscar lead, número..."
+                  className="pl-8 h-9 w-[200px] bg-muted/50 border-border/50 text-sm"
+                  value={managerSearch}
+                  onChange={(e) => setManagerSearch(e.target.value)}
+                />
+              </div>
+            </>
           )}
 
           <Button 
