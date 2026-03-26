@@ -11,6 +11,7 @@ interface ManagerPipelineViewProps {
   selectedSDR: string | null;
   updateLead?: (leadId: string, updates: Partial<Lead>) => Promise<boolean>;
   addHistory?: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
+  searchQuery?: string;
 }
 
 const COLUMNS: { id: LeadStage; title: string }[] = [
