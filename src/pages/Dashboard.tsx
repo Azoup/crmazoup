@@ -307,6 +307,13 @@ export function Dashboard() {
           }}
         />
       )}
+
+      {pendingProposal && (
+        <ProposalReminderModal
+          lead={pendingProposal}
+          onClose={() => dismissProposalReminder(pendingProposal.id)}
+        />
+      )}
     </div>
   );
 }
