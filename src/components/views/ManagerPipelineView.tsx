@@ -11,6 +11,7 @@ interface ManagerPipelineViewProps {
   selectedSDR: string | null;
   updateLead?: (leadId: string, updates: Partial<Lead>) => Promise<boolean>;
   addHistory?: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
+  searchQuery?: string;
 }
 
 const COLUMNS: { id: LeadStage; title: string }[] = [
@@ -31,13 +32,25 @@ export function ManagerPipelineView({
   selectedSDR,
   updateLead,
   addHistory,
+  searchQuery = '',
 }: ManagerPipelineViewProps) {
   const { celebrateMeeting, celebrateSale } = useCelebration();
 
-  // Filter leads by selected SDR
-  const filteredLeads = selectedSDR 
+  // Filter leads by selected SDR and search query
+  const sdrFiltered = selectedSDR 
     ? leads.filter(l => l.user_id === selectedSDR)
     : leads;
+
+  const filteredLeads = searchQuery.trim()
+    ? sdrFiltered.filter(l => {
+        const q = searchQuery.toLowerCase();
+        return (
+          l.name.toLowerCase().includes(q) ||
+          (l.whatsapp && l.whatsapp.includes(q)) ||
+          (l.company && l.company.toLowerCase().includes(q))
+        );
+      })
+    : sdrFiltered;
 
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
 

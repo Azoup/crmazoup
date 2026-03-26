@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLeads } from '@/hooks/useLeads';
 import { useToast } from '@/hooks/use-toast';
 import { useMeetingReminder } from '@/hooks/useMeetingReminder';
+import { useProposalReminder } from '@/hooks/useProposalReminder';
 import { Header } from '@/components/layout/Header';
 import { FilterBar } from '@/components/layout/FilterBar';
 import { PipelineView } from '@/components/views/PipelineView';
@@ -14,6 +15,7 @@ import { ManagerView } from '@/components/views/ManagerView';
 import { LeadModal } from '@/components/modals/LeadModal';
 import { ProfileModal } from '@/components/modals/ProfileModal';
 import { MeetingStatusModal } from '@/components/modals/MeetingStatusModal';
+import { ProposalReminderModal } from '@/components/modals/ProposalReminderModal';
 import { Lead, LeadSource } from '@/types/lead';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -53,6 +55,7 @@ export function Dashboard() {
 
   // Hook to monitor past meetings and prompt for status
   const { pendingReminder, dismissReminder, clearReminder } = useMeetingReminder(leads);
+  const { pendingProposal, dismissProposalReminder } = useProposalReminder(leads);
 
   const isManager = profile?.role === 'Gestor';
 
@@ -302,6 +305,13 @@ export function Dashboard() {
               description: `Reunião marcada como: ${statusLabels[status || ''] || status}`,
             });
           }}
+        />
+      )}
+
+      {pendingProposal && (
+        <ProposalReminderModal
+          lead={pendingProposal}
+          onClose={() => dismissProposalReminder(pendingProposal.id)}
         />
       )}
     </div>
