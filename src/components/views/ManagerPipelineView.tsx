@@ -36,10 +36,21 @@ export function ManagerPipelineView({
 }: ManagerPipelineViewProps) {
   const { celebrateMeeting, celebrateSale } = useCelebration();
 
-  // Filter leads by selected SDR
-  const filteredLeads = selectedSDR 
+  // Filter leads by selected SDR and search query
+  const sdrFiltered = selectedSDR 
     ? leads.filter(l => l.user_id === selectedSDR)
     : leads;
+
+  const filteredLeads = searchQuery.trim()
+    ? sdrFiltered.filter(l => {
+        const q = searchQuery.toLowerCase();
+        return (
+          l.name.toLowerCase().includes(q) ||
+          (l.whatsapp && l.whatsapp.includes(q)) ||
+          (l.company && l.company.toLowerCase().includes(q))
+        );
+      })
+    : sdrFiltered;
 
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
 
