@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { 
   Users, TrendingUp, AlertTriangle, Target, DollarSign, Clock,
   RefreshCw, UserPlus, UserMinus, MessageSquare, Calendar, Phone,
-  Mail, ExternalLink, ChevronDown, ChevronUp, Sparkles, LayoutGrid, BarChart3, Trash2, FileText
+  Mail, ExternalLink, ChevronDown, ChevronUp, Sparkles, LayoutGrid, BarChart3, Trash2, FileText, Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
