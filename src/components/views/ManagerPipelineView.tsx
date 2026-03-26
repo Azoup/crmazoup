@@ -32,6 +32,7 @@ export function ManagerPipelineView({
   selectedSDR,
   updateLead,
   addHistory,
+  searchQuery = '',
 }: ManagerPipelineViewProps) {
   const { celebrateMeeting, celebrateSale } = useCelebration();
 
