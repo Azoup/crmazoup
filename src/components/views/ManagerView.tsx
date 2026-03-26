@@ -275,6 +275,7 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
             selectedSDR={selectedSDRFilter}
             updateLead={externalUpdateLead}
             addHistory={externalAddHistory}
+            searchQuery={managerSearch}
           />
         )
       )}
