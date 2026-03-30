@@ -1,17 +1,31 @@
+import { useState } from 'react';
 import { Lead } from '@/types/lead';
-import { Phone, Mail, MessageSquare, X, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Phone, Mail, MessageSquare, X, AlertTriangle, CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface ProposalReminderModalProps {
   lead: Lead;
-  onClose: () => void;
+  onClose: (newNextContact?: string) => void;
 }
 
 export function ProposalReminderModal({ lead, onClose }: ProposalReminderModalProps) {
+  const [nextDate, setNextDate] = useState('');
+  const [nextTime, setNextTime] = useState('09:00');
+
   const handleWhatsApp = () => {
     if (lead.whatsapp) {
       const cleaned = lead.whatsapp.replace(/\D/g, '');
       window.open(`https://wa.me/55${cleaned}`, '_blank');
+    }
+  };
+
+  const handleCloseWithDate = () => {
+    if (nextDate && nextTime) {
+      const dateTime = `${nextDate}T${nextTime}:00`;
+      onClose(dateTime);
+    } else {
+      onClose();
     }
   };
 
@@ -29,7 +43,7 @@ export function ProposalReminderModal({ lead, onClose }: ProposalReminderModalPr
               <p className="text-sm text-muted-foreground">Proposta aguardando retorno</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+          <button onClick={() => onClose()} className="text-muted-foreground hover:text-foreground transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -100,8 +114,35 @@ export function ProposalReminderModal({ lead, onClose }: ProposalReminderModalPr
             )}
           </div>
 
-          <Button onClick={onClose} variant="secondary" className="w-full">
-            Fechar
+          {/* Reschedule */}
+          <div className="bg-muted/30 rounded-xl p-4 space-y-3 border border-border">
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <CalendarClock size={16} className="text-primary" />
+              Agendar novo retorno
+            </div>
+            <div className="flex gap-3">
+              <Input
+                type="date"
+                value={nextDate}
+                onChange={e => setNextDate(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+                className="flex-1"
+              />
+              <Input
+                type="time"
+                value={nextTime}
+                onChange={e => setNextTime(e.target.value)}
+                className="w-28"
+              />
+            </div>
+          </div>
+
+          <Button
+            onClick={handleCloseWithDate}
+            variant={nextDate ? 'default' : 'secondary'}
+            className="w-full"
+          >
+            {nextDate ? '✅ Reagendar e Fechar' : 'Fechar sem reagendar'}
           </Button>
         </div>
       </div>
