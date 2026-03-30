@@ -311,7 +311,13 @@ export function Dashboard() {
       {pendingProposal && (
         <ProposalReminderModal
           lead={pendingProposal}
-          onClose={() => dismissProposalReminder(pendingProposal.id)}
+          onClose={async (newNextContact?: string) => {
+            if (newNextContact) {
+              await updateLead(pendingProposal.id, { next_contact: newNextContact });
+              await addHistory(pendingProposal.id, 'retorno', `📅 Retorno reagendado para ${new Date(newNextContact).toLocaleString('pt-BR')}`);
+            }
+            dismissProposalReminder(pendingProposal.id);
+          }}
         />
       )}
     </div>
