@@ -99,10 +99,12 @@ export function useLeads() {
       setLoading(true);
       
       // Fetch leads according to RLS visibility (own, responsible, equipe/gestão)
+      // Fetch all leads (raise limit to avoid missing leads from prospeccao_ativa/indicacao)
       const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(5000);
 
       if (leadsError) {
         console.error('Error fetching leads:', leadsError);

@@ -55,7 +55,8 @@ export function Dashboard() {
 
   // Hook to monitor past meetings and prompt for status
   const { pendingReminder, dismissReminder, clearReminder } = useMeetingReminder(leads);
-  const { pendingProposal, dismissProposalReminder } = useProposalReminder(leads);
+  // Proposal reminder only for managers
+  const { pendingProposal, dismissProposalReminder } = useProposalReminder(isManager ? leads : []);
 
   const isManager = profile?.role === 'Gestor';
 
