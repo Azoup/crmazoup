@@ -309,7 +309,6 @@ export function useLeads() {
       let newHistory = [...(updatesHistory ?? currentHistory)];
       
       // Only add stage change history if stage is explicitly provided and different
-      const newStage = updates.stage ?? currentLead.stage;
       if (updates.stage !== undefined && updates.stage !== currentLead.stage) {
         newHistory = [{
           type: 'stage_change',
@@ -319,31 +318,35 @@ export function useLeads() {
         }, ...newHistory];
       }
 
-      const updatePayload = {
-        name: (updates.name ?? currentLead.name) || 'Sem nome',
-        company: updates.company ?? currentLead.company ?? null,
-        confection_type: updates.confection_type ?? currentLead.confection_type ?? null,
-        whatsapp: updates.whatsapp ?? currentLead.whatsapp ?? null,
-        email: updates.email ?? currentLead.email ?? null,
-        website: updates.website ?? currentLead.website ?? null,
-        temperature: updates.temperature ?? currentLead.temperature ?? 'frio',
-        value: updates.value ?? currentLead.value ?? 0,
-        implementation_value: updates.implementation_value ?? currentLead.implementation_value ?? 0,
-        monthly_value: updates.monthly_value ?? currentLead.monthly_value ?? 0,
-        stage: newStage ?? 'prospeccao',
-        loss_reason: updates.loss_reason ?? currentLead.loss_reason ?? null,
-        next_contact: updates.next_contact ?? currentLead.next_contact ?? null,
-        last_contact: updates.last_contact || new Date().toISOString(),
-        meeting_pain: updates.meeting_pain ?? currentLead.meeting_pain ?? null,
-        meeting_needs: updates.meeting_needs ?? currentLead.meeting_needs ?? null,
-        meeting_link: updates.meeting_link ?? currentLead.meeting_link ?? null,
-        meeting_date: updates.meeting_date ?? currentLead.meeting_date ?? null,
-        history: newHistory as unknown as Json,
+      // Build a MINIMAL update payload — only send fields that are explicitly provided
+      // This prevents race conditions where concurrent updates overwrite each other
+      const updatePayload: Record<string, any> = {
         is_new: false,
-        meeting_status: updates.meeting_status ?? currentLead.meeting_status ?? null,
-        pieces_per_month: updates.pieces_per_month ?? currentLead.pieces_per_month ?? null,
-        responsible_user_id: updates.responsible_user_id ?? currentLead.responsible_user_id ?? null,
+        last_contact: updates.last_contact || new Date().toISOString(),
+        history: newHistory as unknown as Json,
       };
+
+      // Only include fields that were explicitly passed in updates
+      if (updates.name !== undefined) updatePayload.name = updates.name || 'Sem nome';
+      if (updates.company !== undefined) updatePayload.company = updates.company ?? null;
+      if (updates.confection_type !== undefined) updatePayload.confection_type = updates.confection_type ?? null;
+      if (updates.whatsapp !== undefined) updatePayload.whatsapp = updates.whatsapp ?? null;
+      if (updates.email !== undefined) updatePayload.email = updates.email ?? null;
+      if (updates.website !== undefined) updatePayload.website = updates.website ?? null;
+      if (updates.temperature !== undefined) updatePayload.temperature = updates.temperature;
+      if (updates.value !== undefined) updatePayload.value = updates.value ?? 0;
+      if (updates.implementation_value !== undefined) updatePayload.implementation_value = updates.implementation_value ?? 0;
+      if (updates.monthly_value !== undefined) updatePayload.monthly_value = updates.monthly_value ?? 0;
+      if (updates.stage !== undefined) updatePayload.stage = updates.stage;
+      if (updates.loss_reason !== undefined) updatePayload.loss_reason = updates.loss_reason ?? null;
+      if (updates.next_contact !== undefined) updatePayload.next_contact = updates.next_contact ?? null;
+      if (updates.meeting_pain !== undefined) updatePayload.meeting_pain = updates.meeting_pain ?? null;
+      if (updates.meeting_needs !== undefined) updatePayload.meeting_needs = updates.meeting_needs ?? null;
+      if (updates.meeting_link !== undefined) updatePayload.meeting_link = updates.meeting_link ?? null;
+      if (updates.meeting_date !== undefined) updatePayload.meeting_date = updates.meeting_date ?? null;
+      if (updates.meeting_status !== undefined) updatePayload.meeting_status = updates.meeting_status ?? null;
+      if (updates.pieces_per_month !== undefined) updatePayload.pieces_per_month = updates.pieces_per_month ?? null;
+      if (updates.responsible_user_id !== undefined) updatePayload.responsible_user_id = updates.responsible_user_id ?? null;
 
       const { error } = await supabase
         .from('leads')
