@@ -53,11 +53,12 @@ export function Dashboard() {
   const [syncing, setSyncing] = useState(false);
   const [createLeadSource, setCreateLeadSource] = useState<LeadSource>('marketing');
 
+  const isManager = profile?.role === 'Gestor';
+
   // Hook to monitor past meetings and prompt for status
   const { pendingReminder, dismissReminder, clearReminder } = useMeetingReminder(leads);
-  const { pendingProposal, dismissProposalReminder } = useProposalReminder(leads);
-
-  const isManager = profile?.role === 'Gestor';
+  // Proposal reminder only for managers
+  const { pendingProposal, dismissProposalReminder } = useProposalReminder(isManager ? leads : []);
 
   const handleSyncAC = async () => {
     setSyncing(true);
