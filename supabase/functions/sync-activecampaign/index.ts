@@ -267,7 +267,17 @@ serve(async (req) => {
 
     // For each user, upsert all contacts
     for (const userId of userIds) {
-      const leadsToUpsert: any[] = [];
+      // Fetch existing activecampaign_ids to explicitly skip them
+      const { data: existingLeads } = await adminSupabase
+        .from('leads')
+        .select('activecampaign_id')
+        .eq('user_id', userId)
+        .not('activecampaign_id', 'is', null);
+      
+      const existingAcIds = new Set((existingLeads || []).map((l: any) => l.activecampaign_id));
+      console.log(`User ${userId}: ${existingAcIds.size} existing AC leads, skipping them`);
+
+      const leadsToInsert: any[] = [];
 
       for (const contact of contacts) {
         const validated = validateContact(contact, contactTags, orgNames);
@@ -275,11 +285,14 @@ serve(async (req) => {
           if (userId === userIds[0]) validationErrors++;
           continue;
         }
+
+        // Skip if this contact already exists for this user
+        if (existingAcIds.has(validated.id)) continue;
         
         const fullName = `${validated.firstName} ${validated.lastName}`.trim();
         const tagsNote = validated.tags.length > 0 ? ` | Tags: ${validated.tags.join(', ')}` : '';
         
-        leadsToUpsert.push({
+        leadsToInsert.push({
           user_id: userId,
           name: fullName.substring(0, 255) || validated.email || 'Sem nome',
           email: validated.email,
@@ -301,18 +314,17 @@ serve(async (req) => {
         });
       }
 
-      // Upsert in batches of 50
-      for (let i = 0; i < leadsToUpsert.length; i += 50) {
-        const batch = leadsToUpsert.slice(i, i + 50);
-        const { error: upsertError } = await adminSupabase
-          .from('leads')
-          .upsert(batch, {
-            onConflict: 'activecampaign_id,user_id',
-            ignoreDuplicates: true,
-          });
+      console.log(`User ${userId}: ${leadsToInsert.length} new leads to insert`);
 
-        if (upsertError) {
-          console.error('Batch upsert error:', upsertError.message);
+      // Insert only NEW leads (not upsert) in batches of 50
+      for (let i = 0; i < leadsToInsert.length; i += 50) {
+        const batch = leadsToInsert.slice(i, i + 50);
+        const { error: insertError } = await adminSupabase
+          .from('leads')
+          .insert(batch);
+
+        if (insertError) {
+          console.error('Batch insert error:', insertError.message);
           totalDbErrors += batch.length;
         } else {
           totalImported += batch.length;
