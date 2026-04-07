@@ -351,6 +351,9 @@ export function Dashboard() {
             await addHistory(leadId, 'retorno', '✅ Retorno de contato realizado');
           }}
           onDismiss={dismissReturn}
+          onSnoozeAll={snoozeAll}
+          canSnooze={canSnooze}
+          snoozeCount={snoozeCount}
         />
       )}
     </div>
