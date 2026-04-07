@@ -242,6 +242,10 @@ export function Dashboard() {
         {view === 'qualificacao' && (
           <QualificationView leads={leads} />
         )}
+
+        {view === 'relatorios' && (
+          <ReportView leads={leads} />
+        )}
         
         {view === 'gestor' && isManager && (
           <ManagerView
