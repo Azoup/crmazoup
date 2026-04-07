@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme, COLOR_THEMES, ColorTheme } from '@/contexts/ThemeContext';
 import { Lead } from '@/types/lead';
 import { formatTime } from '@/lib/utils';
 import { 
   Bell, UserCircle, 
   LayoutDashboard, CalendarDays, TrendingUp, Users, Sparkles, RefreshCw, ClipboardCheck,
-  PhoneOutgoing, UserPlus
+  PhoneOutgoing, UserPlus, Moon, Sun, Palette
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
@@ -28,7 +29,9 @@ interface HeaderProps {
 
 export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncActiveCampaign, syncing }: HeaderProps) {
   const { profile } = useAuth();
+  const { darkMode, toggleDarkMode, colorTheme, setColorTheme } = useTheme();
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showPalette, setShowPalette] = useState(false);
 
   useEffect(() => {
     const checkMeetings = setInterval(() => {
@@ -95,7 +98,47 @@ export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncA
         </nav>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {/* Theme toggle */}
+          <button
+            onClick={toggleDarkMode}
+            className="p-2 rounded-xl bg-primary-foreground/10 hover:bg-primary-foreground/20 transition"
+            title={darkMode ? 'Modo Claro' : 'Modo Escuro'}
+          >
+            {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+
+          {/* Color palette */}
+          <div className="relative">
+            <button
+              onClick={() => setShowPalette(!showPalette)}
+              className="p-2 rounded-xl bg-primary-foreground/10 hover:bg-primary-foreground/20 transition"
+              title="Cores"
+            >
+              <Palette size={18} />
+            </button>
+            {showPalette && (
+              <div className="absolute right-0 mt-2 bg-card rounded-xl shadow-xl border border-border p-3 z-50 w-48">
+                <p className="text-xs font-semibold text-muted-foreground mb-2">Tema de Cores</p>
+                {(Object.keys(COLOR_THEMES) as ColorTheme[]).map((key) => (
+                  <button
+                    key={key}
+                    onClick={() => { setColorTheme(key); setShowPalette(false); }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${
+                      colorTheme === key ? 'bg-accent text-accent-foreground font-semibold' : 'text-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <span
+                      className="w-4 h-4 rounded-full border-2 border-border flex-shrink-0"
+                      style={{ backgroundColor: COLOR_THEMES[key].preview }}
+                    />
+                    {COLOR_THEMES[key].label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {!isManager && onSyncActiveCampaign && (
             <Button
               onClick={onSyncActiveCampaign}
