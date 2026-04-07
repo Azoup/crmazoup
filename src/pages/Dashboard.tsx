@@ -14,6 +14,7 @@ import { WeeklyAgendaView } from '@/components/views/WeeklyAgendaView';
 import { SalesView } from '@/components/views/SalesView';
 import { QualificationView } from '@/components/views/QualificationView';
 import { ManagerView } from '@/components/views/ManagerView';
+import { ReportView } from '@/components/views/ReportView';
 import { LeadModal } from '@/components/modals/LeadModal';
 import { ProfileModal } from '@/components/modals/ProfileModal';
 import { MeetingStatusModal } from '@/components/modals/MeetingStatusModal';
