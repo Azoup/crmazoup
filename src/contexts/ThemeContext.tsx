@@ -61,10 +61,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement;
-    // Remove all theme classes
+    // Remove all theme classes from both html and body
     const allThemes = Object.keys(COLOR_THEMES).map(k => `theme-${k}`);
     root.classList.remove(...allThemes);
+    document.body.classList.remove(...allThemes);
+    // Add to both html and body for maximum specificity
     root.classList.add(`theme-${colorTheme}`);
+    document.body.classList.add(`theme-${colorTheme}`);
     localStorage.setItem('azoup-color-theme', colorTheme);
   }, [colorTheme]);
 
