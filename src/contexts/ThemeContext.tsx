@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-export type ColorTheme = 'default' | 'petroleo' | 'grafite' | 'vinho' | 'esmeralda';
+export type ColorTheme = 
+  | 'default' | 'petroleo' | 'grafite' | 'vinho' | 'esmeralda'
+  | 'laranja-petroleo' | 'laranja-grafite' | 'laranja-vinho' | 'laranja-esmeralda'
+  | 'petroleo-laranja' | 'vinho-dourado' | 'azul-royal' | 'midnight';
 
 interface ThemeContextType {
   darkMode: boolean;
@@ -11,12 +14,27 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-const COLOR_THEMES: Record<ColorTheme, { label: string; accent: string; preview: string }> = {
-  default: { label: 'Laranja Clássico', accent: '#e8730c', preview: '#e8730c' },
-  petroleo: { label: 'Azul Petróleo', accent: '#0e7490', preview: '#0e7490' },
-  grafite: { label: 'Cinza Grafite', accent: '#475569', preview: '#475569' },
-  vinho: { label: 'Vinho/Bordô', accent: '#9f1239', preview: '#9f1239' },
-  esmeralda: { label: 'Verde Esmeralda', accent: '#059669', preview: '#059669' },
+interface ThemeInfo {
+  label: string;
+  preview: string;
+  preview2?: string;
+  group: 'single' | 'combo' | 'premium';
+}
+
+const COLOR_THEMES: Record<ColorTheme, ThemeInfo> = {
+  default: { label: 'Laranja Clássico', preview: '#e8730c', group: 'single' },
+  petroleo: { label: 'Azul Petróleo', preview: '#0e7490', group: 'single' },
+  grafite: { label: 'Cinza Grafite', preview: '#475569', group: 'single' },
+  vinho: { label: 'Vinho/Bordô', preview: '#9f1239', group: 'single' },
+  esmeralda: { label: 'Verde Esmeralda', preview: '#059669', group: 'single' },
+  'laranja-petroleo': { label: 'Laranja + Petróleo', preview: '#e8730c', preview2: '#0e7490', group: 'combo' },
+  'laranja-grafite': { label: 'Laranja + Grafite', preview: '#e8730c', preview2: '#475569', group: 'combo' },
+  'laranja-vinho': { label: 'Laranja + Vinho', preview: '#e8730c', preview2: '#9f1239', group: 'combo' },
+  'laranja-esmeralda': { label: 'Laranja + Esmeralda', preview: '#e8730c', preview2: '#059669', group: 'combo' },
+  'petroleo-laranja': { label: 'Petróleo + Laranja', preview: '#0e7490', preview2: '#e8730c', group: 'combo' },
+  'vinho-dourado': { label: 'Vinho + Dourado', preview: '#9f1239', preview2: '#d4a017', group: 'combo' },
+  'azul-royal': { label: 'Azul Royal', preview: '#1e40af', group: 'premium' },
+  'midnight': { label: 'Midnight Premium', preview: '#1e293b', group: 'premium' },
 };
 
 export { COLOR_THEMES };
@@ -44,7 +62,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const root = document.documentElement;
     // Remove all theme classes
-    root.classList.remove('theme-default', 'theme-petroleo', 'theme-grafite', 'theme-vinho', 'theme-esmeralda');
+    const allThemes = Object.keys(COLOR_THEMES).map(k => `theme-${k}`);
+    root.classList.remove(...allThemes);
     root.classList.add(`theme-${colorTheme}`);
     localStorage.setItem('azoup-color-theme', colorTheme);
   }, [colorTheme]);
