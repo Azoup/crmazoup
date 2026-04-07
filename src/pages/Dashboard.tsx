@@ -14,6 +14,7 @@ import { WeeklyAgendaView } from '@/components/views/WeeklyAgendaView';
 import { SalesView } from '@/components/views/SalesView';
 import { QualificationView } from '@/components/views/QualificationView';
 import { ManagerView } from '@/components/views/ManagerView';
+import { ReportView } from '@/components/views/ReportView';
 import { LeadModal } from '@/components/modals/LeadModal';
 import { ProfileModal } from '@/components/modals/ProfileModal';
 import { MeetingStatusModal } from '@/components/modals/MeetingStatusModal';
@@ -25,7 +26,7 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
-type ViewType = 'pipeline' | 'prospeccao_ativa' | 'indicacao' | 'agenda' | 'vendas' | 'qualificacao' | 'gestor';
+type ViewType = 'pipeline' | 'prospeccao_ativa' | 'indicacao' | 'agenda' | 'vendas' | 'qualificacao' | 'relatorios' | 'gestor';
 
 export function Dashboard() {
   const { user, profile } = useAuth();
@@ -240,6 +241,10 @@ export function Dashboard() {
         
         {view === 'qualificacao' && (
           <QualificationView leads={leads} />
+        )}
+
+        {view === 'relatorios' && (
+          <ReportView leads={leads} />
         )}
         
         {view === 'gestor' && isManager && (
