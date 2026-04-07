@@ -2,10 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Azoup CRM Design System - Modern & Clean */
+/* Azoup CRM Design System - Premium Edition */
 
 @layer base {
-  :root {
+  :root,
+  .theme-default {
     --background: 30 15% 97%;
     --foreground: 220 20% 14%;
 
@@ -15,7 +16,6 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 14%;
 
-    /* Laranja Azoup - slightly deeper */
     --primary: 24 90% 50%;
     --primary-foreground: 0 0% 100%;
 
@@ -31,22 +31,17 @@
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Status colors */
     --success: 152 69% 38%;
     --success-foreground: 0 0% 100%;
-    
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
-    
     --info: 217 91% 60%;
     --info-foreground: 0 0% 100%;
 
-    /* Temperature colors */
     --temp-cold: 210 100% 50%;
     --temp-warm: 24 90% 50%;
     --temp-hot: 0 72% 51%;
 
-    /* Stage colors - richer */
     --stage-prospeccao: 217 91% 60%;
     --stage-interesse: 45 93% 47%;
     --stage-reuniao: 270 70% 60%;
@@ -58,7 +53,6 @@
     --border: 220 13% 91%;
     --input: 220 13% 91%;
     --ring: 24 90% 50%;
-
     --radius: 0.625rem;
 
     --sidebar-background: 0 0% 98%;
@@ -71,6 +65,63 @@
     --sidebar-ring: 24 90% 50%;
   }
 
+  /* Azul Petróleo */
+  .theme-petroleo {
+    --primary: 192 80% 30%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 192 70% 93%;
+    --accent-foreground: 192 70% 22%;
+    --ring: 192 80% 30%;
+    --sidebar-primary: 192 80% 30%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 192 70% 93%;
+    --sidebar-accent-foreground: 192 70% 22%;
+    --sidebar-ring: 192 80% 30%;
+  }
+
+  /* Cinza Grafite */
+  .theme-grafite {
+    --primary: 215 20% 35%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 215 20% 94%;
+    --accent-foreground: 215 20% 20%;
+    --ring: 215 20% 35%;
+    --sidebar-primary: 215 20% 35%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 20% 94%;
+    --sidebar-accent-foreground: 215 20% 20%;
+    --sidebar-ring: 215 20% 35%;
+  }
+
+  /* Vinho / Bordô */
+  .theme-vinho {
+    --primary: 340 82% 35%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 340 70% 94%;
+    --accent-foreground: 340 70% 22%;
+    --ring: 340 82% 35%;
+    --sidebar-primary: 340 82% 35%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 340 70% 94%;
+    --sidebar-accent-foreground: 340 70% 22%;
+    --sidebar-ring: 340 82% 35%;
+  }
+
+  /* Verde Esmeralda */
+  .theme-esmeralda {
+    --primary: 160 84% 30%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 160 70% 93%;
+    --accent-foreground: 160 70% 18%;
+    --ring: 160 84% 30%;
+    --sidebar-primary: 160 84% 30%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 160 70% 93%;
+    --sidebar-accent-foreground: 160 70% 18%;
+    --sidebar-ring: 160 84% 30%;
+  }
+
+  /* Dark mode */
   .dark {
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
@@ -81,33 +132,55 @@
     --popover: 222 47% 13%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 24 90% 50%;
-    --primary-foreground: 0 0% 100%;
-
     --secondary: 217 33% 17%;
     --secondary-foreground: 210 40% 98%;
 
     --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;
 
-    --accent: 24 80% 20%;
-    --accent-foreground: 24 80% 90%;
-
     --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 24 90% 50%;
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
 
     --sidebar-background: 222 47% 11%;
     --sidebar-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 20%;
+  }
+
+  /* Dark + theme combos inherit primary from the theme class */
+  .dark.theme-default {
+    --primary: 24 90% 50%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 24 80% 20%;
+    --accent-foreground: 24 80% 90%;
+    --ring: 24 90% 50%;
     --sidebar-primary: 24 90% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 24 80% 20%;
     --sidebar-accent-foreground: 24 80% 90%;
-    --sidebar-border: 217 33% 17%;
     --sidebar-ring: 24 90% 50%;
+  }
+
+  .dark.theme-petroleo {
+    --accent: 192 50% 18%;
+    --accent-foreground: 192 70% 85%;
+  }
+
+  .dark.theme-grafite {
+    --accent: 215 20% 18%;
+    --accent-foreground: 215 20% 85%;
+  }
+
+  .dark.theme-vinho {
+    --accent: 340 50% 18%;
+    --accent-foreground: 340 70% 85%;
+  }
+
+  .dark.theme-esmeralda {
+    --accent: 160 50% 16%;
+    --accent-foreground: 160 70% 85%;
   }
 }
 
