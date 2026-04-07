@@ -4,6 +4,8 @@ import { useLeads } from '@/hooks/useLeads';
 import { useToast } from '@/hooks/use-toast';
 import { useMeetingReminder } from '@/hooks/useMeetingReminder';
 import { useProposalReminder } from '@/hooks/useProposalReminder';
+import { useMeetingAlert } from '@/hooks/useMeetingAlert';
+import { useReturnReminder } from '@/hooks/useReturnReminder';
 import { Header } from '@/components/layout/Header';
 import { FilterBar } from '@/components/layout/FilterBar';
 import { PipelineView } from '@/components/views/PipelineView';
@@ -16,6 +18,8 @@ import { LeadModal } from '@/components/modals/LeadModal';
 import { ProfileModal } from '@/components/modals/ProfileModal';
 import { MeetingStatusModal } from '@/components/modals/MeetingStatusModal';
 import { ProposalReminderModal } from '@/components/modals/ProposalReminderModal';
+import { MeetingAlertModal } from '@/components/modals/MeetingAlertModal';
+import { ReturnReminderModal } from '@/components/modals/ReturnReminderModal';
 import { Lead, LeadSource } from '@/types/lead';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -59,6 +63,10 @@ export function Dashboard() {
   const { pendingReminder, dismissReminder, clearReminder } = useMeetingReminder(leads);
   // Proposal reminder only for managers
   const { pendingProposal, dismissProposalReminder } = useProposalReminder(isManager ? leads : []);
+  // 15-min pre-meeting alert
+  const { alertLead, dismissAlert } = useMeetingAlert(leads);
+  // Return contact reminder
+  const { pendingReturn, markReturnCompleted, dismissReturn } = useReturnReminder(leads);
 
   const handleSyncAC = async () => {
     setSyncing(true);
@@ -319,6 +327,30 @@ export function Dashboard() {
             }
             dismissProposalReminder(pendingProposal.id);
           }}
+        />
+      )}
+
+      {/* 15-min pre-meeting alert */}
+      {alertLead && (
+        <MeetingAlertModal
+          lead={alertLead}
+          onDismiss={() => dismissAlert(alertLead.id)}
+          onOpenLead={(lead) => {
+            dismissAlert(lead.id);
+            handleOpenLead(lead);
+          }}
+        />
+      )}
+
+      {/* Return contact reminder */}
+      {pendingReturn && (
+        <ReturnReminderModal
+          lead={pendingReturn}
+          onReturnCompleted={async (leadId) => {
+            markReturnCompleted(leadId);
+            await addHistory(leadId, 'retorno', '✅ Retorno de contato realizado');
+          }}
+          onDismiss={dismissReturn}
         />
       )}
     </div>
