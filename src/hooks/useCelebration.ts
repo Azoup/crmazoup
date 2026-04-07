@@ -1,154 +1,194 @@
 import { useCallback } from 'react';
 import confetti from 'canvas-confetti';
 
-// Confetti com tema de confecção (laranja) para reuniões
 export function useCelebration() {
   const celebrateMeeting = useCallback(() => {
-    const duration = 3000;
+    const duration = 3500;
     const end = Date.now() + duration;
+    const colors = ['#F97316', '#EA580C', '#FB923C', '#FDBA74', '#FED7AA', '#FFD700'];
 
-    // Cores laranja do tema Azoup
-    const colors = ['#F97316', '#EA580C', '#FB923C', '#FDBA74', '#FED7AA'];
-
-    // Efeito de confete principal
+    // Staggered bursts from both sides
     const frame = () => {
       confetti({
-        particleCount: 4,
+        particleCount: 5,
         angle: 60,
-        spread: 55,
-        origin: { x: 0 },
-        colors: colors,
+        spread: 65,
+        origin: { x: 0, y: 0.6 },
+        colors,
         shapes: ['circle', 'square'],
+        gravity: 0.8,
+        drift: 0.5,
+        ticks: 200,
       });
       confetti({
-        particleCount: 4,
+        particleCount: 5,
         angle: 120,
-        spread: 55,
-        origin: { x: 1 },
-        colors: colors,
+        spread: 65,
+        origin: { x: 1, y: 0.6 },
+        colors,
         shapes: ['circle', 'square'],
+        gravity: 0.8,
+        drift: -0.5,
+        ticks: 200,
       });
 
       if (Date.now() < end) {
         requestAnimationFrame(frame);
       }
     };
-
     frame();
 
-    // Explosão central com elementos de confecção (simulando bobinas, tesouras)
+    // Big center burst
     setTimeout(() => {
       confetti({
-        particleCount: 100,
-        spread: 100,
-        origin: { y: 0.6 },
-        colors: colors,
+        particleCount: 120,
+        spread: 120,
+        origin: { y: 0.55, x: 0.5 },
+        colors,
         shapes: ['circle', 'square'],
-        scalar: 1.2,
+        scalar: 1.4,
+        gravity: 1,
+        ticks: 250,
       });
-    }, 250);
+    }, 300);
 
-    // Som de buzina (opcional - usando Web Audio API)
+    // Second wave
+    setTimeout(() => {
+      confetti({
+        particleCount: 60,
+        spread: 80,
+        origin: { y: 0.5, x: 0.5 },
+        colors: ['#FFD700', '#FFC107', '#F97316'],
+        scalar: 1.1,
+        gravity: 0.9,
+      });
+    }, 800);
+
+    // Premium sound — ascending chord
     try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.value = 440;
-      oscillator.type = 'sine';
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.5);
-    } catch (e) {
-      // Audio não disponível, continua sem som
-    }
+      const ac = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const play = (freq: number, start: number, dur: number, vol = 0.15) => {
+        const osc = ac.createOscillator();
+        const g = ac.createGain();
+        osc.connect(g);
+        g.connect(ac.destination);
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+        g.gain.setValueAtTime(vol, start);
+        g.gain.exponentialRampToValueAtTime(0.001, start + dur);
+        osc.start(start);
+        osc.stop(start + dur);
+      };
+      const now = ac.currentTime;
+      play(523.25, now, 0.2);
+      play(659.25, now + 0.12, 0.2);
+      play(783.99, now + 0.24, 0.35);
+    } catch {}
   }, []);
 
   const celebrateSale = useCallback(() => {
-    const duration = 4000;
+    const duration = 5000;
     const end = Date.now() + duration;
+    const colors = ['#22C55E', '#16A34A', '#4ADE80', '#86EFAC', '#FFD700', '#FFC107'];
 
-    // Cores verdes para celebrar venda
-    const colors = ['#22C55E', '#16A34A', '#4ADE80', '#86EFAC', '#BBF7D0'];
-
-    // Efeito de confete contínuo
     const frame = () => {
       confetti({
-        particleCount: 3,
+        particleCount: 4,
         angle: 60,
-        spread: 55,
+        spread: 70,
         origin: { x: 0 },
-        colors: colors,
+        colors,
+        gravity: 0.7,
+        drift: 0.3,
+        ticks: 300,
       });
       confetti({
-        particleCount: 3,
+        particleCount: 4,
         angle: 120,
-        spread: 55,
+        spread: 70,
         origin: { x: 1 },
-        colors: colors,
+        colors,
+        gravity: 0.7,
+        drift: -0.3,
+        ticks: 300,
       });
 
       if (Date.now() < end) {
         requestAnimationFrame(frame);
       }
     };
-
     frame();
 
-    // Explosão central grande (troféu)
+    // Triple explosion cascade
     confetti({
-      particleCount: 150,
+      particleCount: 180,
       spread: 180,
-      origin: { y: 0.5 },
-      colors: colors,
-      scalar: 1.5,
+      origin: { y: 0.45 },
+      colors,
+      scalar: 1.6,
       shapes: ['circle', 'square'],
+      gravity: 0.8,
+      ticks: 350,
     });
 
-    // Segunda explosão após delay
     setTimeout(() => {
       confetti({
-        particleCount: 100,
-        spread: 100,
-        origin: { y: 0.4, x: 0.5 },
-        colors: [...colors, '#FFD700', '#FFC107'], // Adiciona dourado
-        scalar: 1.3,
+        particleCount: 120,
+        spread: 140,
+        origin: { y: 0.4, x: 0.3 },
+        colors: ['#FFD700', '#FFC107', '#22C55E', '#4ADE80'],
+        scalar: 1.4,
+        ticks: 300,
       });
-    }, 500);
+    }, 400);
 
-    // Som de vitória
+    setTimeout(() => {
+      confetti({
+        particleCount: 120,
+        spread: 140,
+        origin: { y: 0.4, x: 0.7 },
+        colors: ['#FFD700', '#FFC107', '#22C55E', '#4ADE80'],
+        scalar: 1.4,
+        ticks: 300,
+      });
+    }, 700);
+
+    // Starfield finale
+    setTimeout(() => {
+      confetti({
+        particleCount: 80,
+        spread: 360,
+        origin: { y: 0.5, x: 0.5 },
+        colors: ['#FFD700', '#FFC107'],
+        scalar: 0.8,
+        gravity: 0.3,
+        ticks: 400,
+        startVelocity: 30,
+      });
+    }, 1100);
+
+    // Victory fanfare
     try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      
-      const playNote = (freq: number, startTime: number, duration: number) => {
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.frequency.value = freq;
-        oscillator.type = 'sine';
-        gainNode.gain.setValueAtTime(0.2, startTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
-        
-        oscillator.start(startTime);
-        oscillator.stop(startTime + duration);
+      const ac = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const play = (freq: number, start: number, dur: number, vol = 0.12) => {
+        const osc = ac.createOscillator();
+        const g = ac.createGain();
+        osc.connect(g);
+        g.connect(ac.destination);
+        osc.frequency.value = freq;
+        osc.type = 'triangle';
+        g.gain.setValueAtTime(vol, start);
+        g.gain.exponentialRampToValueAtTime(0.001, start + dur);
+        osc.start(start);
+        osc.stop(start + dur);
       };
-
-      // Melodia de vitória
-      const now = audioContext.currentTime;
-      playNote(523.25, now, 0.15); // C5
-      playNote(659.25, now + 0.15, 0.15); // E5
-      playNote(783.99, now + 0.3, 0.3); // G5
-    } catch (e) {
-      // Audio não disponível
-    }
+      const now = ac.currentTime;
+      play(392, now, 0.15);        // G4
+      play(523.25, now + 0.12, 0.15); // C5
+      play(659.25, now + 0.24, 0.15); // E5
+      play(783.99, now + 0.36, 0.4);  // G5
+      play(1046.5, now + 0.55, 0.5);  // C6 (triumphant)
+    } catch {}
   }, []);
 
   return { celebrateMeeting, celebrateSale };
