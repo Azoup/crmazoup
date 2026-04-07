@@ -20,7 +20,6 @@ function parseDateLocal(dateStr: string): Date {
 export function useReturnReminder(leads: Lead[]) {
   const [pendingReturn, setPendingReturn] = useState<Lead | null>(null);
   const [completedIds, setCompletedIds] = useState<Set<string>>(() => {
-    // Load from localStorage so dismissals persist across page refreshes
     try {
       const saved = localStorage.getItem('azoup-return-completed');
       return saved ? new Set(JSON.parse(saved)) : new Set();
@@ -29,6 +28,27 @@ export function useReturnReminder(leads: Lead[]) {
     }
   });
   const [soundPlayed, setSoundPlayed] = useState<Set<string>>(new Set());
+
+  // Snooze-all state
+  const [snoozeUntil, setSnoozeUntil] = useState<number | null>(() => {
+    try {
+      const saved = localStorage.getItem('azoup-snooze-until');
+      const val = saved ? Number(saved) : null;
+      if (val && val > Date.now()) return val;
+      localStorage.removeItem('azoup-snooze-until');
+      return null;
+    } catch { return null; }
+  });
+  const [snoozeCount, setSnoozeCount] = useState<number>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('azoup-snooze-count') || '{}');
+      const today = new Date().toDateString();
+      return saved.date === today ? (saved.count || 0) : 0;
+    } catch { return 0; }
+  });
+
+  const isSnoozed = snoozeUntil !== null && Date.now() < snoozeUntil;
+  const canSnooze = snoozeCount < 7;
 
   const playReturnSound = useCallback(() => {
     try {
@@ -51,19 +71,20 @@ export function useReturnReminder(leads: Lead[]) {
       };
 
       const t = ctx.currentTime;
-      play(523.25, t, 0.15);        // C5
-      play(659.25, t + 0.15, 0.15); // E5
-      play(783.99, t + 0.3, 0.2);   // G5
+      play(523.25, t, 0.15);
+      play(659.25, t + 0.15, 0.15);
+      play(783.99, t + 0.3, 0.2);
     } catch {}
   }, []);
 
   const checkReturns = useCallback(() => {
+    if (isSnoozed) return;
+
     const now = new Date();
 
     const overdue = leads.filter(lead => {
       if (!lead.next_contact) return false;
       if (completedIds.has(lead.id)) return false;
-      // Only active stages (not venda/perdidos/congelados)
       if (['venda', 'perdidos', 'congelados'].includes(lead.stage)) return false;
 
       const contactTime = parseDateLocal(lead.next_contact);
@@ -79,13 +100,29 @@ export function useReturnReminder(leads: Lead[]) {
         setSoundPlayed(prev => new Set([...prev, lead.id]));
       }
     }
-  }, [leads, completedIds, pendingReturn, soundPlayed, playReturnSound]);
+  }, [leads, completedIds, pendingReturn, soundPlayed, playReturnSound, isSnoozed]);
 
   useEffect(() => {
     checkReturns();
     const interval = setInterval(checkReturns, 30000);
     return () => clearInterval(interval);
   }, [checkReturns]);
+
+  // Check if snooze expired
+  useEffect(() => {
+    if (!snoozeUntil) return;
+    const remaining = snoozeUntil - Date.now();
+    if (remaining <= 0) {
+      setSnoozeUntil(null);
+      localStorage.removeItem('azoup-snooze-until');
+      return;
+    }
+    const timer = setTimeout(() => {
+      setSnoozeUntil(null);
+      localStorage.removeItem('azoup-snooze-until');
+    }, remaining);
+    return () => clearTimeout(timer);
+  }, [snoozeUntil]);
 
   const markReturnCompleted = useCallback((leadId: string) => {
     setCompletedIds(prev => {
@@ -96,10 +133,20 @@ export function useReturnReminder(leads: Lead[]) {
     setPendingReturn(null);
   }, []);
 
-  const dismissReturn = useCallback((leadId: string) => {
-    // Just dismiss for now without marking completed - will show again on next cycle
+  const dismissReturn = useCallback((_leadId: string) => {
     setPendingReturn(null);
   }, []);
 
-  return { pendingReturn, markReturnCompleted, dismissReturn };
+  const snoozeAll = useCallback(() => {
+    if (!canSnooze) return;
+    const until = Date.now() + 60 * 60 * 1000; // 1 hour
+    setSnoozeUntil(until);
+    localStorage.setItem('azoup-snooze-until', String(until));
+    const newCount = snoozeCount + 1;
+    setSnoozeCount(newCount);
+    localStorage.setItem('azoup-snooze-count', JSON.stringify({ date: new Date().toDateString(), count: newCount }));
+    setPendingReturn(null);
+  }, [canSnooze, snoozeCount]);
+
+  return { pendingReturn, markReturnCompleted, dismissReturn, snoozeAll, canSnooze, snoozeCount };
 }

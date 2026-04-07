@@ -1,11 +1,14 @@
 import { Lead } from '@/types/lead';
 import { Button } from '@/components/ui/button';
-import { Phone, Mail, MessageSquare, RotateCcw, Clock, User, Building2 } from 'lucide-react';
+import { Phone, Mail, MessageSquare, RotateCcw, Clock, User, Building2, TimerOff } from 'lucide-react';
 
 interface ReturnReminderModalProps {
   lead: Lead;
   onReturnCompleted: (leadId: string) => void;
   onDismiss: (leadId: string) => void;
+  onSnoozeAll?: () => void;
+  canSnooze?: boolean;
+  snoozeCount?: number;
 }
 
 function parseDateLocal(dateStr: string): Date {
@@ -20,7 +23,7 @@ function parseDateLocal(dateStr: string): Date {
   return new Date(y, m - 1, day);
 }
 
-export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss }: ReturnReminderModalProps) {
+export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoozeAll, canSnooze = true, snoozeCount = 0 }: ReturnReminderModalProps) {
   const contactTime = lead.next_contact ? parseDateLocal(lead.next_contact) : null;
 
   const handleWhatsApp = () => {
@@ -115,6 +118,24 @@ export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss }: Retu
           >
             ✅ Retorno Realizado
           </Button>
+
+          {/* Snooze all button */}
+          {onSnoozeAll && canSnooze && (
+            <Button
+              onClick={onSnoozeAll}
+              variant="outline"
+              className="w-full gap-2 border-warning/50 text-warning hover:bg-warning/10"
+            >
+              <TimerOff size={16} />
+              Adiar todos por 1 hora ({7 - snoozeCount} restante{7 - snoozeCount !== 1 ? 's' : ''})
+            </Button>
+          )}
+
+          {onSnoozeAll && !canSnooze && (
+            <p className="text-xs text-center text-muted-foreground">
+              Limite de adiamentos diários atingido (7/7)
+            </p>
+          )}
 
           <Button
             onClick={() => onDismiss(lead.id)}
