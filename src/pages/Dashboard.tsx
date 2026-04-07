@@ -329,6 +329,30 @@ export function Dashboard() {
           }}
         />
       )}
+
+      {/* 15-min pre-meeting alert */}
+      {alertLead && (
+        <MeetingAlertModal
+          lead={alertLead}
+          onDismiss={() => dismissAlert(alertLead.id)}
+          onOpenLead={(lead) => {
+            dismissAlert(lead.id);
+            handleOpenLead(lead);
+          }}
+        />
+      )}
+
+      {/* Return contact reminder */}
+      {pendingReturn && (
+        <ReturnReminderModal
+          lead={pendingReturn}
+          onReturnCompleted={async (leadId) => {
+            markReturnCompleted(leadId);
+            await addHistory(leadId, 'retorno', '✅ Retorno de contato realizado');
+          }}
+          onDismiss={dismissReturn}
+        />
+      )}
     </div>
   );
 }
