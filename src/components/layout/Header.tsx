@@ -6,7 +6,7 @@ import { formatTime } from '@/lib/utils';
 import { 
   Bell, UserCircle, 
   LayoutDashboard, CalendarDays, TrendingUp, Users, Sparkles, RefreshCw, ClipboardCheck,
-  PhoneOutgoing, UserPlus, Moon, Sun, Palette, ChevronDown
+  PhoneOutgoing, UserPlus, Moon, Sun, Palette, ChevronDown, FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
