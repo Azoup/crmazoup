@@ -152,6 +152,14 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
             >
               <BarChart3 size={14} /> Métricas
             </Button>
+            <Button
+              variant={subView === 'approvals' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setSubView('approvals')}
+              className="gap-2"
+            >
+              <Users size={14} /> Aprovações
+            </Button>
           </div>
 
           {/* SDR Filter + Search */}
