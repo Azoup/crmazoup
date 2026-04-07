@@ -8,6 +8,7 @@ interface UserProfile {
   role: 'SDR' | 'Gestor';
   avatar: string | null;
   signature: string | null;
+  approved: boolean;
 }
 
 interface AuthContextType {
@@ -75,6 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: data.role as 'SDR' | 'Gestor',
           avatar: data.avatar,
           signature: data.signature,
+          approved: (data as any).approved ?? false,
         });
       }
     } catch (error) {

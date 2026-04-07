@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ApprovalManager } from '@/components/ApprovalManager';
 import { Lead, LeadStage, LeadHistory, LeadSource, STAGE_LABELS } from '@/types/lead';
 import { formatCurrency } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -43,7 +44,7 @@ interface ManagerViewProps {
   addHistory?: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
 }
 
-type ManagerSubView = 'pipeline' | 'metrics';
+type ManagerSubView = 'pipeline' | 'metrics' | 'approvals';
 
 export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, percentGoal, onCreateLead, onOpenLead, updateLead: externalUpdateLead, addHistory: externalAddHistory }: ManagerViewProps) {
   const { user, profile } = useAuth();
@@ -150,6 +151,14 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
               className="gap-2"
             >
               <BarChart3 size={14} /> Métricas
+            </Button>
+            <Button
+              variant={subView === 'approvals' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setSubView('approvals')}
+              className="gap-2"
+            >
+              <Users size={14} /> Aprovações
             </Button>
           </div>
 
@@ -575,6 +584,14 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
           )}
         </DialogContent>
       </Dialog>
+      {/* Approvals View */}
+      {subView === 'approvals' && (
+        <div className="bg-card rounded-xl border border-border p-6">
+          <h2 className="text-lg font-bold text-foreground mb-4">Gerenciar Aprovações de Usuários</h2>
+          <ApprovalManager />
+        </div>
+      )}
+
       {/* Proposal Modal */}
       <ProposalModal
         lead={proposalLead}

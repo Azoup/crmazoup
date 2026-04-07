@@ -142,6 +142,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          approved: boolean
           avatar: string | null
           created_at: string
           id: string
@@ -152,6 +153,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          approved?: boolean
           avatar?: string | null
           created_at?: string
           id?: string
@@ -162,6 +164,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          approved?: boolean
           avatar?: string | null
           created_at?: string
           id?: string
@@ -270,6 +273,7 @@ export type Database = {
       get_managed_sdr_ids: { Args: { _manager_id: string }; Returns: string[] }
       get_user_role: { Args: { _user_id: string }; Returns: string }
       is_manager: { Args: { _user_id: string }; Returns: boolean }
+      is_user_approved: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
