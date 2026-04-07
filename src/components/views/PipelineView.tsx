@@ -160,7 +160,7 @@ export function PipelineView({
           return (
             <div
               key={col.id}
-              className="min-w-[300px] w-[300px] bg-card/60 rounded-2xl border border-border/40 flex flex-col flex-shrink-0 overflow-hidden shadow-sm"
+              className="min-w-[300px] w-[300px] bg-card/80 glass rounded-2xl border border-border/30 flex flex-col flex-shrink-0 overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300"
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, col.id)}
             >
