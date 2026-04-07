@@ -63,6 +63,10 @@ export function Dashboard() {
   const { pendingReminder, dismissReminder, clearReminder } = useMeetingReminder(leads);
   // Proposal reminder only for managers
   const { pendingProposal, dismissProposalReminder } = useProposalReminder(isManager ? leads : []);
+  // 15-min pre-meeting alert
+  const { alertLead, dismissAlert } = useMeetingAlert(leads);
+  // Return contact reminder
+  const { pendingReturn, markReturnCompleted, dismissReturn } = useReturnReminder(leads);
 
   const handleSyncAC = async () => {
     setSyncing(true);
