@@ -19,7 +19,7 @@ export function FilterBar({ filters, setFilters }: FilterBarProps) {
         <Search className="absolute left-2.5 top-2.5 text-muted-foreground/60" size={14} />
         <Input
           type="text"
-          placeholder="Buscar por nome, empresa..."
+          placeholder="Buscar por nome, empresa, telefone..."
           className="pl-8 h-9 bg-muted/50 border-border/50 text-sm"
           value={filters.search}
           onChange={(e) => setFilters({ ...filters, search: e.target.value })}

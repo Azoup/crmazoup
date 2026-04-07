@@ -202,9 +202,11 @@ export function useLeads() {
 
   const filteredLeads = useMemo(() => {
     return leads.filter(lead => {
-      const matchSearch = 
-        lead.name?.toLowerCase().includes(filters.search.toLowerCase()) ||
-        lead.company?.toLowerCase()?.includes(filters.search.toLowerCase()) ||
+      const s = filters.search.toLowerCase();
+      const matchSearch = !s ||
+        lead.name?.toLowerCase().includes(s) ||
+        lead.company?.toLowerCase()?.includes(s) ||
+        lead.whatsapp?.toLowerCase()?.includes(s) ||
         false;
       const matchTemp = filters.temperature === 'todos' || lead.temperature === filters.temperature;
       const matchType = !filters.confectionType || 
