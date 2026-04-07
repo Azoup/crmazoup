@@ -100,6 +100,7 @@ export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncA
           <NavButton active={view === 'agenda'} onClick={() => setView('agenda')} icon={CalendarDays} label="Agenda" />
           <NavButton active={view === 'vendas'} onClick={() => setView('vendas')} icon={TrendingUp} label="Vendas" />
           <NavButton active={view === 'qualificacao'} onClick={() => setView('qualificacao')} icon={ClipboardCheck} label="Qualificação" />
+          <NavButton active={view === 'relatorios'} onClick={() => setView('relatorios')} icon={FileText} label="Relatórios" />
           {isManager && <NavButton active={view === 'gestor'} onClick={() => setView('gestor')} icon={Users} label="Gestor" />}
         </nav>
 
