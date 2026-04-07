@@ -44,7 +44,7 @@ interface ManagerViewProps {
   addHistory?: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
 }
 
-type ManagerSubView = 'pipeline' | 'metrics';
+type ManagerSubView = 'pipeline' | 'metrics' | 'approvals';
 
 export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, percentGoal, onCreateLead, onOpenLead, updateLead: externalUpdateLead, addHistory: externalAddHistory }: ManagerViewProps) {
   const { user, profile } = useAuth();
