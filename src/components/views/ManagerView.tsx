@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ApprovalManager } from '@/components/ApprovalManager';
 import { Lead, LeadStage, LeadHistory, LeadSource, STAGE_LABELS } from '@/types/lead';
 import { formatCurrency } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
