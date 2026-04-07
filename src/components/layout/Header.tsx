@@ -6,7 +6,7 @@ import { formatTime } from '@/lib/utils';
 import { 
   Bell, UserCircle, 
   LayoutDashboard, CalendarDays, TrendingUp, Users, Sparkles, RefreshCw, ClipboardCheck,
-  PhoneOutgoing, UserPlus, Moon, Sun, Palette
+  PhoneOutgoing, UserPlus, Moon, Sun, Palette, ChevronDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
@@ -72,8 +72,14 @@ export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncA
 
   const newLeadsCount = leads.filter(l => l.is_new).length;
 
+  const themeGroups = {
+    single: Object.entries(COLOR_THEMES).filter(([, v]) => v.group === 'single'),
+    combo: Object.entries(COLOR_THEMES).filter(([, v]) => v.group === 'combo'),
+    premium: Object.entries(COLOR_THEMES).filter(([, v]) => v.group === 'premium'),
+  };
+
   return (
-    <header className="bg-primary text-primary-foreground sticky top-0 z-20 shadow-lg">
+    <header className="premium-gradient text-primary-foreground sticky top-0 z-20 shadow-lg">
       <div className="flex items-center justify-between px-5 h-16 md:h-[72px]">
         {/* Left: Logo & Brand */}
         <div className="flex items-center gap-3">
@@ -99,7 +105,6 @@ export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncA
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2">
-          {/* Theme toggle */}
           <button
             onClick={toggleDarkMode}
             className="p-2 rounded-xl bg-primary-foreground/10 hover:bg-primary-foreground/20 transition"
@@ -118,22 +123,22 @@ export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncA
               <Palette size={18} />
             </button>
             {showPalette && (
-              <div className="absolute right-0 mt-2 bg-card rounded-xl shadow-xl border border-border p-3 z-50 w-48">
-                <p className="text-xs font-semibold text-muted-foreground mb-2">Tema de Cores</p>
-                {(Object.keys(COLOR_THEMES) as ColorTheme[]).map((key) => (
-                  <button
-                    key={key}
-                    onClick={() => { setColorTheme(key); setShowPalette(false); }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${
-                      colorTheme === key ? 'bg-accent text-accent-foreground font-semibold' : 'text-foreground hover:bg-muted'
-                    }`}
-                  >
-                    <span
-                      className="w-4 h-4 rounded-full border-2 border-border flex-shrink-0"
-                      style={{ backgroundColor: COLOR_THEMES[key].preview }}
-                    />
-                    {COLOR_THEMES[key].label}
-                  </button>
+              <div className="absolute right-0 mt-2 bg-card rounded-xl shadow-xl border border-border p-3 z-50 w-56 max-h-[70vh] overflow-y-auto scrollbar-thin">
+                <p className="text-xs font-bold text-muted-foreground mb-2 uppercase tracking-wider">Cores Sólidas</p>
+                {themeGroups.single.map(([key, info]) => (
+                  <ThemeButton key={key} themeKey={key as ColorTheme} info={info} active={colorTheme === key} onClick={() => { setColorTheme(key as ColorTheme); setShowPalette(false); }} />
+                ))}
+                
+                <div className="border-t border-border my-2" />
+                <p className="text-xs font-bold text-muted-foreground mb-2 uppercase tracking-wider">Combinações</p>
+                {themeGroups.combo.map(([key, info]) => (
+                  <ThemeButton key={key} themeKey={key as ColorTheme} info={info} active={colorTheme === key} onClick={() => { setColorTheme(key as ColorTheme); setShowPalette(false); }} />
+                ))}
+
+                <div className="border-t border-border my-2" />
+                <p className="text-xs font-bold text-muted-foreground mb-2 uppercase tracking-wider">Premium</p>
+                {themeGroups.premium.map(([key, info]) => (
+                  <ThemeButton key={key} themeKey={key as ColorTheme} info={info} active={colorTheme === key} onClick={() => { setColorTheme(key as ColorTheme); setShowPalette(false); }} />
                 ))}
               </div>
             )}
@@ -146,14 +151,8 @@ export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncA
               size="sm"
               className="gap-1.5 bg-primary-foreground/15 hover:bg-primary-foreground/25 text-primary-foreground border-0 h-9 px-3"
             >
-              {syncing ? (
-                <RefreshCw size={14} className="animate-spin" />
-              ) : (
-                <Sparkles size={14} />
-              )}
-              <span className="hidden lg:inline text-sm">
-                {syncing ? 'Sync...' : 'Sync AC'}
-              </span>
+              {syncing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              <span className="hidden lg:inline text-sm">{syncing ? 'Sync...' : 'Sync AC'}</span>
             </Button>
           )}
 
@@ -213,6 +212,31 @@ export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncA
         {isManager && <NavButton active={view === 'gestor'} onClick={() => setView('gestor')} icon={Users} label="Gestor" />}
       </nav>
     </header>
+  );
+}
+
+function ThemeButton({ themeKey, info, active, onClick }: { themeKey: ColorTheme; info: any; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${
+        active ? 'bg-accent text-accent-foreground font-semibold' : 'text-foreground hover:bg-muted'
+      }`}
+    >
+      <div className="flex -space-x-1 flex-shrink-0">
+        <span
+          className="w-4 h-4 rounded-full border-2 border-border"
+          style={{ backgroundColor: info.preview }}
+        />
+        {info.preview2 && (
+          <span
+            className="w-4 h-4 rounded-full border-2 border-border"
+            style={{ backgroundColor: info.preview2 }}
+          />
+        )}
+      </div>
+      <span className="truncate">{info.label}</span>
+    </button>
   );
 }
 

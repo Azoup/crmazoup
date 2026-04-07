@@ -83,9 +83,9 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp }: LeadCardPro
       draggable
       onDragStart={handleDragStart}
       onClick={onClick}
-      className={`relative p-4 bg-card rounded-xl border border-border/60 cursor-grab active:cursor-grabbing hover:shadow-lg hover:border-border hover:-translate-y-0.5 transition-all duration-200 group border-l-4 ${borderColor} ${
+      className={`relative p-4 bg-card rounded-xl border border-border/50 cursor-grab active:cursor-grabbing hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 group border-l-4 ${borderColor} ${
         isNew ? 'ring-1 ring-purple-400/20 bg-purple-50/50 dark:bg-purple-950/20' : ''
-      }`}
+      } shadow-sm`}
     >
       {/* New lead badge */}
       {isNew && (
@@ -144,13 +144,13 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp }: LeadCardPro
       )}
       
       {/* Footer */}
-      <div className="flex items-center justify-between pt-2.5 border-t border-border/40">
+      <div className="flex items-center justify-between pt-2.5 border-t border-border/30">
         <span className="text-[11px] text-muted-foreground/70 truncate max-w-[120px]">
           {lead.confection_type || '-'}
         </span>
         <button
           onClick={onQuickWhatsApp}
-          className="text-success hover:bg-success/10 p-1.5 rounded-lg transition"
+          className="text-success hover:bg-success/10 p-1.5 rounded-lg transition-all hover:scale-110"
           title="WhatsApp"
         >
           <MessageCircle size={16} />
