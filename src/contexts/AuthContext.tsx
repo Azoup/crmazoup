@@ -8,6 +8,7 @@ interface UserProfile {
   role: 'SDR' | 'Gestor';
   avatar: string | null;
   signature: string | null;
+  approved: boolean;
 }
 
 interface AuthContextType {
