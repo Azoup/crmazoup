@@ -270,6 +270,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_lead_user_id: { Args: { _lead_id: string }; Returns: string }
       get_managed_sdr_ids: { Args: { _manager_id: string }; Returns: string[] }
       get_user_role: { Args: { _user_id: string }; Returns: string }
       is_manager: { Args: { _user_id: string }; Returns: boolean }
