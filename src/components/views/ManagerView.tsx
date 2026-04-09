@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ApprovalManager } from '@/components/ApprovalManager';
 import { Lead, LeadStage, LeadHistory, LeadSource, STAGE_LABELS } from '@/types/lead';
+import { ClientInfoForm } from '@/components/manager/ClientInfoForm';
 import { formatCurrency } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
@@ -44,7 +45,7 @@ interface ManagerViewProps {
   addHistory?: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
 }
 
-type ManagerSubView = 'pipeline' | 'metrics' | 'approvals';
+type ManagerSubView = 'pipeline' | 'metrics' | 'approvals' | 'fichas';
 
 export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, percentGoal, onCreateLead, onOpenLead, updateLead: externalUpdateLead, addHistory: externalAddHistory }: ManagerViewProps) {
   const { user, profile } = useAuth();
@@ -72,6 +73,8 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
   const [subView, setSubView] = useState<ManagerSubView>('pipeline');
   const [selectedSDRFilter, setSelectedSDRFilter] = useState<string | null>(null);
   const [managerSearch, setManagerSearch] = useState('');
+  const [fichaLead, setFichaLead] = useState<Lead | null>(null);
+  const [fichaSearch, setFichaSearch] = useState('');
 
   // Use allLeads from manager data if available, otherwise use passed leads
   const displayLeads = allLeads.length > 0 ? allLeads : leads;
@@ -159,6 +162,14 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
               className="gap-2"
             >
               <Users size={14} /> Aprovações
+            </Button>
+            <Button
+              variant={subView === 'fichas' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setSubView('fichas')}
+              className="gap-2"
+            >
+              <FileText size={14} /> Fichas
             </Button>
           </div>
 
@@ -589,6 +600,68 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
         <div className="bg-card rounded-xl border border-border p-6">
           <h2 className="text-lg font-bold text-foreground mb-4">Gerenciar Aprovações de Usuários</h2>
           <ApprovalManager />
+        </div>
+      )}
+
+      {/* Fichas View */}
+      {subView === 'fichas' && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 bg-card p-4 rounded-xl border border-border">
+            <Search size={16} className="text-muted-foreground" />
+            <Input
+              placeholder="Buscar cliente por nome, telefone ou empresa..."
+              value={fichaSearch}
+              onChange={(e) => setFichaSearch(e.target.value)}
+              className="max-w-md"
+            />
+          </div>
+
+          {fichaLead ? (
+            <div className="space-y-4">
+              <Button variant="outline" size="sm" onClick={() => setFichaLead(null)} className="gap-2">
+                ← Voltar à lista
+              </Button>
+              <ClientInfoForm
+                lead={fichaLead}
+                onSave={async (leadId, updates) => {
+                  if (externalUpdateLead) {
+                    return await externalUpdateLead(leadId, updates);
+                  }
+                  return false;
+                }}
+                allLeads={displayLeads}
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {displayLeads
+                .filter(l => {
+                  if (!fichaSearch) return true;
+                  const q = fichaSearch.toLowerCase();
+                  return (
+                    l.name.toLowerCase().includes(q) ||
+                    (l.company || '').toLowerCase().includes(q) ||
+                    (l.whatsapp || '').includes(q) ||
+                    (l.email || '').toLowerCase().includes(q)
+                  );
+                })
+                .slice(0, 30)
+                .map(lead => (
+                  <div
+                    key={lead.id}
+                    onClick={() => setFichaLead(lead)}
+                    className="bg-card border border-border rounded-xl p-4 cursor-pointer hover:border-primary/50 hover:shadow-md transition-all"
+                  >
+                    <p className="font-semibold text-foreground">{lead.name}</p>
+                    <p className="text-xs text-muted-foreground">{lead.company || 'Sem empresa'}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{lead.whatsapp || 'Sem telefone'}</p>
+                    <span className="text-[10px] mt-2 inline-block px-2 py-0.5 bg-primary/10 text-primary rounded-full">
+                      {STAGE_LABELS[lead.stage]}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          )}
         </div>
       )}
 

@@ -1,10 +1,13 @@
-import { Lead } from '@/types/lead';
+import { useState } from 'react';
+import { Lead, LeadStage } from '@/types/lead';
 import { Button } from '@/components/ui/button';
-import { Phone, Mail, MessageSquare, RotateCcw, Clock, User, Building2, TimerOff } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Phone, Mail, MessageSquare, RotateCcw, Clock, User, Building2, TimerOff, Snowflake, XCircle, Calendar } from 'lucide-react';
 
 interface ReturnReminderModalProps {
   lead: Lead;
-  onReturnCompleted: (leadId: string) => void;
+  onReturnCompleted: (leadId: string, nextContact?: string, moveToStage?: LeadStage, lossReason?: string) => void;
   onDismiss: (leadId: string) => void;
   onSnoozeAll?: () => void;
   canSnooze?: boolean;
@@ -23,13 +26,41 @@ function parseDateLocal(dateStr: string): Date {
   return new Date(y, m - 1, day);
 }
 
+function suggestNextDate(): string {
+  const now = new Date();
+  const next = new Date(now);
+  next.setDate(next.getDate() + 1);
+  // Next business day
+  while (next.getDay() === 0 || next.getDay() === 6) {
+    next.setDate(next.getDate() + 1);
+  }
+  next.setHours(10, 0, 0, 0);
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}T10:00`;
+}
+
 export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoozeAll, canSnooze = true, snoozeCount = 0 }: ReturnReminderModalProps) {
   const contactTime = lead.next_contact ? parseDateLocal(lead.next_contact) : null;
+  const [showActions, setShowActions] = useState(false);
+  const [nextDate, setNextDate] = useState(suggestNextDate());
+  const [action, setAction] = useState<'completed' | 'congelados' | 'perdidos' | 'reuniao' | null>(null);
+  const [lossReason, setLossReason] = useState('');
 
   const handleWhatsApp = () => {
     if (lead.whatsapp) {
       const cleaned = lead.whatsapp.replace(/\D/g, '');
       window.open(`https://wa.me/55${cleaned}`, '_blank');
+    }
+  };
+
+  const handleConfirm = () => {
+    if (action === 'completed') {
+      onReturnCompleted(lead.id, nextDate || undefined);
+    } else if (action === 'congelados') {
+      onReturnCompleted(lead.id, nextDate || undefined, 'congelados', lossReason || undefined);
+    } else if (action === 'perdidos') {
+      onReturnCompleted(lead.id, undefined, 'perdidos', lossReason || undefined);
+    } else if (action === 'reuniao') {
+      onReturnCompleted(lead.id, nextDate || undefined, 'reuniao');
     }
   };
 
@@ -68,12 +99,6 @@ export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoo
                 <span className="text-sm font-semibold text-foreground">{lead.whatsapp}</span>
               </div>
             )}
-            {lead.email && (
-              <div className="flex items-center gap-2">
-                <Mail size={14} className="text-info" />
-                <span className="text-sm text-foreground">{lead.email}</span>
-              </div>
-            )}
             {contactTime && (
               <div className="flex items-center gap-2">
                 <Clock size={14} className="text-warning" />
@@ -84,7 +109,7 @@ export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoo
             )}
           </div>
 
-          {/* Quick actions */}
+          {/* Quick contact actions */}
           <div className="flex gap-2">
             {lead.whatsapp && (
               <Button onClick={handleWhatsApp} className="flex-1 gap-2 bg-success hover:bg-success/90 text-success-foreground">
@@ -92,32 +117,89 @@ export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoo
               </Button>
             )}
             {lead.email && (
-              <Button
-                onClick={() => window.open(`mailto:${lead.email}`, '_blank')}
-                variant="outline"
-                className="flex-1 gap-2"
-              >
+              <Button onClick={() => window.open(`mailto:${lead.email}`, '_blank')} variant="outline" className="flex-1 gap-2">
                 <Mail size={16} /> Email
               </Button>
             )}
             {lead.whatsapp && (
-              <Button
-                onClick={() => window.open(`tel:${lead.whatsapp}`, '_blank')}
-                variant="outline"
-                className="gap-2"
-              >
+              <Button onClick={() => window.open(`tel:${lead.whatsapp}`, '_blank')} variant="outline" className="gap-2">
                 <Phone size={16} />
               </Button>
             )}
           </div>
 
-          {/* Main action */}
-          <Button
-            onClick={() => onReturnCompleted(lead.id)}
-            className="w-full gap-2"
-          >
-            ✅ Retorno Realizado
-          </Button>
+          {/* Action selection */}
+          {!showActions ? (
+            <Button onClick={() => { setShowActions(true); setAction('completed'); }} className="w-full gap-2">
+              ✅ Retorno Realizado
+            </Button>
+          ) : (
+            <div className="space-y-3 border border-border rounded-xl p-4 bg-muted/30">
+              <Label className="text-sm font-semibold">O que aconteceu?</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant={action === 'completed' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setAction('completed')}
+                  className="gap-1.5"
+                >
+                  ✅ Contato feito
+                </Button>
+                <Button
+                  variant={action === 'reuniao' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setAction('reuniao')}
+                  className="gap-1.5"
+                >
+                  <Calendar size={14} /> Reunião
+                </Button>
+                <Button
+                  variant={action === 'congelados' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setAction('congelados')}
+                  className="gap-1.5"
+                >
+                  <Snowflake size={14} /> Congelar
+                </Button>
+                <Button
+                  variant={action === 'perdidos' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setAction('perdidos')}
+                  className="gap-1.5"
+                >
+                  <XCircle size={14} /> Descartar
+                </Button>
+              </div>
+
+              {(action === 'congelados' || action === 'perdidos') && (
+                <div>
+                  <Label className="text-xs">Motivo</Label>
+                  <Input
+                    value={lossReason}
+                    onChange={(e) => setLossReason(e.target.value)}
+                    placeholder="Informe o motivo..."
+                    className="mt-1"
+                  />
+                </div>
+              )}
+
+              {action !== 'perdidos' && (
+                <div>
+                  <Label className="text-xs">Próximo contato sugerido</Label>
+                  <Input
+                    type="datetime-local"
+                    value={nextDate}
+                    onChange={(e) => setNextDate(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+              )}
+
+              <Button onClick={handleConfirm} className="w-full">
+                Confirmar
+              </Button>
+            </div>
+          )}
 
           {/* Snooze all button */}
           {onSnoozeAll && canSnooze && (
@@ -137,11 +219,7 @@ export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoo
             </p>
           )}
 
-          <Button
-            onClick={() => onDismiss(lead.id)}
-            variant="ghost"
-            className="w-full text-muted-foreground"
-          >
+          <Button onClick={() => onDismiss(lead.id)} variant="ghost" className="w-full text-muted-foreground">
             Lembrar depois
           </Button>
         </div>

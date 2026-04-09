@@ -67,7 +67,7 @@ export function Dashboard() {
   // 15-min pre-meeting alert
   const { alertLead, dismissAlert } = useMeetingAlert(leads);
   // Return contact reminder
-  const { pendingReturn, markReturnCompleted, dismissReturn, snoozeAll, canSnooze, snoozeCount } = useReturnReminder(leads);
+  const { pendingReturn, markReturnCompleted, dismissReturn, snoozeAll, canSnooze, snoozeCount } = useReturnReminder(isManager ? [] : leads);
 
   const handleSyncAC = async () => {
     setSyncing(true);
@@ -351,9 +351,22 @@ export function Dashboard() {
       {pendingReturn && (
         <ReturnReminderModal
           lead={pendingReturn}
-          onReturnCompleted={async (leadId) => {
+          onReturnCompleted={async (leadId, nextContact, moveToStage, lossReason) => {
             markReturnCompleted(leadId);
-            await addHistory(leadId, 'retorno', '✅ Retorno de contato realizado');
+            const updates: Partial<Lead> = {};
+            if (nextContact) updates.next_contact = nextContact;
+            if (moveToStage) updates.stage = moveToStage;
+            if (lossReason) updates.loss_reason = lossReason;
+            if (Object.keys(updates).length > 0) {
+              await updateLead(leadId, updates);
+            }
+            const stageLabels: Record<string, string> = {
+              congelados: '❄️ Lead congelado via retorno',
+              perdidos: '❌ Lead descartado via retorno',
+              reuniao: '📅 Reunião agendada via retorno',
+            };
+            const note = moveToStage ? stageLabels[moveToStage] || '✅ Retorno realizado' : '✅ Retorno de contato realizado';
+            await addHistory(leadId, 'retorno', note);
           }}
           onDismiss={dismissReturn}
           onSnoozeAll={snoozeAll}

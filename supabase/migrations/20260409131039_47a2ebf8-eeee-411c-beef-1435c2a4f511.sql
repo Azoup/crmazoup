@@ -1,0 +1,10 @@
+
+ALTER TABLE public.leads
+  ADD COLUMN IF NOT EXISTS cpf_cnpj text DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS state_registration text DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS implementation_responsible text DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS signer_name text DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS signer_role text DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS birthdate date DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS address text DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS client_observations text DEFAULT NULL;
