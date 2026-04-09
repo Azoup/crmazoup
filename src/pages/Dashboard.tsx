@@ -67,7 +67,7 @@ export function Dashboard() {
   // 15-min pre-meeting alert
   const { alertLead, dismissAlert } = useMeetingAlert(leads);
   // Return contact reminder
-  const { pendingReturn, markReturnCompleted, dismissReturn, snoozeAll, canSnooze, snoozeCount } = useReturnReminder(leads);
+  const { pendingReturn, markReturnCompleted, dismissReturn, snoozeAll, canSnooze, snoozeCount } = useReturnReminder(isManager ? [] : leads);
 
   const handleSyncAC = async () => {
     setSyncing(true);
