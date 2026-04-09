@@ -20,6 +20,12 @@ import {
 } from '@/components/ui/collapsible';
 import jsPDF from 'jspdf';
 
+interface ReportViewProps {
+  leads: Lead[];
+}
+
+type ReportPeriod = 'daily' | 'weekly' | 'monthly';
+
 interface DailySnapshot {
   date: string;
   agendados: number;
