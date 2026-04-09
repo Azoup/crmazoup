@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ApprovalManager } from '@/components/ApprovalManager';
 import { Lead, LeadStage, LeadHistory, LeadSource, STAGE_LABELS } from '@/types/lead';
+import { ClientInfoForm } from '@/components/manager/ClientInfoForm';
 import { formatCurrency } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
@@ -44,7 +45,7 @@ interface ManagerViewProps {
   addHistory?: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
 }
 
-type ManagerSubView = 'pipeline' | 'metrics' | 'approvals';
+type ManagerSubView = 'pipeline' | 'metrics' | 'approvals' | 'fichas';
 
 export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, percentGoal, onCreateLead, onOpenLead, updateLead: externalUpdateLead, addHistory: externalAddHistory }: ManagerViewProps) {
   const { user, profile } = useAuth();
