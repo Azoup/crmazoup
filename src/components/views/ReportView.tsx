@@ -496,6 +496,70 @@ export function ReportView({ leads }: ReportViewProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Lead Details with Notes */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Users size={18} className="text-primary" />
+            Detalhes por Lead
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-lg border border-border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="font-bold">Lead</TableHead>
+                  <TableHead className="font-bold">Empresa</TableHead>
+                  <TableHead className="font-bold"><span className="flex items-center gap-1"><Shirt size={12} /> Tipo Confecção</span></TableHead>
+                  <TableHead className="font-bold">Etapa</TableHead>
+                  <TableHead className="font-bold">Status Reunião</TableHead>
+                  <TableHead className="font-bold">Motivo</TableHead>
+                  <TableHead className="font-bold">Observação</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {monthlyLeads.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      Nenhum lead neste mês
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  monthlyLeads.map(lead => (
+                    <TableRow key={lead.id} className="hover:bg-muted/30">
+                      <TableCell className="font-medium">{lead.name}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{lead.company || '-'}</TableCell>
+                      <TableCell className="text-sm">
+                        {lead.confection_type ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs">
+                            <Shirt size={10} /> {lead.confection_type}
+                          </span>
+                        ) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs px-2 py-0.5 bg-muted rounded-full font-medium">
+                          {STAGE_LABELS[lead.stage] || lead.stage}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {lead.meeting_status ? MEETING_STATUS_LABELS[lead.meeting_status] || lead.meeting_status : '-'}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">
+                        {lead.loss_reason || '-'}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
+                        {lead.client_observations || lead.manager_notes || '-'}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
