@@ -47,6 +47,15 @@ export interface Lead {
   pieces_per_month?: number | null;
   responsible_user_id?: string | null;
   lead_source?: LeadSource;
+  // Client detail fields
+  cpf_cnpj?: string | null;
+  state_registration?: string | null;
+  implementation_responsible?: string | null;
+  signer_name?: string | null;
+  signer_role?: string | null;
+  birthdate?: string | null;
+  address?: string | null;
+  client_observations?: string | null;
 }
 
 export interface LeadFilters {
