@@ -2,24 +2,23 @@ import { useState, useMemo, useCallback } from 'react';
 import { Lead, STAGE_LABELS, MEETING_STATUS_LABELS } from '@/types/lead';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import { getCurrentReferenceMonth, formatReferenceMonth } from '@/hooks/useMonthlyMetrics';
 import {
   CalendarCheck, CalendarX, UserX, RefreshCw, Snowflake, XCircle,
   Download, ChevronLeft, ChevronRight, BarChart3, TrendingDown,
-  FileText, Presentation, Calendar, Users
+  FileText, Presentation, Calendar, Users, ChevronDown, ChevronUp, Shirt
 } from 'lucide-react';
 import { 
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
 } from '@/components/ui/table';
+import {
+  Collapsible, CollapsibleContent, CollapsibleTrigger
+} from '@/components/ui/collapsible';
 import jsPDF from 'jspdf';
-
-interface ReportViewProps {
-  leads: Lead[];
-}
-
-type ReportPeriod = 'daily' | 'weekly' | 'monthly';
 
 interface DailySnapshot {
   date: string;
