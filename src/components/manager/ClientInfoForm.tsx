@@ -70,7 +70,7 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
   useEffect(() => {
     if (lead) {
       const sources = new Set<string>();
-      const fields: Record<string, string> = {
+      const newForm = {
         name: lead.name || '',
         whatsapp: lead.whatsapp || '',
         email: lead.email || '',
@@ -88,11 +88,11 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
       };
 
       // Mark fields that came from CRM (have values)
-      Object.entries(fields).forEach(([key, val]) => {
+      Object.entries(newForm).forEach(([key, val]) => {
         if (val) sources.add(key);
       });
 
-      setForm(fields);
+      setForm(newForm);
       setCrmSource(sources);
     }
   }, [lead]);
