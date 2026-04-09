@@ -73,6 +73,8 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
   const [subView, setSubView] = useState<ManagerSubView>('pipeline');
   const [selectedSDRFilter, setSelectedSDRFilter] = useState<string | null>(null);
   const [managerSearch, setManagerSearch] = useState('');
+  const [fichaLead, setFichaLead] = useState<Lead | null>(null);
+  const [fichaSearch, setFichaSearch] = useState('');
 
   // Use allLeads from manager data if available, otherwise use passed leads
   const displayLeads = allLeads.length > 0 ? allLeads : leads;
