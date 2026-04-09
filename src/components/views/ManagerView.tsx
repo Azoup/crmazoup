@@ -603,6 +603,68 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
         </div>
       )}
 
+      {/* Fichas View */}
+      {subView === 'fichas' && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 bg-card p-4 rounded-xl border border-border">
+            <Search size={16} className="text-muted-foreground" />
+            <Input
+              placeholder="Buscar cliente por nome, telefone ou empresa..."
+              value={fichaSearch}
+              onChange={(e) => setFichaSearch(e.target.value)}
+              className="max-w-md"
+            />
+          </div>
+
+          {fichaLead ? (
+            <div className="space-y-4">
+              <Button variant="outline" size="sm" onClick={() => setFichaLead(null)} className="gap-2">
+                ← Voltar à lista
+              </Button>
+              <ClientInfoForm
+                lead={fichaLead}
+                onSave={async (leadId, updates) => {
+                  if (externalUpdateLead) {
+                    return await externalUpdateLead(leadId, updates);
+                  }
+                  return false;
+                }}
+                allLeads={displayLeads}
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {displayLeads
+                .filter(l => {
+                  if (!fichaSearch) return true;
+                  const q = fichaSearch.toLowerCase();
+                  return (
+                    l.name.toLowerCase().includes(q) ||
+                    (l.company || '').toLowerCase().includes(q) ||
+                    (l.whatsapp || '').includes(q) ||
+                    (l.email || '').toLowerCase().includes(q)
+                  );
+                })
+                .slice(0, 30)
+                .map(lead => (
+                  <div
+                    key={lead.id}
+                    onClick={() => setFichaLead(lead)}
+                    className="bg-card border border-border rounded-xl p-4 cursor-pointer hover:border-primary/50 hover:shadow-md transition-all"
+                  >
+                    <p className="font-semibold text-foreground">{lead.name}</p>
+                    <p className="text-xs text-muted-foreground">{lead.company || 'Sem empresa'}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{lead.whatsapp || 'Sem telefone'}</p>
+                    <span className="text-[10px] mt-2 inline-block px-2 py-0.5 bg-primary/10 text-primary rounded-full">
+                      {STAGE_LABELS[lead.stage]}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Proposal Modal */}
       <ProposalModal
         lead={proposalLead}
