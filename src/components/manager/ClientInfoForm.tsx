@@ -118,9 +118,10 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
         client_observations: lead.client_observations || '',
         confection_type: lead.confection_type || '',
         pieces_per_month: lead.pieces_per_month ? String(lead.pieces_per_month) : '',
+        implementation_value: lead.implementation_value ? String(lead.implementation_value) : '',
+        monthly_value: lead.monthly_value ? String(lead.monthly_value) : '',
       };
 
-      // Mark fields that came from CRM (have values)
       Object.entries(newForm).forEach(([key, val]) => {
         if (val) sources.add(key);
       });
@@ -193,6 +194,8 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
       client_observations: form.client_observations || null,
       confection_type: form.confection_type || null,
       pieces_per_month: form.pieces_per_month ? parseInt(form.pieces_per_month) : null,
+      implementation_value: form.implementation_value ? parseFloat(form.implementation_value) : 0,
+      monthly_value: form.monthly_value ? parseFloat(form.monthly_value) : 0,
     });
     setSaving(false);
 
@@ -240,6 +243,8 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
               client_observations: lead.client_observations || '',
               confection_type: lead.confection_type || '',
               pieces_per_month: lead.pieces_per_month ? String(lead.pieces_per_month) : '',
+              implementation_value: lead.implementation_value ? String(lead.implementation_value) : '',
+              monthly_value: lead.monthly_value ? String(lead.monthly_value) : '',
             });
             toast({ title: 'Dados atualizados do CRM' });
           }}
@@ -319,7 +324,72 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
         </CardContent>
       </Card>
 
-      {/* Block 3: Dados Contratuais */}
+      {/* Block 3: Plano e Valores */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Package size={16} className="text-primary" /> Plano e Valores
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label className="text-xs font-medium">Selecionar Plano</Label>
+            <Select
+              value={selectedPlan}
+              onValueChange={(val) => {
+                setSelectedPlan(val);
+                const plan = PLANS.find(p => p.id === val);
+                if (plan && editing) {
+                  setForm(prev => ({
+                    ...prev,
+                    implementation_value: String(plan.implementation),
+                    monthly_value: String(plan.monthly),
+                  }));
+                  toast({ title: `${plan.name} selecionado`, description: `Implantação: R$${plan.implementation.toLocaleString('pt-BR')} | Mensalidade: R$${plan.monthly.toLocaleString('pt-BR')}` });
+                }
+              }}
+              disabled={!editing}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Escolha um plano..." />
+              </SelectTrigger>
+              <SelectContent>
+                {PLANS.map(plan => (
+                  <SelectItem key={plan.id} value={plan.id}>
+                    {plan.name} — R${plan.monthly}/mês | Impl. R${plan.implementation.toLocaleString('pt-BR')}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedPlan && (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+              <p className="text-xs font-semibold text-primary">
+                {PLANS.find(p => p.id === selectedPlan)?.name} — {PLANS.find(p => p.id === selectedPlan)?.hours}h de Implantação
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {PLANS.find(p => p.id === selectedPlan)?.modules.map((mod, i) => (
+                  <Badge key={i} variant="secondary" className="text-[10px]">{mod}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              {fieldLabel('implementation_value', 'Valor de Implantação (R$)')}
+              <Input value={form.implementation_value} onChange={(e) => updateField('implementation_value', e.target.value)} disabled={!editing} className="mt-1" type="number" placeholder="0,00" />
+            </div>
+            <div>
+              {fieldLabel('monthly_value', 'Mensalidade (R$)')}
+              <Input value={form.monthly_value} onChange={(e) => updateField('monthly_value', e.target.value)} disabled={!editing} className="mt-1" type="number" placeholder="0,00" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Block 4: Dados Contratuais */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
