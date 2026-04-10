@@ -6,7 +6,36 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { User, Building2, FileText, MessageSquare, Search, Save, Edit, RefreshCw, Database } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { User, Building2, FileText, MessageSquare, Search, Save, Edit, RefreshCw, Database, Package } from 'lucide-react';
+
+const PLANS = [
+  {
+    id: 'basic',
+    name: 'Plano Basic',
+    monthly: 400,
+    implementation: 2500,
+    hours: 30,
+    modules: ['PCP (Produção)', 'Ficha Técnica', 'Emissão de NF-e', 'Relatórios Gerenciais', 'Carteira de Pedidos', 'Controle Financeiro', 'Controle de Estoque', 'Relatórios B.I.'],
+  },
+  {
+    id: 'pro',
+    name: 'Plano Pró ERP Confecção',
+    monthly: 500,
+    implementation: 3500,
+    hours: 50,
+    modules: ['PCP (Produção)', 'Ficha Técnica', 'Ficha de Custos', 'Emissão de NF-e', 'Relatórios Gerenciais', 'Carteira de Pedidos + Romaneio', 'Controle Financeiro + Contas a pagar/receber', 'Controle de Estoque + Matéria-prima e produto acabado', 'Boletos', 'Power B.I - Padrão e Produção'],
+  },
+  {
+    id: 'master',
+    name: 'Plano Master ERP Confecção',
+    monthly: 650,
+    implementation: 6500,
+    hours: 70,
+    modules: ['PCP (Produção)', 'Ficha Técnica', 'Ficha de Custos', 'Integração com E-commerce', 'Integração com Correios', 'Emissão de NF-e', 'Relatórios Gerenciais', 'Carteira de Pedidos + Romaneio', 'Controle Financeiro + Contas a pagar/receber', 'Controle de Estoque + Matéria-prima e produto acabado', 'Boletos', 'Power B.I Padrão e Produção'],
+  },
+];
 
 interface ClientInfoFormProps {
   lead: Lead;
@@ -50,6 +79,8 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
   const [saving, setSaving] = useState(false);
   const [crmSource, setCrmSource] = useState<Set<string>>(new Set());
 
+  const [selectedPlan, setSelectedPlan] = useState<string>('');
+
   const [form, setForm] = useState({
     name: '',
     whatsapp: '',
@@ -65,6 +96,8 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
     client_observations: '',
     confection_type: '',
     pieces_per_month: '',
+    implementation_value: '',
+    monthly_value: '',
   });
 
   useEffect(() => {
@@ -85,9 +118,10 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
         client_observations: lead.client_observations || '',
         confection_type: lead.confection_type || '',
         pieces_per_month: lead.pieces_per_month ? String(lead.pieces_per_month) : '',
+        implementation_value: lead.implementation_value ? String(lead.implementation_value) : '',
+        monthly_value: lead.monthly_value ? String(lead.monthly_value) : '',
       };
 
-      // Mark fields that came from CRM (have values)
       Object.entries(newForm).forEach(([key, val]) => {
         if (val) sources.add(key);
       });
@@ -160,6 +194,8 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
       client_observations: form.client_observations || null,
       confection_type: form.confection_type || null,
       pieces_per_month: form.pieces_per_month ? parseInt(form.pieces_per_month) : null,
+      implementation_value: form.implementation_value ? parseFloat(form.implementation_value) : 0,
+      monthly_value: form.monthly_value ? parseFloat(form.monthly_value) : 0,
     });
     setSaving(false);
 
@@ -207,6 +243,8 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
               client_observations: lead.client_observations || '',
               confection_type: lead.confection_type || '',
               pieces_per_month: lead.pieces_per_month ? String(lead.pieces_per_month) : '',
+              implementation_value: lead.implementation_value ? String(lead.implementation_value) : '',
+              monthly_value: lead.monthly_value ? String(lead.monthly_value) : '',
             });
             toast({ title: 'Dados atualizados do CRM' });
           }}
@@ -286,7 +324,72 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
         </CardContent>
       </Card>
 
-      {/* Block 3: Dados Contratuais */}
+      {/* Block 3: Plano e Valores */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Package size={16} className="text-primary" /> Plano e Valores
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label className="text-xs font-medium">Selecionar Plano</Label>
+            <Select
+              value={selectedPlan}
+              onValueChange={(val) => {
+                setSelectedPlan(val);
+                const plan = PLANS.find(p => p.id === val);
+                if (plan && editing) {
+                  setForm(prev => ({
+                    ...prev,
+                    implementation_value: String(plan.implementation),
+                    monthly_value: String(plan.monthly),
+                  }));
+                  toast({ title: `${plan.name} selecionado`, description: `Implantação: R$${plan.implementation.toLocaleString('pt-BR')} | Mensalidade: R$${plan.monthly.toLocaleString('pt-BR')}` });
+                }
+              }}
+              disabled={!editing}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Escolha um plano..." />
+              </SelectTrigger>
+              <SelectContent>
+                {PLANS.map(plan => (
+                  <SelectItem key={plan.id} value={plan.id}>
+                    {plan.name} — R${plan.monthly}/mês | Impl. R${plan.implementation.toLocaleString('pt-BR')}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedPlan && (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+              <p className="text-xs font-semibold text-primary">
+                {PLANS.find(p => p.id === selectedPlan)?.name} — {PLANS.find(p => p.id === selectedPlan)?.hours}h de Implantação
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {PLANS.find(p => p.id === selectedPlan)?.modules.map((mod, i) => (
+                  <Badge key={i} variant="secondary" className="text-[10px]">{mod}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              {fieldLabel('implementation_value', 'Valor de Implantação (R$)')}
+              <Input value={form.implementation_value} onChange={(e) => updateField('implementation_value', e.target.value)} disabled={!editing} className="mt-1" type="number" placeholder="0,00" />
+            </div>
+            <div>
+              {fieldLabel('monthly_value', 'Mensalidade (R$)')}
+              <Input value={form.monthly_value} onChange={(e) => updateField('monthly_value', e.target.value)} disabled={!editing} className="mt-1" type="number" placeholder="0,00" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Block 4: Dados Contratuais */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
