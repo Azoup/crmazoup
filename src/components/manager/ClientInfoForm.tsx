@@ -6,7 +6,36 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { User, Building2, FileText, MessageSquare, Search, Save, Edit, RefreshCw, Database } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { User, Building2, FileText, MessageSquare, Search, Save, Edit, RefreshCw, Database, Package } from 'lucide-react';
+
+const PLANS = [
+  {
+    id: 'basic',
+    name: 'Plano Basic',
+    monthly: 400,
+    implementation: 2500,
+    hours: 30,
+    modules: ['PCP (Produção)', 'Ficha Técnica', 'Emissão de NF-e', 'Relatórios Gerenciais', 'Carteira de Pedidos', 'Controle Financeiro', 'Controle de Estoque', 'Relatórios B.I.'],
+  },
+  {
+    id: 'pro',
+    name: 'Plano Pró ERP Confecção',
+    monthly: 500,
+    implementation: 3500,
+    hours: 50,
+    modules: ['PCP (Produção)', 'Ficha Técnica', 'Ficha de Custos', 'Emissão de NF-e', 'Relatórios Gerenciais', 'Carteira de Pedidos + Romaneio', 'Controle Financeiro + Contas a pagar/receber', 'Controle de Estoque + Matéria-prima e produto acabado', 'Boletos', 'Power B.I - Padrão e Produção'],
+  },
+  {
+    id: 'master',
+    name: 'Plano Master ERP Confecção',
+    monthly: 650,
+    implementation: 6500,
+    hours: 70,
+    modules: ['PCP (Produção)', 'Ficha Técnica', 'Ficha de Custos', 'Integração com E-commerce', 'Integração com Correios', 'Emissão de NF-e', 'Relatórios Gerenciais', 'Carteira de Pedidos + Romaneio', 'Controle Financeiro + Contas a pagar/receber', 'Controle de Estoque + Matéria-prima e produto acabado', 'Boletos', 'Power B.I Padrão e Produção'],
+  },
+];
 
 interface ClientInfoFormProps {
   lead: Lead;
@@ -50,6 +79,8 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
   const [saving, setSaving] = useState(false);
   const [crmSource, setCrmSource] = useState<Set<string>>(new Set());
 
+  const [selectedPlan, setSelectedPlan] = useState<string>('');
+
   const [form, setForm] = useState({
     name: '',
     whatsapp: '',
@@ -65,6 +96,8 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
     client_observations: '',
     confection_type: '',
     pieces_per_month: '',
+    implementation_value: '',
+    monthly_value: '',
   });
 
   useEffect(() => {
