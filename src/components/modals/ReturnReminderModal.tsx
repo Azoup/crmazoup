@@ -3,7 +3,7 @@ import { Lead, LeadStage } from '@/types/lead';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Phone, Mail, MessageSquare, RotateCcw, Clock, User, Building2, TimerOff, Snowflake, XCircle, Calendar } from 'lucide-react';
+import { Phone, Mail, MessageSquare, RotateCcw, Clock, User, Building2, TimerOff, Snowflake, XCircle, Calendar, Shuffle } from 'lucide-react';
 
 interface ReturnReminderModalProps {
   lead: Lead;
@@ -26,17 +26,50 @@ function parseDateLocal(dateStr: string): Date {
   return new Date(y, m - 1, day);
 }
 
-function suggestNextDate(): string {
+function generateRandomBusinessDate(): string {
   const now = new Date();
-  const next = new Date(now);
-  next.setDate(next.getDate() + 1);
-  // Next business day
-  while (next.getDay() === 0 || next.getDay() === 6) {
-    next.setDate(next.getDate() + 1);
+  // Random 1-3 days ahead
+  const daysAhead = Math.floor(Math.random() * 3) + 1;
+  const target = new Date(now);
+  target.setDate(target.getDate() + daysAhead);
+  // Skip weekends
+  while (target.getDay() === 0 || target.getDay() === 6) {
+    target.setDate(target.getDate() + 1);
   }
-  next.setHours(10, 0, 0, 0);
-  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}T10:00`;
+  // Random business hour: 08:30 - 17:30
+  const hour = Math.floor(Math.random() * 9) + 8; // 8-16
+  const minute = hour === 8 ? Math.floor(Math.random() * 3) * 10 + 30 : // 8:30-8:50
+                 hour === 17 ? Math.floor(Math.random() * 3) * 10 : // 17:00-17:20
+                 Math.floor(Math.random() * 6) * 10; // :00 to :50
+  const finalHour = Math.min(hour, 17);
+  const finalMinute = finalHour === 17 ? Math.min(minute, 50) : minute;
+  
+  return `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}T${String(finalHour).padStart(2, '0')}:${String(finalMinute).padStart(2, '0')}`;
 }
+
+function suggestNextDate(): string {
+  return generateRandomBusinessDate();
+}
+
+const LOSS_REASONS = [
+  'Preço',
+  'Sem Interesse',
+  'Já possui sistema',
+  'Não Responde',
+  'Pequeno demais',
+  'Fechou com outra empresa',
+  'Deixou pro futuro',
+  'Private Label',
+];
+
+const FREEZE_REASONS = [
+  'Pediu para ligar depois',
+  'Viajando',
+  'Sem orçamento no momento',
+  'Aguardando decisão interna',
+  'Período de férias',
+  'Em processo com outro fornecedor',
+];
 
 export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoozeAll, canSnooze = true, snoozeCount = 0 }: ReturnReminderModalProps) {
   const contactTime = lead.next_contact ? parseDateLocal(lead.next_contact) : null;
@@ -44,6 +77,7 @@ export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoo
   const [nextDate, setNextDate] = useState(suggestNextDate());
   const [action, setAction] = useState<'completed' | 'congelados' | 'perdidos' | 'reuniao' | null>(null);
   const [lossReason, setLossReason] = useState('');
+  const [customReason, setCustomReason] = useState('');
 
   const handleWhatsApp = () => {
     if (lead.whatsapp) {
@@ -52,21 +86,29 @@ export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoo
     }
   };
 
+  const handleRandomize = () => {
+    setNextDate(generateRandomBusinessDate());
+  };
+
+  const finalReason = lossReason === 'Outro' ? customReason : lossReason;
+
   const handleConfirm = () => {
     if (action === 'completed') {
       onReturnCompleted(lead.id, nextDate || undefined);
     } else if (action === 'congelados') {
-      onReturnCompleted(lead.id, nextDate || undefined, 'congelados', lossReason || undefined);
+      onReturnCompleted(lead.id, nextDate || undefined, 'congelados', finalReason || undefined);
     } else if (action === 'perdidos') {
-      onReturnCompleted(lead.id, undefined, 'perdidos', lossReason || undefined);
+      onReturnCompleted(lead.id, undefined, 'perdidos', finalReason || undefined);
     } else if (action === 'reuniao') {
       onReturnCompleted(lead.id, nextDate || undefined, 'reuniao');
     }
   };
 
+  const reasonOptions = action === 'perdidos' ? LOSS_REASONS : FREEZE_REASONS;
+
   return (
     <div className="fixed inset-0 z-[105] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="bg-card border-2 border-warning rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-in zoom-in-95">
+      <div className="bg-card border-2 border-warning rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="bg-warning/15 border-b border-warning/30 p-5">
           <div className="flex items-center gap-3">
@@ -140,7 +182,7 @@ export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoo
                 <Button
                   variant={action === 'completed' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setAction('completed')}
+                  onClick={() => { setAction('completed'); setLossReason(''); }}
                   className="gap-1.5"
                 >
                   ✅ Contato feito
@@ -148,7 +190,7 @@ export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoo
                 <Button
                   variant={action === 'reuniao' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setAction('reuniao')}
+                  onClick={() => { setAction('reuniao'); setLossReason(''); }}
                   className="gap-1.5"
                 >
                   <Calendar size={14} /> Reunião
@@ -156,7 +198,7 @@ export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoo
                 <Button
                   variant={action === 'congelados' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setAction('congelados')}
+                  onClick={() => { setAction('congelados'); setLossReason(''); }}
                   className="gap-1.5"
                 >
                   <Snowflake size={14} /> Congelar
@@ -164,7 +206,7 @@ export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoo
                 <Button
                   variant={action === 'perdidos' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setAction('perdidos')}
+                  onClick={() => { setAction('perdidos'); setLossReason(''); }}
                   className="gap-1.5"
                 >
                   <XCircle size={14} /> Descartar
@@ -172,30 +214,69 @@ export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoo
               </div>
 
               {(action === 'congelados' || action === 'perdidos') && (
-                <div>
-                  <Label className="text-xs">Motivo</Label>
-                  <Input
-                    value={lossReason}
-                    onChange={(e) => setLossReason(e.target.value)}
-                    placeholder="Informe o motivo..."
-                    className="mt-1"
-                  />
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold">Motivo</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {reasonOptions.map((reason) => (
+                      <Button
+                        key={reason}
+                        variant={lossReason === reason ? 'default' : 'outline'}
+                        size="sm"
+                        className="text-xs h-7 px-2.5"
+                        onClick={() => setLossReason(reason)}
+                      >
+                        {reason}
+                      </Button>
+                    ))}
+                    <Button
+                      variant={lossReason === 'Outro' ? 'default' : 'outline'}
+                      size="sm"
+                      className="text-xs h-7 px-2.5"
+                      onClick={() => setLossReason('Outro')}
+                    >
+                      Outro...
+                    </Button>
+                  </div>
+                  {lossReason === 'Outro' && (
+                    <Input
+                      value={customReason}
+                      onChange={(e) => setCustomReason(e.target.value)}
+                      placeholder="Escreva o motivo..."
+                      className="mt-1"
+                    />
+                  )}
                 </div>
               )}
 
               {action !== 'perdidos' && (
                 <div>
-                  <Label className="text-xs">Próximo contato sugerido</Label>
-                  <Input
-                    type="datetime-local"
-                    value={nextDate}
-                    onChange={(e) => setNextDate(e.target.value)}
-                    className="mt-1"
-                  />
+                  <Label className="text-xs">Próximo contato</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      type="datetime-local"
+                      value={nextDate}
+                      onChange={(e) => setNextDate(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={handleRandomize}
+                      title="Aleatorizar horário (1-3 dias, horário comercial)"
+                      className="shrink-0"
+                    >
+                      <Shuffle size={16} />
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Horário comercial · até 3 dias à frente
+                  </p>
                 </div>
               )}
 
-              <Button onClick={handleConfirm} className="w-full">
+              <Button onClick={handleConfirm} className="w-full" disabled={
+                (action === 'congelados' || action === 'perdidos') && !finalReason
+              }>
                 Confirmar
               </Button>
             </div>

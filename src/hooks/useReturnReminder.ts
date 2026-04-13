@@ -86,6 +86,8 @@ export function useReturnReminder(leads: Lead[]) {
       if (!lead.next_contact) return false;
       if (completedIds.has(lead.id)) return false;
       if (['venda', 'perdidos', 'congelados'].includes(lead.stage)) return false;
+      // Reunião: only show if reagendar or no_show, skip compareceu
+      if (lead.stage === 'reuniao' && lead.meeting_status === 'compareceu') return false;
 
       const contactTime = parseDateLocal(lead.next_contact);
       return contactTime <= now;
