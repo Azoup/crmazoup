@@ -213,17 +213,31 @@ export function ReportView({ leads }: ReportViewProps) {
 
     // Summary box
     let y = 38;
-    doc.setFillColor(235, 240, 250);
-    doc.rect(10, y - 3, pageW - 20, 14, 'F');
-    doc.setTextColor(30, 58, 95);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`Total de Leads no Mês: ${monthlyLeads.length}`, 15, y + 5);
     const vendasCount = monthlyLeads.filter(l => l.stage === 'venda').length;
     const vendasValue = monthlyLeads.filter(l => l.stage === 'venda').reduce((s, l) => s + (l.implementation_value || 0), 0);
-    doc.text(`Vendas: ${vendasCount}`, 120, y + 5);
-    doc.text(`Valor Total Vendas: ${formatCurrency(vendasValue)}`, 170, y + 5);
-    y += 20;
+    const reunioesRealizadas = monthlyLeads.filter(l => l.meeting_status === 'compareceu').length;
+    const totalPipeline = monthlyLeads.length;
+
+    // Row 1
+    doc.setFillColor(235, 240, 250);
+    doc.rect(10, y - 3, pageW - 20, 12, 'F');
+    doc.setTextColor(30, 58, 95);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Total de Leads no Mês: ${totalPipeline}`, 15, y + 5);
+    doc.text(`Reuniões Realizadas: ${reunioesRealizadas}`, 110, y + 5);
+    doc.text(`Vendas (Ganhos): ${vendasCount}`, 200, y + 5);
+    y += 14;
+
+    // Row 2
+    doc.setFillColor(225, 235, 248);
+    doc.rect(10, y - 3, pageW - 20, 12, 'F');
+    doc.setFontSize(9);
+    doc.text(`Valor Total Ganhos: ${formatCurrency(vendasValue)}`, 15, y + 5);
+    const mrrValue = monthlyLeads.filter(l => l.stage === 'venda').reduce((s, l) => s + (l.monthly_value || 0), 0);
+    doc.text(`MRR Vendas: ${formatCurrency(mrrValue)}`, 130, y + 5);
+    doc.text(`Leads no Pipeline: Prosp. ${monthlyLeads.filter(l => l.stage === 'prospeccao').length} | Inter. ${monthlyLeads.filter(l => l.stage === 'interesse').length} | Reun. ${monthlyLeads.filter(l => l.stage === 'reuniao').length} | Prop. ${monthlyLeads.filter(l => l.stage === 'proposta').length}`, 200, y + 5);
+    y += 18;
 
     // Table header
     doc.setFillColor(240, 240, 245);
