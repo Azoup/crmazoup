@@ -338,7 +338,7 @@ export function ReportView({ leads }: ReportViewProps) {
     }
 
     doc.save(`relatorio_${reportPeriod}_${selectedMonth}.pdf`);
-  }, [weeklySnapshots, monthlyTotals, selectedMonth, lossReasons, freezeReasons]);
+  }, [weeklySnapshots, monthlyTotals, selectedMonth, lossReasons, freezeReasons, monthlyLeads]);
 
   // Summary cards
   const summaryCards = [
