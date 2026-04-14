@@ -297,31 +297,50 @@ export function ReportView({ leads }: ReportViewProps) {
 
       doc.setFont('helvetica', 'normal');
       const pageH2 = doc.internal.pageSize.getHeight();
+      const colWidths = [40, 45, 40, 30, 50, 47];
+
       detailLeads.forEach((lead, idx) => {
-        dy += 11;
-        if (dy > pageH2 - 25) {
-          // New page
+        const texts = [
+          lead.name || '-',
+          lead.company || '-',
+          lead.confection_type || '-',
+          STAGE_LABELS[lead.stage] || lead.stage,
+          lead.loss_reason || '-',
+          lead.client_observations || lead.manager_notes || '-',
+        ];
+
+        // Split each cell text to fit column width
+        doc.setFontSize(7);
+        const splitTexts = texts.map((t, i) => doc.splitTextToSize(t, colWidths[i]));
+        const rowLines = Math.max(...splitTexts.map(st => st.length));
+        const rowHeight = Math.max(10, rowLines * 8);
+
+        if (dy + rowHeight > pageH2 - 25) {
           doc.addPage('landscape');
           dy = 20;
           doc.setFillColor(240, 240, 245);
           doc.rect(10, dy - 5, 277, 10, 'F');
+          doc.setFontSize(8);
           doc.setFont('helvetica', 'bold');
           detCols.forEach((col, i) => doc.text(col, detX[i], dy + 2));
           doc.setFont('helvetica', 'normal');
           dy += 11;
         }
+
         if (idx % 2 === 0) {
           doc.setFillColor(248, 248, 252);
-          doc.rect(10, dy - 5, 277, 10, 'F');
+          doc.rect(10, dy - 4, 277, rowHeight, 'F');
         }
+
         doc.setTextColor(30, 30, 30);
-        const truncate = (s: string, max: number) => s && s.length > max ? s.substring(0, max) + '...' : (s || '-');
-        doc.text(truncate(lead.name, 22), detX[0], dy + 2);
-        doc.text(truncate(lead.company || '', 22), detX[1], dy + 2);
-        doc.text(truncate(lead.confection_type || '', 20), detX[2], dy + 2);
-        doc.text(STAGE_LABELS[lead.stage] || lead.stage, detX[3], dy + 2);
-        doc.text(truncate(lead.loss_reason || '', 25), detX[4], dy + 2);
-        doc.text(truncate(lead.client_observations || lead.manager_notes || '', 25), detX[5], dy + 2);
+        doc.setFontSize(7);
+        splitTexts.forEach((lines, i) => {
+          lines.forEach((line: string, li: number) => {
+            doc.text(line, detX[i], dy + 2 + li * 8);
+          });
+        });
+
+        dy += rowHeight;
       });
     }
 
