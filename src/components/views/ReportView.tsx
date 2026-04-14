@@ -271,16 +271,74 @@ export function ReportView({ leads }: ReportViewProps) {
       y += 8;
     });
 
-    // Footer
-    const pageH = doc.internal.pageSize.getHeight();
-    doc.setFillColor(30, 58, 95);
-    doc.rect(0, pageH - 12, 297, 12, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8);
-    doc.text('Azoup CRM - Relatório gerado automaticamente', 15, pageH - 4);
+    // Lead details page (congelados + perdidos)
+    const detailLeads = monthlyLeads.filter(l => l.stage === 'congelados' || l.stage === 'perdidos');
+    if (detailLeads.length > 0) {
+      doc.addPage('landscape');
+      // Header
+      doc.setFillColor(30, 58, 95);
+      doc.rect(0, 0, 297, 30, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.text('Detalhes - Congelados e Perdidos', 15, 15);
+      doc.setFontSize(10);
+      doc.text(title, 15, 24);
+
+      // Table header
+      let dy = 40;
+      doc.setFillColor(240, 240, 245);
+      doc.rect(10, dy - 5, 277, 10, 'F');
+      doc.setTextColor(50, 50, 50);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      const detCols = ['Lead', 'Empresa', 'Tipo Confeccao', 'Etapa', 'Motivo', 'Observacao'];
+      const detX = [15, 60, 110, 155, 190, 245];
+      detCols.forEach((col, i) => doc.text(col, detX[i], dy + 2));
+
+      doc.setFont('helvetica', 'normal');
+      const pageH2 = doc.internal.pageSize.getHeight();
+      detailLeads.forEach((lead, idx) => {
+        dy += 11;
+        if (dy > pageH2 - 25) {
+          // New page
+          doc.addPage('landscape');
+          dy = 20;
+          doc.setFillColor(240, 240, 245);
+          doc.rect(10, dy - 5, 277, 10, 'F');
+          doc.setFont('helvetica', 'bold');
+          detCols.forEach((col, i) => doc.text(col, detX[i], dy + 2));
+          doc.setFont('helvetica', 'normal');
+          dy += 11;
+        }
+        if (idx % 2 === 0) {
+          doc.setFillColor(248, 248, 252);
+          doc.rect(10, dy - 5, 277, 10, 'F');
+        }
+        doc.setTextColor(30, 30, 30);
+        const truncate = (s: string, max: number) => s && s.length > max ? s.substring(0, max) + '...' : (s || '-');
+        doc.text(truncate(lead.name, 22), detX[0], dy + 2);
+        doc.text(truncate(lead.company || '', 22), detX[1], dy + 2);
+        doc.text(truncate(lead.confection_type || '', 20), detX[2], dy + 2);
+        doc.text(STAGE_LABELS[lead.stage] || lead.stage, detX[3], dy + 2);
+        doc.text(truncate(lead.loss_reason || '', 25), detX[4], dy + 2);
+        doc.text(truncate(lead.client_observations || lead.manager_notes || '', 25), detX[5], dy + 2);
+      });
+    }
+
+    // Footer on all pages
+    const totalPages = doc.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      const pH = doc.internal.pageSize.getHeight();
+      doc.setFillColor(30, 58, 95);
+      doc.rect(0, pH - 12, 297, 12, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8);
+      doc.text(`Azoup CRM - Relatório gerado automaticamente | Página ${p}/${totalPages}`, 15, pH - 4);
+    }
 
     doc.save(`relatorio_${reportPeriod}_${selectedMonth}.pdf`);
-  }, [weeklySnapshots, monthlyTotals, selectedMonth, lossReasons, freezeReasons]);
+  }, [weeklySnapshots, monthlyTotals, selectedMonth, lossReasons, freezeReasons, monthlyLeads]);
 
   // Summary cards
   const summaryCards = [
