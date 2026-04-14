@@ -198,10 +198,11 @@ export function ReportView({ leads }: ReportViewProps) {
     const title = reportPeriod === 'weekly'
       ? `Relatório Semanal - ${formatReferenceMonth(selectedMonth)}`
       : `Relatório Mensal - ${formatReferenceMonth(selectedMonth)}`;
+    const pageW = doc.internal.pageSize.getWidth();
 
     // Header
     doc.setFillColor(30, 58, 95);
-    doc.rect(0, 0, 297, 30, 'F');
+    doc.rect(0, 0, pageW, 30, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(18);
     doc.text('Azoup CRM', 15, 15);
@@ -210,10 +211,23 @@ export function ReportView({ leads }: ReportViewProps) {
     doc.setFontSize(8);
     doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 230, 24);
 
+    // Summary box
+    let y = 38;
+    doc.setFillColor(235, 240, 250);
+    doc.rect(10, y - 3, pageW - 20, 14, 'F');
+    doc.setTextColor(30, 58, 95);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Total de Leads no Mês: ${monthlyLeads.length}`, 15, y + 5);
+    const vendasCount = monthlyLeads.filter(l => l.stage === 'venda').length;
+    const vendasValue = monthlyLeads.filter(l => l.stage === 'venda').reduce((s, l) => s + (l.implementation_value || 0), 0);
+    doc.text(`Vendas: ${vendasCount}`, 120, y + 5);
+    doc.text(`Valor Total Vendas: ${formatCurrency(vendasValue)}`, 170, y + 5);
+    y += 20;
+
     // Table header
-    let y = 40;
     doc.setFillColor(240, 240, 245);
-    doc.rect(10, y - 5, 277, 10, 'F');
+    doc.rect(10, y - 5, pageW - 20, 10, 'F');
     doc.setTextColor(50, 50, 50);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
@@ -227,7 +241,7 @@ export function ReportView({ leads }: ReportViewProps) {
       y += 12;
       if (idx % 2 === 0) {
         doc.setFillColor(248, 248, 252);
-        doc.rect(10, y - 5, 277, 10, 'F');
+        doc.rect(10, y - 5, pageW - 20, 10, 'F');
       }
       doc.setTextColor(30, 30, 30);
       const vals = [row.date, String(row.agendados), String(row.naoAgendados), String(row.noShow), String(row.reagendados), String(row.congelados), String(row.descartados), String(row.vendas)];
@@ -247,7 +261,6 @@ export function ReportView({ leads }: ReportViewProps) {
       doc.setTextColor(50, 50, 50);
       doc.text(`${i + 1}. ${r.reason}`, 15, y);
       doc.text(`${r.count}x (${r.percent.toFixed(0)}%)`, 130, y);
-      // Mini bar
       doc.setFillColor(220, 53, 69);
       doc.rect(160, y - 3, Math.max(1, r.percent * 0.8), 4, 'F');
       y += 8;
@@ -271,55 +284,54 @@ export function ReportView({ leads }: ReportViewProps) {
       y += 8;
     });
 
-    // Lead details page (congelados + perdidos)
-    const detailLeads = monthlyLeads.filter(l => l.stage === 'congelados' || l.stage === 'perdidos');
-    if (detailLeads.length > 0) {
+    // Helper to render a detail page with leads
+    const renderDetailPage = (pageTitle: string, detailLeads: Lead[], headerColor: [number, number, number]) => {
+      if (detailLeads.length === 0) return;
       doc.addPage('landscape');
-      // Header
-      doc.setFillColor(30, 58, 95);
-      doc.rect(0, 0, 297, 30, 'F');
+      doc.setFillColor(headerColor[0], headerColor[1], headerColor[2]);
+      doc.rect(0, 0, pageW, 30, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(16);
-      doc.text('Detalhes - Congelados e Perdidos', 15, 15);
+      doc.text(`${pageTitle} (${detailLeads.length})`, 15, 15);
       doc.setFontSize(10);
       doc.text(title, 15, 24);
 
-      // Table header
       let dy = 40;
       doc.setFillColor(240, 240, 245);
-      doc.rect(10, dy - 5, 277, 10, 'F');
+      doc.rect(10, dy - 5, pageW - 20, 10, 'F');
       doc.setTextColor(50, 50, 50);
       doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      const detCols = ['Lead', 'Empresa', 'Tipo Confeccao', 'Etapa', 'Motivo', 'Observacao'];
+      const detCols = ['Lead', 'Empresa', 'Tipo Confecção', 'Etapa', 'Motivo / Status', 'Observação'];
       const detX = [15, 60, 110, 155, 190, 245];
+      const colWidths = [40, 45, 40, 30, 50, 47];
       detCols.forEach((col, i) => doc.text(col, detX[i], dy + 2));
 
       doc.setFont('helvetica', 'normal');
-      const pageH2 = doc.internal.pageSize.getHeight();
-      const colWidths = [40, 45, 40, 30, 50, 47];
+      const pageH = doc.internal.pageSize.getHeight();
 
       detailLeads.forEach((lead, idx) => {
+        const meetingInfo = lead.meeting_status ? (MEETING_STATUS_LABELS[lead.meeting_status] || lead.meeting_status) : '';
+        const reasonOrStatus = lead.loss_reason || meetingInfo || '-';
         const texts = [
           lead.name || '-',
           lead.company || '-',
           lead.confection_type || '-',
           STAGE_LABELS[lead.stage] || lead.stage,
-          lead.loss_reason || '-',
+          reasonOrStatus,
           lead.client_observations || lead.manager_notes || '-',
         ];
 
-        // Split each cell text to fit column width
         doc.setFontSize(7);
         const splitTexts = texts.map((t, i) => doc.splitTextToSize(t, colWidths[i]));
         const rowLines = Math.max(...splitTexts.map(st => st.length));
         const rowHeight = Math.max(10, rowLines * 8);
 
-        if (dy + rowHeight > pageH2 - 25) {
+        if (dy + rowHeight > pageH - 25) {
           doc.addPage('landscape');
           dy = 20;
           doc.setFillColor(240, 240, 245);
-          doc.rect(10, dy - 5, 277, 10, 'F');
+          doc.rect(10, dy - 5, pageW - 20, 10, 'F');
           doc.setFontSize(8);
           doc.setFont('helvetica', 'bold');
           detCols.forEach((col, i) => doc.text(col, detX[i], dy + 2));
@@ -329,7 +341,7 @@ export function ReportView({ leads }: ReportViewProps) {
 
         if (idx % 2 === 0) {
           doc.setFillColor(248, 248, 252);
-          doc.rect(10, dy - 4, 277, rowHeight, 'F');
+          doc.rect(10, dy - 4, pageW - 20, rowHeight, 'F');
         }
 
         doc.setTextColor(30, 30, 30);
@@ -342,7 +354,20 @@ export function ReportView({ leads }: ReportViewProps) {
 
         dy += rowHeight;
       });
-    }
+    };
+
+    // Detail pages
+    const vendasLeads = monthlyLeads.filter(l => l.stage === 'venda');
+    const noShowLeads = monthlyLeads.filter(l => l.meeting_status === 'no_show');
+    const reagendadosLeads = monthlyLeads.filter(l => l.meeting_status === 'reagendar');
+    const congeladosLeads = monthlyLeads.filter(l => l.stage === 'congelados');
+    const perdidosLeads = monthlyLeads.filter(l => l.stage === 'perdidos');
+
+    renderDetailPage('Detalhes - Vendas (Ganhos)', vendasLeads, [22, 120, 60]);
+    renderDetailPage('Detalhes - No Show', noShowLeads, [180, 40, 40]);
+    renderDetailPage('Detalhes - Reagendados', reagendadosLeads, [40, 80, 180]);
+    renderDetailPage('Detalhes - Congelados', congeladosLeads, [30, 100, 160]);
+    renderDetailPage('Detalhes - Perdidos', perdidosLeads, [140, 40, 50]);
 
     // Footer on all pages
     const totalPages = doc.getNumberOfPages();
@@ -350,7 +375,7 @@ export function ReportView({ leads }: ReportViewProps) {
       doc.setPage(p);
       const pH = doc.internal.pageSize.getHeight();
       doc.setFillColor(30, 58, 95);
-      doc.rect(0, pH - 12, 297, 12, 'F');
+      doc.rect(0, pH - 12, pageW, 12, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(8);
       doc.text(`Azoup CRM - Relatório gerado automaticamente | Página ${p}/${totalPages}`, 15, pH - 4);
