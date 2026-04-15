@@ -3,7 +3,11 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 export type ColorTheme = 
   | 'default' | 'petroleo' | 'grafite' | 'vinho' | 'esmeralda'
   | 'laranja-petroleo' | 'laranja-grafite' | 'laranja-vinho' | 'laranja-esmeralda'
-  | 'petroleo-laranja' | 'vinho-dourado' | 'azul-royal' | 'midnight';
+  | 'petroleo-laranja' | 'vinho-dourado' | 'azul-royal' | 'midnight'
+  | 'coral' | 'oceano' | 'lavanda' | 'terracota' | 'turquesa'
+  | 'dourado' | 'rosa-pink' | 'oliva' | 'cobre' | 'safira'
+  | 'jade' | 'ametista' | 'ferrugem' | 'indigo' | 'menta'
+  | 'carmesim' | 'bronze' | 'celeste' | 'magenta' | 'slate-blue';
 
 interface ThemeContextType {
   darkMode: boolean;
@@ -35,6 +39,26 @@ const COLOR_THEMES: Record<ColorTheme, ThemeInfo> = {
   'vinho-dourado': { label: 'Vinho + Dourado', preview: '#9f1239', preview2: '#d4a017', group: 'combo' },
   'azul-royal': { label: 'Azul Royal', preview: '#1e40af', group: 'premium' },
   'midnight': { label: 'Midnight Premium', preview: '#1e293b', group: 'premium' },
+  'coral': { label: 'Coral', preview: '#ef6461', group: 'single' },
+  'oceano': { label: 'Oceano Profundo', preview: '#0077b6', group: 'single' },
+  'lavanda': { label: 'Lavanda', preview: '#7c3aed', group: 'single' },
+  'terracota': { label: 'Terracota', preview: '#c2452d', group: 'single' },
+  'turquesa': { label: 'Turquesa', preview: '#0d9488', group: 'single' },
+  'dourado': { label: 'Dourado', preview: '#b8860b', group: 'premium' },
+  'rosa-pink': { label: 'Rosa Pink', preview: '#db2777', group: 'single' },
+  'oliva': { label: 'Verde Oliva', preview: '#65782d', group: 'single' },
+  'cobre': { label: 'Cobre', preview: '#b87333', group: 'premium' },
+  'safira': { label: 'Safira', preview: '#2563eb', group: 'single' },
+  'jade': { label: 'Jade', preview: '#00a86b', group: 'single' },
+  'ametista': { label: 'Ametista', preview: '#9333ea', group: 'premium' },
+  'ferrugem': { label: 'Ferrugem', preview: '#a0522d', group: 'single' },
+  'indigo': { label: 'Índigo', preview: '#4f46e5', group: 'single' },
+  'menta': { label: 'Menta', preview: '#2dd4bf', group: 'single' },
+  'carmesim': { label: 'Carmesim', preview: '#dc143c', group: 'single' },
+  'bronze': { label: 'Bronze', preview: '#8b6914', group: 'premium' },
+  'celeste': { label: 'Celeste', preview: '#38bdf8', group: 'single' },
+  'magenta': { label: 'Magenta', preview: '#c026d3', group: 'single' },
+  'slate-blue': { label: 'Azul Ardósia', preview: '#6366f1', group: 'single' },
 };
 
 export { COLOR_THEMES };
