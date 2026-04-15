@@ -29,7 +29,7 @@ export function useReturnReminder(leads: Lead[]) {
   });
   const [soundPlayed, setSoundPlayed] = useState<Set<string>>(new Set());
 
-  // Snooze-all state
+  // Snooze-all state: short (20min, 4x) + long (1h, 7x)
   const [snoozeUntil, setSnoozeUntil] = useState<number | null>(() => {
     try {
       const saved = localStorage.getItem('azoup-snooze-until');
@@ -38,6 +38,13 @@ export function useReturnReminder(leads: Lead[]) {
       localStorage.removeItem('azoup-snooze-until');
       return null;
     } catch { return null; }
+  });
+  const [shortSnoozeCount, setShortSnoozeCount] = useState<number>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('azoup-short-snooze-count') || '{}');
+      const today = new Date().toDateString();
+      return saved.date === today ? (saved.count || 0) : 0;
+    } catch { return 0; }
   });
   const [snoozeCount, setSnoozeCount] = useState<number>(() => {
     try {
@@ -49,6 +56,7 @@ export function useReturnReminder(leads: Lead[]) {
 
   const isSnoozed = snoozeUntil !== null && Date.now() < snoozeUntil;
   const canSnooze = snoozeCount < 7;
+  const canShortSnooze = shortSnoozeCount < 4;
 
   const playReturnSound = useCallback(() => {
     try {
@@ -86,11 +94,20 @@ export function useReturnReminder(leads: Lead[]) {
       if (!lead.next_contact) return false;
       if (completedIds.has(lead.id)) return false;
       if (['venda', 'perdidos', 'congelados'].includes(lead.stage)) return false;
-      // Reunião: only show if reagendar or no_show, skip compareceu
       if (lead.stage === 'reuniao' && lead.meeting_status === 'compareceu') return false;
 
       const contactTime = parseDateLocal(lead.next_contact);
       return contactTime <= now;
+    });
+
+    // Sort: oldest entry_date first, then longest time without contact
+    overdue.sort((a, b) => {
+      const entryA = a.entry_date ? new Date(a.entry_date).getTime() : 0;
+      const entryB = b.entry_date ? new Date(b.entry_date).getTime() : 0;
+      if (entryA !== entryB) return entryA - entryB;
+      const lastA = a.last_contact ? new Date(a.last_contact).getTime() : 0;
+      const lastB = b.last_contact ? new Date(b.last_contact).getTime() : 0;
+      return lastA - lastB;
     });
 
     if (overdue.length > 0 && !pendingReturn) {
@@ -141,7 +158,7 @@ export function useReturnReminder(leads: Lead[]) {
 
   const snoozeAll = useCallback(() => {
     if (!canSnooze) return;
-    const until = Date.now() + 60 * 60 * 1000; // 1 hour
+    const until = Date.now() + 60 * 60 * 1000;
     setSnoozeUntil(until);
     localStorage.setItem('azoup-snooze-until', String(until));
     const newCount = snoozeCount + 1;
@@ -150,5 +167,16 @@ export function useReturnReminder(leads: Lead[]) {
     setPendingReturn(null);
   }, [canSnooze, snoozeCount]);
 
-  return { pendingReturn, markReturnCompleted, dismissReturn, snoozeAll, canSnooze, snoozeCount };
+  const snoozeShort = useCallback(() => {
+    if (!canShortSnooze) return;
+    const until = Date.now() + 20 * 60 * 1000; // 20 min
+    setSnoozeUntil(until);
+    localStorage.setItem('azoup-snooze-until', String(until));
+    const newCount = shortSnoozeCount + 1;
+    setShortSnoozeCount(newCount);
+    localStorage.setItem('azoup-short-snooze-count', JSON.stringify({ date: new Date().toDateString(), count: newCount }));
+    setPendingReturn(null);
+  }, [canShortSnooze, shortSnoozeCount]);
+
+  return { pendingReturn, markReturnCompleted, dismissReturn, snoozeAll, canSnooze, snoozeCount, snoozeShort, canShortSnooze, shortSnoozeCount };
 }
