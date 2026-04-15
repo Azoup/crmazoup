@@ -10,8 +10,11 @@ interface ReturnReminderModalProps {
   onReturnCompleted: (leadId: string, nextContact?: string, moveToStage?: LeadStage, lossReason?: string) => void;
   onDismiss: (leadId: string) => void;
   onSnoozeAll?: () => void;
+  onSnoozeShort?: () => void;
   canSnooze?: boolean;
   snoozeCount?: number;
+  canShortSnooze?: boolean;
+  shortSnoozeCount?: number;
 }
 
 function parseDateLocal(dateStr: string): Date {
@@ -71,7 +74,7 @@ const FREEZE_REASONS = [
   'Em processo com outro fornecedor',
 ];
 
-export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoozeAll, canSnooze = true, snoozeCount = 0 }: ReturnReminderModalProps) {
+export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoozeAll, onSnoozeShort, canSnooze = true, snoozeCount = 0, canShortSnooze = true, shortSnoozeCount = 0 }: ReturnReminderModalProps) {
   const contactTime = lead.next_contact ? parseDateLocal(lead.next_contact) : null;
   const [showActions, setShowActions] = useState(false);
   const [nextDate, setNextDate] = useState(suggestNextDate());
@@ -282,7 +285,25 @@ export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoo
             </div>
           )}
 
-          {/* Snooze all button */}
+          {/* Short snooze (20 min) */}
+          {onSnoozeShort && canShortSnooze && (
+            <Button
+              onClick={onSnoozeShort}
+              variant="outline"
+              className="w-full gap-2 border-info/50 text-info hover:bg-info/10"
+            >
+              <TimerOff size={16} />
+              Adiar 20 minutos ({4 - shortSnoozeCount} restante{4 - shortSnoozeCount !== 1 ? 's' : ''})
+            </Button>
+          )}
+
+          {onSnoozeShort && !canShortSnooze && (
+            <p className="text-xs text-center text-muted-foreground">
+              Limite de adiamentos curtos atingido (4/4)
+            </p>
+          )}
+
+          {/* Long snooze (1h) */}
           {onSnoozeAll && canSnooze && (
             <Button
               onClick={onSnoozeAll}
@@ -290,13 +311,13 @@ export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoo
               className="w-full gap-2 border-warning/50 text-warning hover:bg-warning/10"
             >
               <TimerOff size={16} />
-              Adiar todos por 1 hora ({7 - snoozeCount} restante{7 - snoozeCount !== 1 ? 's' : ''})
+              Adiar 1 hora ({7 - snoozeCount} restante{7 - snoozeCount !== 1 ? 's' : ''})
             </Button>
           )}
 
           {onSnoozeAll && !canSnooze && (
             <p className="text-xs text-center text-muted-foreground">
-              Limite de adiamentos diários atingido (7/7)
+              Limite de adiamentos de 1h atingido (7/7)
             </p>
           )}
 

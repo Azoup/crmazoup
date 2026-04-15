@@ -800,9 +800,11 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
                   <h3 className="font-bold text-foreground mb-2 flex items-center gap-2"><FileText size={18} /> Registrar Atividade</h3>
                   {/* Quick suggestion chips */}
                   <div className="flex flex-wrap gap-1.5 mb-2">
-                    {[
+                  {[
+                      'Nova tentativa de contato',
                       'Fiz primeiro contato',
                       'Segunda tentativa de contato',
+                      'Terceira tentativa de contato',
                       'Pediu para ligar semana que vem',
                       'Não atendeu',
                       'Deixou recado',
@@ -811,6 +813,12 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
                       'Agendou reunião',
                       'Pediu mais informações',
                       'Sem resposta',
+                      'Cliente retornou contato',
+                      'Enviou e-mail de follow-up',
+                      'Reagendou reunião',
+                      'Apresentação realizada',
+                      'Aguardando retorno do cliente',
+                      'Enviou material complementar',
                     ].map(suggestion => (
                       <button
                         key={suggestion}

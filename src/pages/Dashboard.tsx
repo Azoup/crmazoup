@@ -67,7 +67,7 @@ export function Dashboard() {
   // 15-min pre-meeting alert
   const { alertLead, dismissAlert } = useMeetingAlert(leads);
   // Return contact reminder
-  const { pendingReturn, markReturnCompleted, dismissReturn, snoozeAll, canSnooze, snoozeCount } = useReturnReminder(isManager ? [] : leads);
+  const { pendingReturn, markReturnCompleted, dismissReturn, snoozeAll, canSnooze, snoozeCount, snoozeShort, canShortSnooze, shortSnoozeCount } = useReturnReminder(isManager ? [] : leads);
 
   const handleSyncAC = async () => {
     setSyncing(true);
@@ -357,6 +357,8 @@ export function Dashboard() {
             if (nextContact) updates.next_contact = nextContact;
             if (moveToStage) updates.stage = moveToStage;
             if (lossReason) updates.loss_reason = lossReason;
+            // Always update last_contact when return is completed
+            updates.last_contact = new Date().toISOString();
             if (Object.keys(updates).length > 0) {
               await updateLead(leadId, updates);
             }
@@ -365,13 +367,16 @@ export function Dashboard() {
               perdidos: '❌ Lead descartado via retorno',
               reuniao: '📅 Reunião agendada via retorno',
             };
-            const note = moveToStage ? stageLabels[moveToStage] || '✅ Retorno realizado' : '✅ Retorno de contato realizado';
+            const note = moveToStage ? stageLabels[moveToStage] || '✅ Retorno realizado' : '✅ Nova tentativa de contato realizada';
             await addHistory(leadId, 'retorno', note);
           }}
           onDismiss={dismissReturn}
           onSnoozeAll={snoozeAll}
+          onSnoozeShort={snoozeShort}
           canSnooze={canSnooze}
           snoozeCount={snoozeCount}
+          canShortSnooze={canShortSnooze}
+          shortSnoozeCount={shortSnoozeCount}
         />
       )}
     </div>
