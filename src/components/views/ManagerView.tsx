@@ -176,6 +176,14 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
             >
               <FileText size={14} /> Fichas
             </Button>
+            <Button
+              variant={subView === 'produtos' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setSubView('produtos')}
+              className="gap-2"
+            >
+              <Package size={14} /> Produtos
+            </Button>
           </div>
 
           {/* SDR Filter + Search */}
