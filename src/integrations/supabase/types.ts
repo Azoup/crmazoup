@@ -164,6 +164,87 @@ export type Database = {
         }
         Relationships: []
       }
+      manual_quotes: {
+        Row: {
+          client_name: string
+          company_name: string | null
+          created_at: string
+          id: string
+          items: Json
+          lead_id: string | null
+          notes: string | null
+          phone: string | null
+          total: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_name: string
+          company_name?: string | null
+          created_at?: string
+          id?: string
+          items?: Json
+          lead_id?: string | null
+          notes?: string | null
+          phone?: string | null
+          total?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_name?: string
+          company_name?: string | null
+          created_at?: string
+          id?: string
+          items?: Json
+          lead_id?: string | null
+          notes?: string | null
+          phone?: string | null
+          total?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string
+          description: string
+          id: string
+          installments: number | null
+          name: string
+          payment_type: string
+          price: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by: string
+          description?: string
+          id?: string
+          installments?: number | null
+          name: string
+          payment_type?: string
+          price?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          installments?: number | null
+          name?: string
+          payment_type?: string
+          price?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           approved: boolean

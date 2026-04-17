@@ -15,6 +15,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { useManagerData } from '@/hooks/useManagerData';
 import { ManagerPipelineView } from './ManagerPipelineView';
 import { ProposalModal } from '@/components/modals/ProposalModal';
+import { ManualQuoteModal } from '@/components/modals/ManualQuoteModal';
+import { ProductsManager } from '@/components/manager/ProductsManager';
+import { Package } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -45,7 +48,7 @@ interface ManagerViewProps {
   addHistory?: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
 }
 
-type ManagerSubView = 'pipeline' | 'metrics' | 'approvals' | 'fichas';
+type ManagerSubView = 'pipeline' | 'metrics' | 'approvals' | 'fichas' | 'produtos';
 
 export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, percentGoal, onCreateLead, onOpenLead, updateLead: externalUpdateLead, addHistory: externalAddHistory }: ManagerViewProps) {
   const { user, profile } = useAuth();
@@ -75,6 +78,8 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
   const [managerSearch, setManagerSearch] = useState('');
   const [fichaLead, setFichaLead] = useState<Lead | null>(null);
   const [fichaSearch, setFichaSearch] = useState('');
+  const [manualQuoteOpen, setManualQuoteOpen] = useState(false);
+  const [manualQuotePrefillLead, setManualQuotePrefillLead] = useState<Lead | null>(null);
 
   // Use allLeads from manager data if available, otherwise use passed leads
   const displayLeads = allLeads.length > 0 ? allLeads : leads;
@@ -170,6 +175,14 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
               className="gap-2"
             >
               <FileText size={14} /> Fichas
+            </Button>
+            <Button
+              variant={subView === 'produtos' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setSubView('produtos')}
+              className="gap-2"
+            >
+              <Package size={14} /> Produtos
             </Button>
           </div>
 
@@ -614,13 +627,36 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
               onChange={(e) => setFichaSearch(e.target.value)}
               className="max-w-md"
             />
+            <div className="flex-1" />
+            <Button
+              onClick={() => {
+                setManualQuotePrefillLead(null);
+                setManualQuoteOpen(true);
+              }}
+              className="gap-2"
+            >
+              <FileText size={16} /> Novo Orçamento Manual
+            </Button>
           </div>
 
           {fichaLead ? (
             <div className="space-y-4">
-              <Button variant="outline" size="sm" onClick={() => setFichaLead(null)} className="gap-2">
-                ← Voltar à lista
-              </Button>
+              <div className="flex items-center justify-between">
+                <Button variant="outline" size="sm" onClick={() => setFichaLead(null)} className="gap-2">
+                  ← Voltar à lista
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setManualQuotePrefillLead(fichaLead);
+                    setManualQuoteOpen(true);
+                  }}
+                  className="gap-2"
+                >
+                  <FileText size={14} /> Orçamento manual para este cliente
+                </Button>
+              </div>
               <ClientInfoForm
                 lead={fichaLead}
                 onSave={async (leadId, updates) => {
@@ -665,15 +701,30 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
         </div>
       )}
 
+      {/* Produtos View */}
+      {subView === 'produtos' && <ProductsManager />}
+
       {/* Proposal Modal */}
       <ProposalModal
         lead={proposalLead}
         open={!!proposalLead}
         onClose={() => setProposalLead(null)}
       />
+
+      {/* Manual Quote Modal */}
+      <ManualQuoteModal
+        open={manualQuoteOpen}
+        onClose={() => {
+          setManualQuoteOpen(false);
+          setManualQuotePrefillLead(null);
+        }}
+        leads={displayLeads}
+        prefillLead={manualQuotePrefillLead}
+      />
     </div>
   );
 }
+
 
 interface MetricCardProps {
   icon: React.ElementType;
