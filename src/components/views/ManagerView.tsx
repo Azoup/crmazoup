@@ -15,6 +15,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { useManagerData } from '@/hooks/useManagerData';
 import { ManagerPipelineView } from './ManagerPipelineView';
 import { ProposalModal } from '@/components/modals/ProposalModal';
+import { ManualQuoteModal } from '@/components/modals/ManualQuoteModal';
+import { ProductsManager } from '@/components/manager/ProductsManager';
+import { Package } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -45,7 +48,7 @@ interface ManagerViewProps {
   addHistory?: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
 }
 
-type ManagerSubView = 'pipeline' | 'metrics' | 'approvals' | 'fichas';
+type ManagerSubView = 'pipeline' | 'metrics' | 'approvals' | 'fichas' | 'produtos';
 
 export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, percentGoal, onCreateLead, onOpenLead, updateLead: externalUpdateLead, addHistory: externalAddHistory }: ManagerViewProps) {
   const { user, profile } = useAuth();
@@ -75,6 +78,8 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
   const [managerSearch, setManagerSearch] = useState('');
   const [fichaLead, setFichaLead] = useState<Lead | null>(null);
   const [fichaSearch, setFichaSearch] = useState('');
+  const [manualQuoteOpen, setManualQuoteOpen] = useState(false);
+  const [manualQuotePrefillLead, setManualQuotePrefillLead] = useState<Lead | null>(null);
 
   // Use allLeads from manager data if available, otherwise use passed leads
   const displayLeads = allLeads.length > 0 ? allLeads : leads;
