@@ -627,13 +627,36 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
               onChange={(e) => setFichaSearch(e.target.value)}
               className="max-w-md"
             />
+            <div className="flex-1" />
+            <Button
+              onClick={() => {
+                setManualQuotePrefillLead(null);
+                setManualQuoteOpen(true);
+              }}
+              className="gap-2"
+            >
+              <FileText size={16} /> Novo Orçamento Manual
+            </Button>
           </div>
 
           {fichaLead ? (
             <div className="space-y-4">
-              <Button variant="outline" size="sm" onClick={() => setFichaLead(null)} className="gap-2">
-                ← Voltar à lista
-              </Button>
+              <div className="flex items-center justify-between">
+                <Button variant="outline" size="sm" onClick={() => setFichaLead(null)} className="gap-2">
+                  ← Voltar à lista
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setManualQuotePrefillLead(fichaLead);
+                    setManualQuoteOpen(true);
+                  }}
+                  className="gap-2"
+                >
+                  <FileText size={14} /> Orçamento manual para este cliente
+                </Button>
+              </div>
               <ClientInfoForm
                 lead={fichaLead}
                 onSave={async (leadId, updates) => {
@@ -678,15 +701,30 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
         </div>
       )}
 
+      {/* Produtos View */}
+      {subView === 'produtos' && <ProductsManager />}
+
       {/* Proposal Modal */}
       <ProposalModal
         lead={proposalLead}
         open={!!proposalLead}
         onClose={() => setProposalLead(null)}
       />
+
+      {/* Manual Quote Modal */}
+      <ManualQuoteModal
+        open={manualQuoteOpen}
+        onClose={() => {
+          setManualQuoteOpen(false);
+          setManualQuotePrefillLead(null);
+        }}
+        leads={displayLeads}
+        prefillLead={manualQuotePrefillLead}
+      />
     </div>
   );
 }
+
 
 interface MetricCardProps {
   icon: React.ElementType;
