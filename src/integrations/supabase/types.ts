@@ -214,6 +214,8 @@ export type Database = {
           description: string
           id: string
           installments: number | null
+          installments_text: string | null
+          monthly_fee: number
           name: string
           payment_type: string
           price: number
@@ -226,6 +228,8 @@ export type Database = {
           description?: string
           id?: string
           installments?: number | null
+          installments_text?: string | null
+          monthly_fee?: number
           name: string
           payment_type?: string
           price?: number
@@ -238,6 +242,8 @@ export type Database = {
           description?: string
           id?: string
           installments?: number | null
+          installments_text?: string | null
+          monthly_fee?: number
           name?: string
           payment_type?: string
           price?: number
