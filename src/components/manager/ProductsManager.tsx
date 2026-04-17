@@ -35,8 +35,10 @@ export interface Product {
   name: string;
   description: string;
   price: number;
+  monthly_fee: number;
   payment_type: 'unico' | 'mensal' | 'parcelado';
   installments: number | null;
+  installments_text: string | null;
   active: boolean;
   created_by: string;
   created_at: string;
@@ -53,16 +55,20 @@ interface ProductFormState {
   name: string;
   description: string;
   price: string;
+  monthly_fee: string;
   payment_type: 'unico' | 'mensal' | 'parcelado';
   installments: string;
+  installments_text: string;
 }
 
 const EMPTY_FORM: ProductFormState = {
   name: '',
   description: '',
   price: '',
+  monthly_fee: '',
   payment_type: 'unico',
   installments: '',
+  installments_text: '',
 };
 
 export function ProductsManager() {
@@ -110,10 +116,29 @@ export function ProductsManager() {
       name: product.name,
       description: product.description,
       price: String(product.price),
+      monthly_fee: product.monthly_fee ? String(product.monthly_fee) : '',
       payment_type: product.payment_type,
       installments: product.installments ? String(product.installments) : '',
+      installments_text: product.installments_text || '',
     });
     setDialogOpen(true);
+  };
+
+  // Inline payment_type editor (quick change without opening modal)
+  const updatePaymentInline = async (product: Product, newType: 'unico' | 'mensal' | 'parcelado') => {
+    if (!isManager) return;
+    const updates: Partial<Product> = { payment_type: newType };
+    if (newType !== 'parcelado') {
+      updates.installments = null;
+      updates.installments_text = null;
+    }
+    const { error } = await supabase.from('products').update(updates).eq('id', product.id);
+    if (error) {
+      toast({ title: 'Erro ao alterar pagamento', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Forma de pagamento atualizada' });
+      fetchProducts();
+    }
   };
 
   const handleSave = async () => {
@@ -131,15 +156,24 @@ export function ProductsManager() {
       toast({ title: 'Preço inválido', variant: 'destructive' });
       return;
     }
+    const monthlyNum = form.monthly_fee ? Number(form.monthly_fee) : 0;
+    if (isNaN(monthlyNum) || monthlyNum < 0) {
+      toast({ title: 'Mensalidade inválida', variant: 'destructive' });
+      return;
+    }
 
     setSaving(true);
     const payload = {
       name: form.name.trim(),
       description: form.description.trim(),
       price: priceNum,
+      monthly_fee: monthlyNum,
       payment_type: form.payment_type,
       installments: form.payment_type === 'parcelado' && form.installments
         ? Number(form.installments)
+        : null,
+      installments_text: form.payment_type === 'parcelado' && form.installments_text.trim()
+        ? form.installments_text.trim()
         : null,
     };
 
@@ -225,9 +259,10 @@ export function ProductsManager() {
               <TableRow>
                 <TableHead>Produto</TableHead>
                 <TableHead>Descrição</TableHead>
-                <TableHead className="w-[140px]">Preço</TableHead>
-                <TableHead className="w-[160px]">Forma de Pagamento</TableHead>
-                {isManager && <TableHead className="w-[120px] text-right">Ações</TableHead>}
+                <TableHead className="w-[120px]">Preço</TableHead>
+                <TableHead className="w-[120px]">Mensalidade</TableHead>
+                <TableHead className="w-[200px]">Forma de Pagamento</TableHead>
+                {isManager && <TableHead className="w-[100px] text-right">Ações</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -242,13 +277,49 @@ export function ProductsManager() {
                   <TableCell className="align-top font-semibold text-primary">
                     {formatCurrency(product.price)}
                   </TableCell>
+                  <TableCell className="align-top font-semibold text-success">
+                    {product.monthly_fee > 0 ? formatCurrency(product.monthly_fee) : '—'}
+                  </TableCell>
                   <TableCell className="align-top">
-                    <span className="text-xs px-2 py-1 rounded-full bg-muted">
-                      {PAYMENT_LABELS[product.payment_type]}
-                      {product.payment_type === 'parcelado' && product.installments
-                        ? ` em ${product.installments}x`
-                        : ''}
-                    </span>
+                    {isManager ? (
+                      <div className="space-y-1">
+                        <Select
+                          value={product.payment_type}
+                          onValueChange={(v: 'unico' | 'mensal' | 'parcelado') =>
+                            updatePaymentInline(product, v)
+                          }
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unico">Pagamento Único</SelectItem>
+                            <SelectItem value="mensal">Mensal</SelectItem>
+                            <SelectItem value="parcelado">Parcelado</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {product.payment_type === 'parcelado' && (
+                          <p className="text-[11px] text-muted-foreground italic">
+                            {product.installments_text
+                              ? product.installments_text
+                              : product.installments
+                              ? `${product.installments}x`
+                              : 'Edite para definir parcelas'}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs px-2 py-1 rounded-full bg-muted">
+                        {PAYMENT_LABELS[product.payment_type]}
+                        {product.payment_type === 'parcelado' && (
+                          product.installments_text
+                            ? ` — ${product.installments_text}`
+                            : product.installments
+                            ? ` em ${product.installments}x`
+                            : ''
+                        )}
+                      </span>
+                    )}
                   </TableCell>
                   {isManager && (
                     <TableCell className="align-top text-right">
@@ -316,35 +387,60 @@ export function ProductsManager() {
                 />
               </div>
               <div>
-                <Label className="text-sm font-bold">Forma de Pagamento *</Label>
-                <Select
-                  value={form.payment_type}
-                  onValueChange={(v: 'unico' | 'mensal' | 'parcelado') =>
-                    setForm(f => ({ ...f, payment_type: v }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unico">Pagamento Único</SelectItem>
-                    <SelectItem value="mensal">Mensal</SelectItem>
-                    <SelectItem value="parcelado">Parcelado</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label className="text-sm font-bold">Mensalidade (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={form.monthly_fee}
+                  onChange={(e) => setForm(f => ({ ...f, monthly_fee: e.target.value }))}
+                  placeholder="0,00 (opcional)"
+                />
               </div>
             </div>
 
+            <div>
+              <Label className="text-sm font-bold">Forma de Pagamento *</Label>
+              <Select
+                value={form.payment_type}
+                onValueChange={(v: 'unico' | 'mensal' | 'parcelado') =>
+                  setForm(f => ({ ...f, payment_type: v }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unico">Pagamento Único</SelectItem>
+                  <SelectItem value="mensal">Mensal</SelectItem>
+                  <SelectItem value="parcelado">Parcelado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {form.payment_type === 'parcelado' && (
-              <div>
-                <Label className="text-sm font-bold">Número de Parcelas</Label>
-                <Input
-                  type="number"
-                  min="2"
-                  value={form.installments}
-                  onChange={(e) => setForm(f => ({ ...f, installments: e.target.value }))}
-                  placeholder="Ex: 12"
-                />
+              <div className="space-y-3 p-3 rounded-lg bg-muted/40 border border-border">
+                <div>
+                  <Label className="text-sm font-bold">Número de Parcelas (opcional)</Label>
+                  <Input
+                    type="number"
+                    min="2"
+                    value={form.installments}
+                    onChange={(e) => setForm(f => ({ ...f, installments: e.target.value }))}
+                    placeholder="Ex: 4"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-bold">Descrição livre das parcelas</Label>
+                  <Textarea
+                    value={form.installments_text}
+                    onChange={(e) => setForm(f => ({ ...f, installments_text: e.target.value }))}
+                    placeholder="Ex: entrada via Pix + 30/60/90 dias"
+                    rows={2}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Use este campo para condições personalizadas. Será exibido no orçamento.
+                  </p>
+                </div>
               </div>
             )}
 
