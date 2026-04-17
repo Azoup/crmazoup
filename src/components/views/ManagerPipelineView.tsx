@@ -179,6 +179,11 @@ export function ManagerPipelineView({
                           {lead.company && (
                             <p className="text-xs text-muted-foreground truncate">{lead.company}</p>
                           )}
+                          {lead.lead_source === 'orcamento_manual' && (
+                            <span className="inline-block mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/30">
+                              ORÇAMENTO MANUAL
+                            </span>
+                          )}
                         </div>
                         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
                           lead.temperature === 'quente' ? 'bg-temp-hot' :
