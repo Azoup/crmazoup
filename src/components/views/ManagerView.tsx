@@ -720,6 +720,10 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
         }}
         leads={displayLeads}
         prefillLead={manualQuotePrefillLead}
+        onQuoteSaved={() => {
+          refreshData();
+          setSubView('pipeline');
+        }}
       />
     </div>
   );

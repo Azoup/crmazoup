@@ -2,7 +2,7 @@ export type LeadTemperature = 'frio' | 'morno' | 'quente';
 
 export type LeadStage = 'prospeccao' | 'interesse' | 'reuniao' | 'proposta' | 'venda' | 'congelados' | 'perdidos';
 
-export type LeadSource = 'marketing' | 'prospeccao_ativa' | 'indicacao';
+export type LeadSource = 'marketing' | 'prospeccao_ativa' | 'indicacao' | 'orcamento_manual';
 
 export type MeetingStatus = 'compareceu' | 'no_show' | 'reagendar' | null;
 
