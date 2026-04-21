@@ -252,6 +252,7 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
               whatsapp: lead.whatsapp || '',
               email: lead.email || '',
               company: lead.company || '',
+              cpf: (lead as any).cpf || '',
               cpf_cnpj: lead.cpf_cnpj || '',
               state_registration: lead.state_registration || '',
               implementation_responsible: lead.implementation_responsible || '',
