@@ -153,6 +153,7 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
       if (l.id === lead.id) return false;
       if (form.whatsapp && l.whatsapp && l.whatsapp.replace(/\D/g, '') === form.whatsapp.replace(/\D/g, '')) return true;
       if (form.email && l.email && l.email.toLowerCase() === form.email.toLowerCase()) return true;
+      if (form.cpf && (l as any).cpf && (l as any).cpf.replace(/\D/g, '') === form.cpf.replace(/\D/g, '')) return true;
       if (form.cpf_cnpj && l.cpf_cnpj && l.cpf_cnpj.replace(/\D/g, '') === form.cpf_cnpj.replace(/\D/g, '')) return true;
       return false;
     });
@@ -173,14 +174,17 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
       toast({ title: 'Erro', description: 'Telefone inválido (10-11 dígitos)', variant: 'destructive' });
       return;
     }
-    if (form.cpf_cnpj) {
-      const clean = form.cpf_cnpj.replace(/\D/g, '');
-      if (clean.length === 11 && !validateCPF(form.cpf_cnpj)) {
-        toast({ title: 'Erro', description: 'CPF inválido', variant: 'destructive' });
+    if (form.cpf) {
+      const clean = form.cpf.replace(/\D/g, '');
+      if (clean.length !== 11 || !validateCPF(form.cpf)) {
+        toast({ title: 'Erro', description: 'CPF inválido (11 dígitos)', variant: 'destructive' });
         return;
       }
-      if (clean.length === 14 && !validateCNPJ(form.cpf_cnpj)) {
-        toast({ title: 'Erro', description: 'CNPJ inválido', variant: 'destructive' });
+    }
+    if (form.cpf_cnpj) {
+      const clean = form.cpf_cnpj.replace(/\D/g, '');
+      if (clean.length !== 14 || !validateCNPJ(form.cpf_cnpj)) {
+        toast({ title: 'Erro', description: 'CNPJ inválido (14 dígitos)', variant: 'destructive' });
         return;
       }
     }
@@ -197,6 +201,7 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
       whatsapp: form.whatsapp || null,
       email: form.email || null,
       company: form.company || null,
+      cpf: form.cpf || null,
       cpf_cnpj: form.cpf_cnpj || null,
       state_registration: form.state_registration || null,
       implementation_responsible: form.implementation_responsible || null,
@@ -209,12 +214,13 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
       pieces_per_month: form.pieces_per_month ? parseInt(form.pieces_per_month) : null,
       implementation_value: form.implementation_value ? parseFloat(form.implementation_value) : 0,
       monthly_value: form.monthly_value ? parseFloat(form.monthly_value) : 0,
-    });
+    } as any);
     setSaving(false);
 
     if (success) {
       toast({ title: '✅ Dados salvos', description: 'Ficha do cliente atualizada com sucesso.' });
       setEditing(false);
+      clearDraft();
     }
   };
 
