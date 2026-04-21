@@ -88,6 +88,7 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
     whatsapp: '',
     email: '',
     company: '',
+    cpf: '',
     cpf_cnpj: '',
     state_registration: '',
     implementation_responsible: '',
@@ -101,6 +102,15 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
     implementation_value: '',
     monthly_value: '',
   });
+
+  // Persist draft per-lead so users don't lose data when switching tabs
+  const draftKey = lead ? `ficha-draft-${lead.id}` : null;
+  const { clear: clearDraft } = useDraftPersistence(
+    editing ? draftKey : null,
+    form,
+    (saved) => setForm((prev) => ({ ...prev, ...saved })),
+    editing,
+  );
 
   useEffect(() => {
     if (lead) {
