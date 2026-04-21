@@ -22,6 +22,7 @@ export type Database = {
           client_observations: string | null
           company: string | null
           confection_type: string | null
+          cpf: string | null
           cpf_cnpj: string | null
           created_at: string
           email: string | null
@@ -64,6 +65,7 @@ export type Database = {
           client_observations?: string | null
           company?: string | null
           confection_type?: string | null
+          cpf?: string | null
           cpf_cnpj?: string | null
           created_at?: string
           email?: string | null
@@ -106,6 +108,7 @@ export type Database = {
           client_observations?: string | null
           company?: string | null
           confection_type?: string | null
+          cpf?: string | null
           cpf_cnpj?: string | null
           created_at?: string
           email?: string | null
