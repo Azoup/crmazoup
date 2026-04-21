@@ -326,8 +326,12 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
             <Input value={form.company} onChange={(e) => updateField('company', e.target.value)} disabled={!editing} className="mt-1" />
           </div>
           <div>
-            {fieldLabel('cpf_cnpj', 'CPF / CNPJ')}
-            <Input value={form.cpf_cnpj} onChange={(e) => updateField('cpf_cnpj', e.target.value)} disabled={!editing} className="mt-1" placeholder="000.000.000-00 ou 00.000.000/0000-00" />
+            {fieldLabel('cpf', 'CPF')}
+            <Input value={form.cpf} onChange={(e) => updateField('cpf', e.target.value)} disabled={!editing} className="mt-1" placeholder="000.000.000-00" />
+          </div>
+          <div>
+            {fieldLabel('cpf_cnpj', 'CNPJ')}
+            <Input value={form.cpf_cnpj} onChange={(e) => updateField('cpf_cnpj', e.target.value)} disabled={!editing} className="mt-1" placeholder="00.000.000/0000-00" />
           </div>
           <div>
             {fieldLabel('state_registration', 'Inscrição Estadual')}
