@@ -8,7 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { User, Building2, FileText, MessageSquare, Search, Save, Edit, RefreshCw, Database, Package } from 'lucide-react';
+import { User, Building2, FileText, MessageSquare, Search, Save, Edit, RefreshCw, Database, Package, Download, Receipt } from 'lucide-react';
+import { useDraftPersistence } from '@/hooks/useDraftPersistence';
+import { ClientQuotesList } from '@/components/manager/ClientQuotesList';
 
 const PLANS = [
   {
