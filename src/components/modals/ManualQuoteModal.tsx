@@ -21,9 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { FileText, Download, Send, Trash2, Package, Phone, Save, Search } from 'lucide-react';
+import { FileText, Download, Send, Trash2, Package, Phone, Save, Search, CheckCircle2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import type { Product } from '@/components/manager/ProductsManager';
+import { useDraftPersistence } from '@/hooks/useDraftPersistence';
 
 interface ManualQuoteModalProps {
   open: boolean;
