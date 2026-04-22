@@ -580,7 +580,10 @@ export function ManualQuoteModal({ open, onClose, leads = [], prefillLead, onQuo
     setSaving(true);
     const safeName = clientName.replace(/\s+/g, '-').toLowerCase();
     doc.save(`orcamento-${safeName}-${new Date().toISOString().split('T')[0]}.pdf`);
-    await persistQuote();
+    if (!savedQuoteId) {
+      const quoteId = await persistQuote();
+      if (quoteId) setSavedQuoteId(quoteId);
+    }
 
     const cleaned = cleanPhoneNumber(phone);
     const message = encodeURIComponent(
