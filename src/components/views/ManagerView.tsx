@@ -724,7 +724,12 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
         prefillLead={manualQuotePrefillLead}
         onQuoteSaved={() => {
           refreshData();
-          setSubView('pipeline');
+          setQuotesRefreshKey((k) => k + 1);
+          // Se o usuário está com a ficha aberta, mantém na ficha para baixar o PDF.
+          // Caso contrário, vai para o pipeline para ver o card criado.
+          if (!fichaLead) {
+            setSubView('pipeline');
+          }
         }}
       />
     </div>
