@@ -43,6 +43,7 @@ interface ClientInfoFormProps {
   lead: Lead;
   onSave: (leadId: string, updates: Partial<Lead>) => Promise<boolean>;
   allLeads: Lead[];
+  quotesRefreshKey?: number;
 }
 
 function validateCPF(cpf: string): boolean {
