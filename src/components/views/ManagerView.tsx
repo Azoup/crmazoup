@@ -667,6 +667,7 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
                   return false;
                 }}
                 allLeads={displayLeads}
+                quotesRefreshKey={quotesRefreshKey}
               />
             </div>
           ) : (
