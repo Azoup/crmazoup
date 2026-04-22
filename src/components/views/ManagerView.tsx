@@ -78,6 +78,7 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
   const [managerSearch, setManagerSearch] = useState('');
   const [fichaLead, setFichaLead] = useState<Lead | null>(null);
   const [fichaSearch, setFichaSearch] = useState('');
+  const [quotesRefreshKey, setQuotesRefreshKey] = useState(0);
   const [manualQuoteOpen, setManualQuoteOpen] = useState(false);
   const [manualQuotePrefillLead, setManualQuotePrefillLead] = useState<Lead | null>(null);
 
