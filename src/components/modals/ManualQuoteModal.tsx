@@ -834,12 +834,40 @@ export function ManualQuoteModal({ open, onClose, leads = [], prefillLead, onQuo
             </Button>
             <Button
               onClick={handleSaveQuoteAsLead}
-              disabled={items.length === 0 || saving}
+              disabled={items.length === 0 || saving || !!savedQuoteId}
               className="flex-1 min-w-[180px] gap-2"
             >
-              <Save size={16} /> Salvar Orçamento
+              {savedQuoteId ? (
+                <><CheckCircle2 size={16} /> Orçamento salvo</>
+              ) : (
+                <><Save size={16} /> Salvar Orçamento</>
+              )}
             </Button>
           </div>
+
+          {savedQuoteId && (
+            <div className="rounded-lg border border-success/40 bg-success/10 p-3 flex items-start gap-3">
+              <CheckCircle2 size={18} className="text-success shrink-0 mt-0.5" />
+              <div className="flex-1 text-sm">
+                <p className="font-semibold text-foreground">Orçamento salvo com sucesso</p>
+                <p className="text-xs text-muted-foreground">
+                  O card foi criado na coluna <strong>Proposta</strong> e o orçamento ficará anexado à ficha do cliente.
+                  Você pode baixar o PDF agora ou fechar esta janela.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  clearDraft();
+                  onClose();
+                }}
+              >
+                Fechar
+              </Button>
+            </div>
+          )}
+
           <p className="text-xs text-muted-foreground -mt-2">
             "Salvar Orçamento" cria um card na coluna <strong>Proposta</strong> do pipeline do gestor com status <strong>Orçamento Manual</strong>.
           </p>
