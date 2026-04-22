@@ -78,6 +78,7 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
   const [managerSearch, setManagerSearch] = useState('');
   const [fichaLead, setFichaLead] = useState<Lead | null>(null);
   const [fichaSearch, setFichaSearch] = useState('');
+  const [quotesRefreshKey, setQuotesRefreshKey] = useState(0);
   const [manualQuoteOpen, setManualQuoteOpen] = useState(false);
   const [manualQuotePrefillLead, setManualQuotePrefillLead] = useState<Lead | null>(null);
 
@@ -666,6 +667,7 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
                   return false;
                 }}
                 allLeads={displayLeads}
+                quotesRefreshKey={quotesRefreshKey}
               />
             </div>
           ) : (
@@ -722,7 +724,12 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
         prefillLead={manualQuotePrefillLead}
         onQuoteSaved={() => {
           refreshData();
-          setSubView('pipeline');
+          setQuotesRefreshKey((k) => k + 1);
+          // Se o usuário está com a ficha aberta, mantém na ficha para baixar o PDF.
+          // Caso contrário, vai para o pipeline para ver o card criado.
+          if (!fichaLead) {
+            setSubView('pipeline');
+          }
         }}
       />
     </div>
