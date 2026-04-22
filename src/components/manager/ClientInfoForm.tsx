@@ -76,7 +76,7 @@ function validatePhone(phone: string): boolean {
   return clean.length >= 10 && clean.length <= 11;
 }
 
-export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) {
+export function ClientInfoForm({ lead, onSave, allLeads, quotesRefreshKey = 0 }: ClientInfoFormProps) {
   const { toast } = useToast();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -458,8 +458,8 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
         </CardContent>
       </Card>
 
-      {/* Quotes attached to this client */}
-      <ClientQuotesList leadId={lead.id} />
+      {/* Orçamentos anexados a este cliente — sempre visíveis para download do PDF */}
+      <ClientQuotesList leadId={lead.id} refreshKey={quotesRefreshKey} />
     </div>
   );
 }
