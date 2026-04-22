@@ -48,6 +48,7 @@ export interface Lead {
   responsible_user_id?: string | null;
   lead_source?: LeadSource;
   // Client detail fields
+  cpf?: string | null;
   cpf_cnpj?: string | null;
   state_registration?: string | null;
   implementation_responsible?: string | null;

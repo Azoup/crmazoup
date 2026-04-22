@@ -9,6 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { User, Building2, FileText, MessageSquare, Search, Save, Edit, RefreshCw, Database, Package } from 'lucide-react';
+import { useDraftPersistence } from '@/hooks/useDraftPersistence';
+import { ClientQuotesList } from '@/components/manager/ClientQuotesList';
 
 const PLANS = [
   {
@@ -86,6 +88,7 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
     whatsapp: '',
     email: '',
     company: '',
+    cpf: '',
     cpf_cnpj: '',
     state_registration: '',
     implementation_responsible: '',
@@ -100,6 +103,15 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
     monthly_value: '',
   });
 
+  // Persist draft per-lead so users don't lose data when switching tabs
+  const draftKey = lead ? `ficha-draft-${lead.id}` : null;
+  const { clear: clearDraft } = useDraftPersistence(
+    editing ? draftKey : null,
+    form,
+    (saved) => setForm((prev) => ({ ...prev, ...saved })),
+    editing,
+  );
+
   useEffect(() => {
     if (lead) {
       const sources = new Set<string>();
@@ -108,6 +120,7 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
         whatsapp: lead.whatsapp || '',
         email: lead.email || '',
         company: lead.company || '',
+        cpf: (lead as any).cpf || '',
         cpf_cnpj: lead.cpf_cnpj || '',
         state_registration: lead.state_registration || '',
         implementation_responsible: lead.implementation_responsible || '',
@@ -140,6 +153,7 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
       if (l.id === lead.id) return false;
       if (form.whatsapp && l.whatsapp && l.whatsapp.replace(/\D/g, '') === form.whatsapp.replace(/\D/g, '')) return true;
       if (form.email && l.email && l.email.toLowerCase() === form.email.toLowerCase()) return true;
+      if (form.cpf && (l as any).cpf && (l as any).cpf.replace(/\D/g, '') === form.cpf.replace(/\D/g, '')) return true;
       if (form.cpf_cnpj && l.cpf_cnpj && l.cpf_cnpj.replace(/\D/g, '') === form.cpf_cnpj.replace(/\D/g, '')) return true;
       return false;
     });
@@ -160,14 +174,17 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
       toast({ title: 'Erro', description: 'Telefone inválido (10-11 dígitos)', variant: 'destructive' });
       return;
     }
-    if (form.cpf_cnpj) {
-      const clean = form.cpf_cnpj.replace(/\D/g, '');
-      if (clean.length === 11 && !validateCPF(form.cpf_cnpj)) {
-        toast({ title: 'Erro', description: 'CPF inválido', variant: 'destructive' });
+    if (form.cpf) {
+      const clean = form.cpf.replace(/\D/g, '');
+      if (clean.length !== 11 || !validateCPF(form.cpf)) {
+        toast({ title: 'Erro', description: 'CPF inválido (11 dígitos)', variant: 'destructive' });
         return;
       }
-      if (clean.length === 14 && !validateCNPJ(form.cpf_cnpj)) {
-        toast({ title: 'Erro', description: 'CNPJ inválido', variant: 'destructive' });
+    }
+    if (form.cpf_cnpj) {
+      const clean = form.cpf_cnpj.replace(/\D/g, '');
+      if (clean.length !== 14 || !validateCNPJ(form.cpf_cnpj)) {
+        toast({ title: 'Erro', description: 'CNPJ inválido (14 dígitos)', variant: 'destructive' });
         return;
       }
     }
@@ -184,6 +201,7 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
       whatsapp: form.whatsapp || null,
       email: form.email || null,
       company: form.company || null,
+      cpf: form.cpf || null,
       cpf_cnpj: form.cpf_cnpj || null,
       state_registration: form.state_registration || null,
       implementation_responsible: form.implementation_responsible || null,
@@ -196,12 +214,13 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
       pieces_per_month: form.pieces_per_month ? parseInt(form.pieces_per_month) : null,
       implementation_value: form.implementation_value ? parseFloat(form.implementation_value) : 0,
       monthly_value: form.monthly_value ? parseFloat(form.monthly_value) : 0,
-    });
+    } as any);
     setSaving(false);
 
     if (success) {
       toast({ title: '✅ Dados salvos', description: 'Ficha do cliente atualizada com sucesso.' });
       setEditing(false);
+      clearDraft();
     }
   };
 
@@ -233,6 +252,7 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
               whatsapp: lead.whatsapp || '',
               email: lead.email || '',
               company: lead.company || '',
+              cpf: (lead as any).cpf || '',
               cpf_cnpj: lead.cpf_cnpj || '',
               state_registration: lead.state_registration || '',
               implementation_responsible: lead.implementation_responsible || '',
@@ -306,8 +326,12 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
             <Input value={form.company} onChange={(e) => updateField('company', e.target.value)} disabled={!editing} className="mt-1" />
           </div>
           <div>
-            {fieldLabel('cpf_cnpj', 'CPF / CNPJ')}
-            <Input value={form.cpf_cnpj} onChange={(e) => updateField('cpf_cnpj', e.target.value)} disabled={!editing} className="mt-1" placeholder="000.000.000-00 ou 00.000.000/0000-00" />
+            {fieldLabel('cpf', 'CPF')}
+            <Input value={form.cpf} onChange={(e) => updateField('cpf', e.target.value)} disabled={!editing} className="mt-1" placeholder="000.000.000-00" />
+          </div>
+          <div>
+            {fieldLabel('cpf_cnpj', 'CNPJ')}
+            <Input value={form.cpf_cnpj} onChange={(e) => updateField('cpf_cnpj', e.target.value)} disabled={!editing} className="mt-1" placeholder="00.000.000/0000-00" />
           </div>
           <div>
             {fieldLabel('state_registration', 'Inscrição Estadual')}
@@ -429,6 +453,9 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
           />
         </CardContent>
       </Card>
+
+      {/* Quotes attached to this client */}
+      <ClientQuotesList leadId={lead.id} />
     </div>
   );
 }

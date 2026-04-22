@@ -21,9 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { FileText, Download, Send, Trash2, Package, Phone, Save, Search } from 'lucide-react';
+import { FileText, Download, Send, Trash2, Package, Phone, Save, Search, CheckCircle2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import type { Product } from '@/components/manager/ProductsManager';
+import { useDraftPersistence } from '@/hooks/useDraftPersistence';
 
 interface ManualQuoteModalProps {
   open: boolean;
@@ -62,6 +63,29 @@ export function ManualQuoteModal({ open, onClose, leads = [], prefillLead, onQuo
   const [discountPercent, setDiscountPercent] = useState<string>('');
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savedQuoteId, setSavedQuoteId] = useState<string | null>(null);
+  const [createdLeadIdLocal, setCreatedLeadIdLocal] = useState<string | null>(null);
+
+  // Persist draft so user doesn't lose data when switching browser tabs
+  const draftKey = open ? `manual-quote-draft-${prefillLead?.id || 'new'}` : null;
+  const draftValue = useMemo(
+    () => ({ clientName, companyName, phone, linkedLeadId, items, notes, discountPercent }),
+    [clientName, companyName, phone, linkedLeadId, items, notes, discountPercent],
+  );
+  const { clear: clearDraft } = useDraftPersistence(
+    draftKey,
+    draftValue,
+    (saved) => {
+      if (saved.clientName !== undefined) setClientName(saved.clientName);
+      if (saved.companyName !== undefined) setCompanyName(saved.companyName);
+      if (saved.phone !== undefined) setPhone(saved.phone);
+      if (saved.linkedLeadId !== undefined) setLinkedLeadId(saved.linkedLeadId);
+      if (Array.isArray(saved.items)) setItems(saved.items);
+      if (saved.notes !== undefined) setNotes(saved.notes);
+      if (saved.discountPercent !== undefined) setDiscountPercent(saved.discountPercent);
+    },
+    open,
+  );
 
   // Load products
   useEffect(() => {
@@ -78,21 +102,22 @@ export function ManualQuoteModal({ open, onClose, leads = [], prefillLead, onQuo
       });
   }, [open]);
 
-  // Prefill from lead if provided
+  // Prefill from lead when opening; reset when modal closes
   useEffect(() => {
     if (open && prefillLead) {
       setClientName(prefillLead.name || '');
       setCompanyName(prefillLead.company || '');
       setPhone(prefillLead.whatsapp || '');
       setLinkedLeadId(prefillLead.id);
+      setSavedQuoteId(null);
+      setCreatedLeadIdLocal(null);
     } else if (open && !prefillLead) {
-      setClientName('');
-      setCompanyName('');
-      setPhone('');
-      setLinkedLeadId('none');
-      setItems([]);
-      setNotes('');
-      setDiscountPercent('');
+      // Don't wipe items/notes here — useDraftPersistence will load them.
+      setSavedQuoteId(null);
+      setCreatedLeadIdLocal(null);
+    }
+    if (!open) {
+      // Reset when modal closes so a fresh open starts clean (draft restore still works).
       setLeadSearch('');
     }
   }, [open, prefillLead]);
@@ -426,8 +451,8 @@ export function ManualQuoteModal({ open, onClose, leads = [], prefillLead, onQuo
     return doc;
   };
 
-  const persistQuote = async (createdLeadId?: string) => {
-    if (!user) return;
+  const persistQuote = async (createdLeadId?: string): Promise<string | null> => {
+    if (!user) return null;
     const payload = {
       user_id: user.id,
       lead_id: createdLeadId || (linkedLeadId !== 'none' ? linkedLeadId : null),
@@ -438,8 +463,12 @@ export function ManualQuoteModal({ open, onClose, leads = [], prefillLead, onQuo
       total,
       notes: notes.trim() || null,
     };
-    const { error } = await supabase.from('manual_quotes').insert(payload);
-    if (error) console.error('Error saving manual quote:', error);
+    const { data, error } = await supabase.from('manual_quotes').insert(payload).select('id').single();
+    if (error) {
+      console.error('Error saving manual quote:', error);
+      return null;
+    }
+    return data?.id || null;
   };
 
   // Create a Lead in 'proposta' stage with lead_source='orcamento_manual'
@@ -509,15 +538,21 @@ export function ManualQuoteModal({ open, onClose, leads = [], prefillLead, onQuo
         setSaving(false);
         return;
       }
+      setCreatedLeadIdLocal(leadIdToLink);
     }
-    await persistQuote(leadIdToLink);
+    const quoteId = await persistQuote(leadIdToLink);
     setSaving(false);
-    toast({
-      title: 'Orçamento salvo',
-      description: 'Card criado em Proposta como "Orçamento Manual".',
-    });
-    onQuoteSaved?.();
-    onClose();
+    if (quoteId) {
+      setSavedQuoteId(quoteId);
+      clearDraft();
+      toast({
+        title: 'Orçamento salvo',
+        description: 'Card criado em Proposta. Você pode baixar o PDF agora.',
+      });
+      onQuoteSaved?.();
+    } else {
+      toast({ title: 'Erro ao salvar orçamento', variant: 'destructive' });
+    }
   };
 
   const handleDownload = async () => {
@@ -526,7 +561,11 @@ export function ManualQuoteModal({ open, onClose, leads = [], prefillLead, onQuo
     setSaving(true);
     const safeName = clientName.replace(/\s+/g, '-').toLowerCase();
     doc.save(`orcamento-${safeName}-${new Date().toISOString().split('T')[0]}.pdf`);
-    await persistQuote();
+    // Only persist a new quote row if not yet saved (avoid duplicates after Save).
+    if (!savedQuoteId) {
+      const quoteId = await persistQuote();
+      if (quoteId) setSavedQuoteId(quoteId);
+    }
     setSaving(false);
     toast({ title: 'Orçamento gerado', description: 'PDF baixado e registrado com sucesso.' });
   };
@@ -541,7 +580,10 @@ export function ManualQuoteModal({ open, onClose, leads = [], prefillLead, onQuo
     setSaving(true);
     const safeName = clientName.replace(/\s+/g, '-').toLowerCase();
     doc.save(`orcamento-${safeName}-${new Date().toISOString().split('T')[0]}.pdf`);
-    await persistQuote();
+    if (!savedQuoteId) {
+      const quoteId = await persistQuote();
+      if (quoteId) setSavedQuoteId(quoteId);
+    }
 
     const cleaned = cleanPhoneNumber(phone);
     const message = encodeURIComponent(
@@ -792,12 +834,40 @@ export function ManualQuoteModal({ open, onClose, leads = [], prefillLead, onQuo
             </Button>
             <Button
               onClick={handleSaveQuoteAsLead}
-              disabled={items.length === 0 || saving}
+              disabled={items.length === 0 || saving || !!savedQuoteId}
               className="flex-1 min-w-[180px] gap-2"
             >
-              <Save size={16} /> Salvar Orçamento
+              {savedQuoteId ? (
+                <><CheckCircle2 size={16} /> Orçamento salvo</>
+              ) : (
+                <><Save size={16} /> Salvar Orçamento</>
+              )}
             </Button>
           </div>
+
+          {savedQuoteId && (
+            <div className="rounded-lg border border-success/40 bg-success/10 p-3 flex items-start gap-3">
+              <CheckCircle2 size={18} className="text-success shrink-0 mt-0.5" />
+              <div className="flex-1 text-sm">
+                <p className="font-semibold text-foreground">Orçamento salvo com sucesso</p>
+                <p className="text-xs text-muted-foreground">
+                  O card foi criado na coluna <strong>Proposta</strong> e o orçamento ficará anexado à ficha do cliente.
+                  Você pode baixar o PDF agora ou fechar esta janela.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  clearDraft();
+                  onClose();
+                }}
+              >
+                Fechar
+              </Button>
+            </div>
+          )}
+
           <p className="text-xs text-muted-foreground -mt-2">
             "Salvar Orçamento" cria um card na coluna <strong>Proposta</strong> do pipeline do gestor com status <strong>Orçamento Manual</strong>.
           </p>
