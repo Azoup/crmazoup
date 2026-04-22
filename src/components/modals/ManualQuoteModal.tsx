@@ -79,21 +79,22 @@ export function ManualQuoteModal({ open, onClose, leads = [], prefillLead, onQuo
       });
   }, [open]);
 
-  // Prefill from lead if provided
+  // Prefill from lead when opening; reset when modal closes
   useEffect(() => {
     if (open && prefillLead) {
       setClientName(prefillLead.name || '');
       setCompanyName(prefillLead.company || '');
       setPhone(prefillLead.whatsapp || '');
       setLinkedLeadId(prefillLead.id);
+      setSavedQuoteId(null);
+      setCreatedLeadIdLocal(null);
     } else if (open && !prefillLead) {
-      setClientName('');
-      setCompanyName('');
-      setPhone('');
-      setLinkedLeadId('none');
-      setItems([]);
-      setNotes('');
-      setDiscountPercent('');
+      // Don't wipe items/notes here — useDraftPersistence will load them.
+      setSavedQuoteId(null);
+      setCreatedLeadIdLocal(null);
+    }
+    if (!open) {
+      // Reset when modal closes so a fresh open starts clean (draft restore still works).
       setLeadSearch('');
     }
   }, [open, prefillLead]);
