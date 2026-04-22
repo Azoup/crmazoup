@@ -191,8 +191,11 @@ export function ClientInfoForm({ lead, onSave, allLeads }: ClientInfoFormProps) 
 
     const dup = checkDuplicate();
     if (dup) {
-      toast({ title: '⚠️ Possível duplicata', description: `Lead "${dup.name}" possui dados similares. Verifique antes de salvar.`, variant: 'destructive' });
-      return;
+      // Apenas avisa — não bloqueia o salvamento (gestor decide)
+      toast({
+        title: 'Aviso: possível duplicata',
+        description: `Lead "${dup.name}" possui dados similares. Salvando mesmo assim.`,
+      });
     }
 
     setSaving(true);
