@@ -451,8 +451,8 @@ export function ManualQuoteModal({ open, onClose, leads = [], prefillLead, onQuo
     return doc;
   };
 
-  const persistQuote = async (createdLeadId?: string) => {
-    if (!user) return;
+  const persistQuote = async (createdLeadId?: string): Promise<string | null> => {
+    if (!user) return null;
     const payload = {
       user_id: user.id,
       lead_id: createdLeadId || (linkedLeadId !== 'none' ? linkedLeadId : null),
@@ -463,8 +463,12 @@ export function ManualQuoteModal({ open, onClose, leads = [], prefillLead, onQuo
       total,
       notes: notes.trim() || null,
     };
-    const { error } = await supabase.from('manual_quotes').insert(payload);
-    if (error) console.error('Error saving manual quote:', error);
+    const { data, error } = await supabase.from('manual_quotes').insert(payload).select('id').single();
+    if (error) {
+      console.error('Error saving manual quote:', error);
+      return null;
+    }
+    return data?.id || null;
   };
 
   // Create a Lead in 'proposta' stage with lead_source='orcamento_manual'
@@ -534,15 +538,21 @@ export function ManualQuoteModal({ open, onClose, leads = [], prefillLead, onQuo
         setSaving(false);
         return;
       }
+      setCreatedLeadIdLocal(leadIdToLink);
     }
-    await persistQuote(leadIdToLink);
+    const quoteId = await persistQuote(leadIdToLink);
     setSaving(false);
-    toast({
-      title: 'Orçamento salvo',
-      description: 'Card criado em Proposta como "Orçamento Manual".',
-    });
-    onQuoteSaved?.();
-    onClose();
+    if (quoteId) {
+      setSavedQuoteId(quoteId);
+      clearDraft();
+      toast({
+        title: 'Orçamento salvo',
+        description: 'Card criado em Proposta. Você pode baixar o PDF agora.',
+      });
+      onQuoteSaved?.();
+    } else {
+      toast({ title: 'Erro ao salvar orçamento', variant: 'destructive' });
+    }
   };
 
   const handleDownload = async () => {
@@ -551,7 +561,11 @@ export function ManualQuoteModal({ open, onClose, leads = [], prefillLead, onQuo
     setSaving(true);
     const safeName = clientName.replace(/\s+/g, '-').toLowerCase();
     doc.save(`orcamento-${safeName}-${new Date().toISOString().split('T')[0]}.pdf`);
-    await persistQuote();
+    // Only persist a new quote row if not yet saved (avoid duplicates after Save).
+    if (!savedQuoteId) {
+      const quoteId = await persistQuote();
+      if (quoteId) setSavedQuoteId(quoteId);
+    }
     setSaving(false);
     toast({ title: 'Orçamento gerado', description: 'PDF baixado e registrado com sucesso.' });
   };
