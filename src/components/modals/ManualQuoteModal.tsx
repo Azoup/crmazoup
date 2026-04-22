@@ -63,6 +63,29 @@ export function ManualQuoteModal({ open, onClose, leads = [], prefillLead, onQuo
   const [discountPercent, setDiscountPercent] = useState<string>('');
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savedQuoteId, setSavedQuoteId] = useState<string | null>(null);
+  const [createdLeadIdLocal, setCreatedLeadIdLocal] = useState<string | null>(null);
+
+  // Persist draft so user doesn't lose data when switching browser tabs
+  const draftKey = open ? `manual-quote-draft-${prefillLead?.id || 'new'}` : null;
+  const draftValue = useMemo(
+    () => ({ clientName, companyName, phone, linkedLeadId, items, notes, discountPercent }),
+    [clientName, companyName, phone, linkedLeadId, items, notes, discountPercent],
+  );
+  const { clear: clearDraft } = useDraftPersistence(
+    draftKey,
+    draftValue,
+    (saved) => {
+      if (saved.clientName !== undefined) setClientName(saved.clientName);
+      if (saved.companyName !== undefined) setCompanyName(saved.companyName);
+      if (saved.phone !== undefined) setPhone(saved.phone);
+      if (saved.linkedLeadId !== undefined) setLinkedLeadId(saved.linkedLeadId);
+      if (Array.isArray(saved.items)) setItems(saved.items);
+      if (saved.notes !== undefined) setNotes(saved.notes);
+      if (saved.discountPercent !== undefined) setDiscountPercent(saved.discountPercent);
+    },
+    open,
+  );
 
   // Load products
   useEffect(() => {
