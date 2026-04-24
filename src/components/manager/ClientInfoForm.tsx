@@ -16,7 +16,7 @@ import { downloadClientFichaPdf } from '@/lib/clientFichaPdf';
 const buildLeadForm = (lead: Lead) => ({
   name: lead.name || '',
   whatsapp: lead.whatsapp || '',
-  email: (lead as any).signer_email || lead.email || '',
+  email: lead.email || '',
   company: lead.company || '',
   cpf: (lead as any).cpf || '',
   cpf_cnpj: lead.cpf_cnpj || '',
@@ -25,6 +25,7 @@ const buildLeadForm = (lead: Lead) => ({
   implementation_responsible_phone: (lead as any).implementation_responsible_phone || '',
   signer_name: lead.signer_name || lead.name || '',
   signer_phone: (lead as any).signer_phone || lead.whatsapp || '',
+  signer_email: (lead as any).signer_email || '',
   birthdate: lead.birthdate || '',
   address: lead.address || '',
   client_observations: lead.client_observations || '',
@@ -118,6 +119,7 @@ export function ClientInfoForm({ lead, onSave, allLeads, quotesRefreshKey = 0 }:
     implementation_responsible_phone: '',
     signer_name: '',
     signer_phone: '',
+    signer_email: '',
     birthdate: '',
     address: '',
     client_observations: '',
@@ -135,6 +137,17 @@ export function ClientInfoForm({ lead, onSave, allLeads, quotesRefreshKey = 0 }:
     (saved) => setForm((prev) => ({ ...prev, ...saved })),
     editing,
   );
+
+  useEffect(() => {
+    if (!lead) return;
+    try {
+      if (localStorage.getItem(`ficha-draft-${lead.id}`)) {
+        setEditing(true);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [lead]);
 
   useEffect(() => {
     if (lead && !editing) {
