@@ -189,8 +189,20 @@ export function ClientInfoForm({ lead, onSave, allLeads, quotesRefreshKey = 0 }:
       toast({ title: 'Erro', description: 'E-mail inválido', variant: 'destructive' });
       return;
     }
+    if (form.signer_email && !validateEmail(form.signer_email)) {
+      toast({ title: 'Erro', description: 'E-mail da pessoa que assina inválido', variant: 'destructive' });
+      return;
+    }
     if (form.whatsapp && !validatePhone(form.whatsapp)) {
       toast({ title: 'Erro', description: 'Telefone inválido (10-11 dígitos)', variant: 'destructive' });
+      return;
+    }
+    if (form.signer_phone && !validatePhone(form.signer_phone)) {
+      toast({ title: 'Erro', description: 'Telefone da pessoa que assina inválido (10-11 dígitos)', variant: 'destructive' });
+      return;
+    }
+    if (form.implementation_responsible_phone && !validatePhone(form.implementation_responsible_phone)) {
+      toast({ title: 'Erro', description: 'Telefone do responsável pela implantação inválido (10-11 dígitos)', variant: 'destructive' });
       return;
     }
     if (form.cpf) {
@@ -230,7 +242,7 @@ export function ClientInfoForm({ lead, onSave, allLeads, quotesRefreshKey = 0 }:
       implementation_responsible_phone: form.implementation_responsible_phone || null,
       signer_name: form.signer_name || null,
       signer_phone: form.signer_phone || null,
-      signer_email: form.email || null,
+      signer_email: form.signer_email || null,
       birthdate: form.birthdate || null,
       address: form.address || null,
       client_observations: form.client_observations || null,
@@ -362,8 +374,8 @@ export function ClientInfoForm({ lead, onSave, allLeads, quotesRefreshKey = 0 }:
             <Input value={form.signer_phone} onChange={(e) => updateField('signer_phone', e.target.value)} disabled={!editing} className="mt-1" placeholder="(11) 99999-9999" />
           </div>
           <div>
-            {fieldLabel('email', 'E-mail')}
-            <Input value={form.email} onChange={(e) => updateField('email', e.target.value)} disabled={!editing} className="mt-1" type="email" />
+            {fieldLabel('signer_email', 'E-mail')}
+            <Input value={form.signer_email} onChange={(e) => updateField('signer_email', e.target.value)} disabled={!editing} className="mt-1" type="email" />
           </div>
           <div>
             {fieldLabel('birthdate', 'Data de Nascimento')}
@@ -445,7 +457,7 @@ export function ClientInfoForm({ lead, onSave, allLeads, quotesRefreshKey = 0 }:
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
-            <FileText size={16} className="text-primary" /> Dados Contratuais
+            <FileText size={16} className="text-primary" /> Responsável pela Implantação
           </CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
