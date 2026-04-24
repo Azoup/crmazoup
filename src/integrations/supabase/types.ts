@@ -30,6 +30,7 @@ export type Database = {
           history: Json | null
           id: string
           implementation_responsible: string | null
+          implementation_responsible_phone: string | null
           implementation_value: number | null
           is_new: boolean | null
           last_contact: string | null
@@ -47,7 +48,9 @@ export type Database = {
           pieces_per_month: number | null
           reference_month: string | null
           responsible_user_id: string | null
+          signer_email: string | null
           signer_name: string | null
+          signer_phone: string | null
           signer_role: string | null
           stage: string
           state_registration: string | null
@@ -73,6 +76,7 @@ export type Database = {
           history?: Json | null
           id?: string
           implementation_responsible?: string | null
+          implementation_responsible_phone?: string | null
           implementation_value?: number | null
           is_new?: boolean | null
           last_contact?: string | null
@@ -90,7 +94,9 @@ export type Database = {
           pieces_per_month?: number | null
           reference_month?: string | null
           responsible_user_id?: string | null
+          signer_email?: string | null
           signer_name?: string | null
+          signer_phone?: string | null
           signer_role?: string | null
           stage?: string
           state_registration?: string | null
@@ -116,6 +122,7 @@ export type Database = {
           history?: Json | null
           id?: string
           implementation_responsible?: string | null
+          implementation_responsible_phone?: string | null
           implementation_value?: number | null
           is_new?: boolean | null
           last_contact?: string | null
@@ -133,7 +140,9 @@ export type Database = {
           pieces_per_month?: number | null
           reference_month?: string | null
           responsible_user_id?: string | null
+          signer_email?: string | null
           signer_name?: string | null
+          signer_phone?: string | null
           signer_role?: string | null
           stage?: string
           state_registration?: string | null
