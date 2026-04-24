@@ -62,8 +62,8 @@ export function Dashboard() {
 
   // Hook to monitor past meetings and prompt for status
   const { pendingReminder, dismissReminder, clearReminder } = useMeetingReminder(leads);
-  // Proposal reminder only for managers
-  const { pendingProposal, dismissProposalReminder } = useProposalReminder(isManager ? leads : []);
+  // Proposal reminder desativado para o gestor (sem pop-ups de retorno na aba gestor)
+  const { pendingProposal, dismissProposalReminder } = useProposalReminder([]);
   // 15-min pre-meeting alert
   const { alertLead, dismissAlert } = useMeetingAlert(leads);
   // Return contact reminder

@@ -8,9 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { User, Building2, FileText, MessageSquare, Search, Save, Edit, RefreshCw, Database, Package } from 'lucide-react';
+import { User, Building2, FileText, MessageSquare, Search, Save, Edit, RefreshCw, Database, Package, Download } from 'lucide-react';
 import { useDraftPersistence } from '@/hooks/useDraftPersistence';
 import { ClientQuotesList } from '@/components/manager/ClientQuotesList';
+import { downloadClientFichaPdf } from '@/lib/clientFichaPdf';
 
 const PLANS = [
   {
@@ -274,6 +275,22 @@ export function ClientInfoForm({ lead, onSave, allLeads, quotesRefreshKey = 0 }:
           }}
         >
           <RefreshCw size={14} /> Buscar no CRM
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={async () => {
+            try {
+              await downloadClientFichaPdf(lead);
+              toast({ title: '📄 PDF gerado', description: 'Ficha do cliente baixada com sucesso.' });
+            } catch (err) {
+              console.error(err);
+              toast({ title: 'Erro ao gerar PDF', description: 'Tente novamente.', variant: 'destructive' });
+            }
+          }}
+        >
+          <Download size={14} /> PDF da Ficha
         </Button>
         {!editing ? (
           <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setEditing(true)}>
