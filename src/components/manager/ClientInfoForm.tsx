@@ -13,6 +13,27 @@ import { useDraftPersistence } from '@/hooks/useDraftPersistence';
 import { ClientQuotesList } from '@/components/manager/ClientQuotesList';
 import { downloadClientFichaPdf } from '@/lib/clientFichaPdf';
 
+const buildLeadForm = (lead: Lead) => ({
+  name: lead.name || '',
+  whatsapp: lead.whatsapp || '',
+  email: (lead as any).signer_email || lead.email || '',
+  company: lead.company || '',
+  cpf: (lead as any).cpf || '',
+  cpf_cnpj: lead.cpf_cnpj || '',
+  state_registration: lead.state_registration || '',
+  implementation_responsible: lead.implementation_responsible || '',
+  implementation_responsible_phone: (lead as any).implementation_responsible_phone || '',
+  signer_name: lead.signer_name || lead.name || '',
+  signer_phone: (lead as any).signer_phone || lead.whatsapp || '',
+  birthdate: lead.birthdate || '',
+  address: lead.address || '',
+  client_observations: lead.client_observations || '',
+  confection_type: lead.confection_type || '',
+  pieces_per_month: lead.pieces_per_month ? String(lead.pieces_per_month) : '',
+  implementation_value: lead.implementation_value ? String(lead.implementation_value) : '',
+  monthly_value: lead.monthly_value ? String(lead.monthly_value) : '',
+});
+
 const PLANS = [
   {
     id: 'basic',
@@ -94,8 +115,9 @@ export function ClientInfoForm({ lead, onSave, allLeads, quotesRefreshKey = 0 }:
     cpf_cnpj: '',
     state_registration: '',
     implementation_responsible: '',
+    implementation_responsible_phone: '',
     signer_name: '',
-    signer_role: '',
+    signer_phone: '',
     birthdate: '',
     address: '',
     client_observations: '',
@@ -117,25 +139,7 @@ export function ClientInfoForm({ lead, onSave, allLeads, quotesRefreshKey = 0 }:
   useEffect(() => {
     if (lead) {
       const sources = new Set<string>();
-      const newForm = {
-        name: lead.name || '',
-        whatsapp: lead.whatsapp || '',
-        email: lead.email || '',
-        company: lead.company || '',
-        cpf: (lead as any).cpf || '',
-        cpf_cnpj: lead.cpf_cnpj || '',
-        state_registration: lead.state_registration || '',
-        implementation_responsible: lead.implementation_responsible || '',
-        signer_name: lead.signer_name || '',
-        signer_role: lead.signer_role || '',
-        birthdate: lead.birthdate || '',
-        address: lead.address || '',
-        client_observations: lead.client_observations || '',
-        confection_type: lead.confection_type || '',
-        pieces_per_month: lead.pieces_per_month ? String(lead.pieces_per_month) : '',
-        implementation_value: lead.implementation_value ? String(lead.implementation_value) : '',
-        monthly_value: lead.monthly_value ? String(lead.monthly_value) : '',
-      };
+      const newForm = buildLeadForm(lead);
 
       Object.entries(newForm).forEach(([key, val]) => {
         if (val) sources.add(key);
@@ -210,8 +214,12 @@ export function ClientInfoForm({ lead, onSave, allLeads, quotesRefreshKey = 0 }:
       cpf_cnpj: form.cpf_cnpj || null,
       state_registration: form.state_registration || null,
       implementation_responsible: form.implementation_responsible || null,
+      implementation_responsible_phone: form.implementation_responsible_phone || null,
       signer_name: form.signer_name || null,
-      signer_role: form.signer_role || null,
+      signer_phone: form.signer_phone || null,
+      signer_email: form.email || null,
+      email: form.email || null,
+      whatsapp: form.whatsapp || null,
       birthdate: form.birthdate || null,
       address: form.address || null,
       client_observations: form.client_observations || null,
@@ -253,23 +261,7 @@ export function ClientInfoForm({ lead, onSave, allLeads, quotesRefreshKey = 0 }:
           onClick={() => {
             // Re-load from lead
             setForm({
-              name: lead.name || '',
-              whatsapp: lead.whatsapp || '',
-              email: lead.email || '',
-              company: lead.company || '',
-              cpf: (lead as any).cpf || '',
-              cpf_cnpj: lead.cpf_cnpj || '',
-              state_registration: lead.state_registration || '',
-              implementation_responsible: lead.implementation_responsible || '',
-              signer_name: lead.signer_name || '',
-              signer_role: lead.signer_role || '',
-              birthdate: lead.birthdate || '',
-              address: lead.address || '',
-              client_observations: lead.client_observations || '',
-              confection_type: lead.confection_type || '',
-              pieces_per_month: lead.pieces_per_month ? String(lead.pieces_per_month) : '',
-              implementation_value: lead.implementation_value ? String(lead.implementation_value) : '',
-              monthly_value: lead.monthly_value ? String(lead.monthly_value) : '',
+              ...buildLeadForm(lead),
             });
             toast({ title: 'Dados atualizados do CRM' });
           }}
@@ -303,38 +295,7 @@ export function ClientInfoForm({ lead, onSave, allLeads, quotesRefreshKey = 0 }:
         )}
       </div>
 
-      {/* Block 1: Dados Pessoais */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <User size={16} className="text-primary" /> Dados Pessoais
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            {fieldLabel('name', 'Nome do Cliente', true)}
-            <Input value={form.name} onChange={(e) => updateField('name', e.target.value)} disabled={!editing} className="mt-1" />
-          </div>
-          <div>
-            {fieldLabel('whatsapp', 'Telefone')}
-            <Input value={form.whatsapp} onChange={(e) => updateField('whatsapp', e.target.value)} disabled={!editing} className="mt-1" placeholder="(11) 99999-9999" />
-          </div>
-          <div>
-            {fieldLabel('email', 'E-mail')}
-            <Input value={form.email} onChange={(e) => updateField('email', e.target.value)} disabled={!editing} className="mt-1" type="email" />
-          </div>
-          <div>
-            {fieldLabel('birthdate', 'Data de Nascimento')}
-            <Input value={form.birthdate} onChange={(e) => updateField('birthdate', e.target.value)} disabled={!editing} className="mt-1" type="date" />
-          </div>
-          <div className="md:col-span-2">
-            {fieldLabel('address', 'Endereço')}
-            <Input value={form.address} onChange={(e) => updateField('address', e.target.value)} disabled={!editing} className="mt-1" placeholder="Rua, número, bairro, cidade - UF" />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Block 2: Dados da Empresa */}
+      {/* Block 1: Dados da Empresa */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
@@ -347,8 +308,8 @@ export function ClientInfoForm({ lead, onSave, allLeads, quotesRefreshKey = 0 }:
             <Input value={form.company} onChange={(e) => updateField('company', e.target.value)} disabled={!editing} className="mt-1" />
           </div>
           <div>
-            {fieldLabel('cpf', 'CPF')}
-            <Input value={form.cpf} onChange={(e) => updateField('cpf', e.target.value)} disabled={!editing} className="mt-1" placeholder="000.000.000-00" />
+            {fieldLabel('email', 'E-mail da Empresa')}
+            <Input value={form.email} onChange={(e) => updateField('email', e.target.value)} disabled={!editing} className="mt-1" type="email" />
           </div>
           <div>
             {fieldLabel('cpf_cnpj', 'CNPJ')}
@@ -365,6 +326,41 @@ export function ClientInfoForm({ lead, onSave, allLeads, quotesRefreshKey = 0 }:
           <div>
             {fieldLabel('pieces_per_month', 'Peças por Mês')}
             <Input value={form.pieces_per_month} onChange={(e) => updateField('pieces_per_month', e.target.value)} disabled={!editing} className="mt-1" type="number" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Block 2: Dados da Pessoa que Assina */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <User size={16} className="text-primary" /> Dados da Pessoa que Assina
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            {fieldLabel('signer_name', 'Nome Completo', true)}
+            <Input value={form.signer_name} onChange={(e) => updateField('signer_name', e.target.value)} disabled={!editing} className="mt-1" />
+          </div>
+          <div>
+            {fieldLabel('cpf', 'CPF')}
+            <Input value={form.cpf} onChange={(e) => updateField('cpf', e.target.value)} disabled={!editing} className="mt-1" placeholder="000.000.000-00" />
+          </div>
+          <div>
+            {fieldLabel('signer_phone', 'Telefone')}
+            <Input value={form.signer_phone} onChange={(e) => updateField('signer_phone', e.target.value)} disabled={!editing} className="mt-1" placeholder="(11) 99999-9999" />
+          </div>
+          <div>
+            {fieldLabel('email', 'E-mail')}
+            <Input value={form.email} onChange={(e) => updateField('email', e.target.value)} disabled={!editing} className="mt-1" type="email" />
+          </div>
+          <div>
+            {fieldLabel('birthdate', 'Data de Nascimento')}
+            <Input value={form.birthdate} onChange={(e) => updateField('birthdate', e.target.value)} disabled={!editing} className="mt-1" type="date" />
+          </div>
+          <div className="md:col-span-2">
+            {fieldLabel('address', 'Endereço')}
+            <Input value={form.address} onChange={(e) => updateField('address', e.target.value)} disabled={!editing} className="mt-1" placeholder="Rua, número, bairro, cidade - UF" />
           </div>
         </CardContent>
       </Card>
@@ -434,7 +430,7 @@ export function ClientInfoForm({ lead, onSave, allLeads, quotesRefreshKey = 0 }:
         </CardContent>
       </Card>
 
-      {/* Block 4: Dados Contratuais */}
+      {/* Block 4: Responsável pela Implantação */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
@@ -443,16 +439,12 @@ export function ClientInfoForm({ lead, onSave, allLeads, quotesRefreshKey = 0 }:
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            {fieldLabel('implementation_responsible', 'Responsável pela Implantação')}
+            {fieldLabel('implementation_responsible', 'Nome do Responsável pela Implantação')}
             <Input value={form.implementation_responsible} onChange={(e) => updateField('implementation_responsible', e.target.value)} disabled={!editing} className="mt-1" />
           </div>
           <div>
-            {fieldLabel('signer_name', 'Pessoa que Assina')}
-            <Input value={form.signer_name} onChange={(e) => updateField('signer_name', e.target.value)} disabled={!editing} className="mt-1" />
-          </div>
-          <div>
-            {fieldLabel('signer_role', 'Cargo da Pessoa que Assina')}
-            <Input value={form.signer_role} onChange={(e) => updateField('signer_role', e.target.value)} disabled={!editing} className="mt-1" />
+            {fieldLabel('implementation_responsible_phone', 'Telefone do Responsável')}
+            <Input value={form.implementation_responsible_phone} onChange={(e) => updateField('implementation_responsible_phone', e.target.value)} disabled={!editing} className="mt-1" placeholder="(11) 99999-9999" />
           </div>
         </CardContent>
       </Card>
