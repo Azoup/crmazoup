@@ -137,7 +137,7 @@ export function ClientInfoForm({ lead, onSave, allLeads, quotesRefreshKey = 0 }:
   );
 
   useEffect(() => {
-    if (lead) {
+    if (lead && !editing) {
       const sources = new Set<string>();
       const newForm = buildLeadForm(lead);
 
@@ -148,7 +148,7 @@ export function ClientInfoForm({ lead, onSave, allLeads, quotesRefreshKey = 0 }:
       setForm(newForm);
       setCrmSource(sources);
     }
-  }, [lead]);
+  }, [lead, editing]);
 
   const updateField = (key: string, value: string) => {
     setForm(prev => ({ ...prev, [key]: value }));
