@@ -218,8 +218,6 @@ export function ClientInfoForm({ lead, onSave, allLeads, quotesRefreshKey = 0 }:
       signer_name: form.signer_name || null,
       signer_phone: form.signer_phone || null,
       signer_email: form.email || null,
-      email: form.email || null,
-      whatsapp: form.whatsapp || null,
       birthdate: form.birthdate || null,
       address: form.address || null,
       client_observations: form.client_observations || null,
