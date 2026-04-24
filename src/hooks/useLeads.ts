@@ -351,6 +351,17 @@ export function useLeads() {
       if (updates.meeting_status !== undefined) updatePayload.meeting_status = updates.meeting_status ?? null;
       if (updates.pieces_per_month !== undefined) updatePayload.pieces_per_month = updates.pieces_per_month ?? null;
       if (updates.responsible_user_id !== undefined) updatePayload.responsible_user_id = updates.responsible_user_id ?? null;
+      // Client file (Ficha do Cliente) fields
+      if ((updates as any).cpf !== undefined) updatePayload.cpf = (updates as any).cpf ?? null;
+      if (updates.cpf_cnpj !== undefined) updatePayload.cpf_cnpj = updates.cpf_cnpj ?? null;
+      if (updates.state_registration !== undefined) updatePayload.state_registration = updates.state_registration ?? null;
+      if (updates.implementation_responsible !== undefined) updatePayload.implementation_responsible = updates.implementation_responsible ?? null;
+      if (updates.signer_name !== undefined) updatePayload.signer_name = updates.signer_name ?? null;
+      if (updates.signer_role !== undefined) updatePayload.signer_role = updates.signer_role ?? null;
+      if (updates.birthdate !== undefined) updatePayload.birthdate = updates.birthdate ?? null;
+      if (updates.address !== undefined) updatePayload.address = updates.address ?? null;
+      if (updates.client_observations !== undefined) updatePayload.client_observations = updates.client_observations ?? null;
+      if (updates.manager_notes !== undefined) updatePayload.manager_notes = updates.manager_notes ?? null;
 
       const { error } = await supabase
         .from('leads')
