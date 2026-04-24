@@ -52,7 +52,10 @@ export interface Lead {
   cpf_cnpj?: string | null;
   state_registration?: string | null;
   implementation_responsible?: string | null;
+  implementation_responsible_phone?: string | null;
   signer_name?: string | null;
+  signer_phone?: string | null;
+  signer_email?: string | null;
   signer_role?: string | null;
   birthdate?: string | null;
   address?: string | null;
