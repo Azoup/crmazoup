@@ -15,12 +15,13 @@ export function useDraftPersistence<T>(
   enabled = true,
 ) {
   const loadedRef = useRef(false);
+  const lastKeyRef = useRef<string | null>(null);
   const onLoadRef = useRef(onLoad);
   onLoadRef.current = onLoad;
 
   // Load on mount / when key changes
   useEffect(() => {
-    if (!enabled || !key) return;
+    if (!key) return;
     loadedRef.current = false;
     try {
       const raw = localStorage.getItem(key);
@@ -31,15 +32,17 @@ export function useDraftPersistence<T>(
     } catch {
       /* ignore */
     }
+    lastKeyRef.current = key;
     loadedRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, enabled]);
+  }, [key]);
 
   // Save on every change after initial load
   useEffect(() => {
-    if (!enabled || !key || !loadedRef.current) return;
+    const storageKey = key ?? lastKeyRef.current;
+    if (!enabled || !storageKey || !loadedRef.current) return;
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      localStorage.setItem(storageKey, JSON.stringify(value));
     } catch {
       /* quota exceeded — silently ignore */
     }

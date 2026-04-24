@@ -68,6 +68,18 @@ function transformDbLead(dbLead: any): Lead {
     pieces_per_month: dbLead.pieces_per_month != null ? Number(dbLead.pieces_per_month) : null,
     responsible_user_id: dbLead.responsible_user_id ?? null,
     lead_source: dbLead.lead_source ?? 'marketing',
+      cpf: dbLead.cpf ?? null,
+      cpf_cnpj: dbLead.cpf_cnpj ?? null,
+      state_registration: dbLead.state_registration ?? null,
+      implementation_responsible: dbLead.implementation_responsible ?? null,
+      implementation_responsible_phone: (dbLead as any).implementation_responsible_phone ?? null,
+      signer_name: dbLead.signer_name ?? null,
+      signer_phone: (dbLead as any).signer_phone ?? null,
+      signer_email: (dbLead as any).signer_email ?? null,
+      signer_role: dbLead.signer_role ?? null,
+      birthdate: dbLead.birthdate ?? null,
+      address: dbLead.address ?? null,
+      client_observations: dbLead.client_observations ?? null,
   };
 }
 
@@ -356,7 +368,10 @@ export function useLeads() {
       if (updates.cpf_cnpj !== undefined) updatePayload.cpf_cnpj = updates.cpf_cnpj ?? null;
       if (updates.state_registration !== undefined) updatePayload.state_registration = updates.state_registration ?? null;
       if (updates.implementation_responsible !== undefined) updatePayload.implementation_responsible = updates.implementation_responsible ?? null;
+      if ((updates as any).implementation_responsible_phone !== undefined) updatePayload.implementation_responsible_phone = (updates as any).implementation_responsible_phone ?? null;
       if (updates.signer_name !== undefined) updatePayload.signer_name = updates.signer_name ?? null;
+      if ((updates as any).signer_phone !== undefined) updatePayload.signer_phone = (updates as any).signer_phone ?? null;
+      if ((updates as any).signer_email !== undefined) updatePayload.signer_email = (updates as any).signer_email ?? null;
       if (updates.signer_role !== undefined) updatePayload.signer_role = updates.signer_role ?? null;
       if (updates.birthdate !== undefined) updatePayload.birthdate = updates.birthdate ?? null;
       if (updates.address !== undefined) updatePayload.address = updates.address ?? null;
