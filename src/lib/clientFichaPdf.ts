@@ -64,9 +64,8 @@ function detectPlan(lead: Lead) {
 }
 
 /**
- * Gera um PDF completo da Ficha do Cliente com todas as informações
- * cadastradas (dados pessoais do signatário, empresa, plano/módulos,
- * contratuais e observações).
+ * Gera um PDF completo da Ficha do Cliente com a mesma estrutura
+ * exibida na ficha preenchida pelo gestor.
  */
 export async function downloadClientFichaPdf(lead: Lead): Promise<void> {
   const logoBase64 = await loadAzoupLogo();
@@ -180,25 +179,25 @@ function buildClientFichaPdf(lead: Lead, logoBase64: string | null): jsPDF {
     }
   };
 
-  // ===== Dados Pessoais (de quem assina pela empresa) =====
-  drawSection('DADOS PESSOAIS DO SIGNATÁRIO');
-  // Quem assina: usar signer_name; se vazio, cair para o nome do lead
-  drawRow('Nome', lead.signer_name || lead.name);
-  drawRow('Data de Nascimento', fmtDate(lead.birthdate));
-  drawRow('CPF', (lead as any).cpf);
-  drawRow('Telefone', lead.whatsapp);
-  drawRow('E-mail', lead.email);
-  drawRow('Endereço', lead.address);
-  y += 3;
-
   // ===== Dados da Empresa =====
   drawSection('DADOS DA EMPRESA');
   drawRow('Nome da Empresa', lead.company);
+  drawRow('E-mail da Empresa', (lead as any).signer_email || lead.email);
   drawRow('CNPJ', lead.cpf_cnpj);
   drawRow('Inscrição Estadual', lead.state_registration);
   drawRow('Tipo de Confecção', lead.confection_type);
   drawRow('Peças por Mês', lead.pieces_per_month ? String(lead.pieces_per_month) : null);
   drawRow('Site', lead.website);
+  y += 3;
+
+  // ===== Dados da Pessoa que Assina =====
+  drawSection('DADOS DA PESSOA QUE ASSINA PELA EMPRESA');
+  drawRow('Nome Completo', lead.signer_name || lead.name);
+  drawRow('Data de Nascimento', fmtDate(lead.birthdate));
+  drawRow('CPF', (lead as any).cpf);
+  drawRow('Telefone', (lead as any).signer_phone || lead.whatsapp);
+  drawRow('E-mail', (lead as any).signer_email || lead.email);
+  drawRow('Endereço', lead.address);
   y += 3;
 
   // ===== Plano e Valores =====
@@ -262,9 +261,10 @@ function buildClientFichaPdf(lead: Lead, logoBase64: string | null): jsPDF {
 
   y += 3;
 
-  // ===== Dados Contratuais (sem signer_name e sem signer_role) =====
-  drawSection('DADOS CONTRATUAIS');
+  // ===== Responsável pela Implantação =====
+  drawSection('RESPONSÁVEL PELA IMPLANTAÇÃO');
   drawRow('Responsável pela Implantação', lead.implementation_responsible);
+  drawRow('Telefone do Responsável', (lead as any).implementation_responsible_phone);
   y += 3;
 
   // ===== Reunião =====
