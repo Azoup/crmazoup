@@ -3,9 +3,70 @@ import { Lead } from '@/types/lead';
 import { formatCurrency } from '@/lib/utils';
 import { loadAzoupLogo } from '@/lib/quotePdf';
 
+// Mesma lista de planos usada no formulário da Ficha (ClientInfoForm).
+// Inferimos o plano selecionado a partir dos valores salvos no lead para
+// imprimir nome + módulos no PDF, sem precisar de coluna nova no banco.
+const PLANS = [
+  {
+    id: 'basic',
+    name: 'Plano Basic',
+    monthly: 400,
+    implementation: 2500,
+    hours: 30,
+    modules: [
+      'PCP (Produção)', 'Ficha Técnica', 'Emissão de NF-e', 'Relatórios Gerenciais',
+      'Carteira de Pedidos', 'Controle Financeiro', 'Controle de Estoque', 'Relatórios B.I.',
+    ],
+  },
+  {
+    id: 'pro',
+    name: 'Plano Pró ERP Confecção',
+    monthly: 500,
+    implementation: 3500,
+    hours: 50,
+    modules: [
+      'PCP (Produção)', 'Ficha Técnica', 'Ficha de Custos', 'Emissão de NF-e',
+      'Relatórios Gerenciais', 'Carteira de Pedidos + Romaneio',
+      'Controle Financeiro + Contas a pagar/receber',
+      'Controle de Estoque + Matéria-prima e produto acabado', 'Boletos',
+      'Power B.I - Padrão e Produção',
+    ],
+  },
+  {
+    id: 'master',
+    name: 'Plano Master ERP Confecção',
+    monthly: 650,
+    implementation: 6500,
+    hours: 70,
+    modules: [
+      'PCP (Produção)', 'Ficha Técnica', 'Ficha de Custos',
+      'Integração com E-commerce', 'Integração com Correios', 'Emissão de NF-e',
+      'Relatórios Gerenciais', 'Carteira de Pedidos + Romaneio',
+      'Controle Financeiro + Contas a pagar/receber',
+      'Controle de Estoque + Matéria-prima e produto acabado', 'Boletos',
+      'Power B.I Padrão e Produção',
+    ],
+  },
+];
+
+function detectPlan(lead: Lead) {
+  const impl = Number(lead.implementation_value || 0);
+  const monthly = Number(lead.monthly_value || 0);
+  // Match exato por implantação + mensalidade
+  let plan = PLANS.find(p => p.implementation === impl && p.monthly === monthly);
+  if (plan) return plan;
+  // Fallback: por implantação
+  plan = PLANS.find(p => p.implementation === impl);
+  if (plan) return plan;
+  // Fallback: por mensalidade
+  plan = PLANS.find(p => p.monthly === monthly);
+  return plan || null;
+}
+
 /**
  * Gera um PDF completo da Ficha do Cliente com todas as informações
- * cadastradas (dados pessoais, empresa, plano/valores, contratuais e observações).
+ * cadastradas (dados pessoais do signatário, empresa, plano/módulos,
+ * contratuais e observações).
  */
 export async function downloadClientFichaPdf(lead: Lead): Promise<void> {
   const logoBase64 = await loadAzoupLogo();
@@ -119,19 +180,20 @@ function buildClientFichaPdf(lead: Lead, logoBase64: string | null): jsPDF {
     }
   };
 
-  // ===== Dados Pessoais =====
-  drawSection('DADOS PESSOAIS');
-  drawRow('Nome', lead.name);
+  // ===== Dados Pessoais (de quem assina pela empresa) =====
+  drawSection('DADOS PESSOAIS DO SIGNATÁRIO');
+  // Quem assina: usar signer_name; se vazio, cair para o nome do lead
+  drawRow('Nome', lead.signer_name || lead.name);
+  drawRow('Data de Nascimento', fmtDate(lead.birthdate));
+  drawRow('CPF', (lead as any).cpf);
   drawRow('Telefone', lead.whatsapp);
   drawRow('E-mail', lead.email);
-  drawRow('Data de Nascimento', fmtDate(lead.birthdate));
   drawRow('Endereço', lead.address);
   y += 3;
 
   // ===== Dados da Empresa =====
   drawSection('DADOS DA EMPRESA');
-  drawRow('Empresa', lead.company);
-  drawRow('CPF', (lead as any).cpf);
+  drawRow('Nome da Empresa', lead.company);
   drawRow('CNPJ', lead.cpf_cnpj);
   drawRow('Inscrição Estadual', lead.state_registration);
   drawRow('Tipo de Confecção', lead.confection_type);
@@ -140,7 +202,12 @@ function buildClientFichaPdf(lead: Lead, logoBase64: string | null): jsPDF {
   y += 3;
 
   // ===== Plano e Valores =====
+  const plan = detectPlan(lead);
   drawSection('PLANO E VALORES');
+  drawRow('Plano Selecionado', plan ? plan.name : '—');
+  if (plan) {
+    drawRow('Horas de Implantação', `${plan.hours}h`);
+  }
   drawRow(
     'Valor de Implantação',
     lead.implementation_value ? formatCurrency(lead.implementation_value) : null,
@@ -149,24 +216,55 @@ function buildClientFichaPdf(lead: Lead, logoBase64: string | null): jsPDF {
     'Mensalidade',
     lead.monthly_value ? `${formatCurrency(lead.monthly_value)} / mês` : null,
   );
-  drawRow('Valor Total (Lead)', lead.value ? formatCurrency(lead.value) : null);
+
+  // Módulos do plano (se identificado)
+  if (plan && plan.modules.length) {
+    y += 1;
+    y = ensureSpace(10, y);
+    doc.setTextColor(...medGray);
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('MÓDULOS INCLUSOS', margin + 4, y + 4);
+    y += 7;
+
+    // Lista de módulos como "chips" simples em grid
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...darkGray);
+
+    const colW = (contentWidth - 4) / 2;
+    let col = 0;
+    let rowStartY = y;
+    plan.modules.forEach((mod) => {
+      const xPos = margin + (col * (colW + 4));
+      const lines = doc.splitTextToSize(`• ${mod}`, colW - 4);
+      const h = lines.length * 4.5 + 2;
+      // Quebra de página se necessário
+      if (rowStartY + h > pageHeight - 35) {
+        doc.addPage();
+        y = 20;
+        rowStartY = y;
+        col = 0;
+      }
+      doc.setFillColor(...lightGray);
+      doc.rect(xPos, rowStartY, colW, h, 'F');
+      doc.text(lines, xPos + 2, rowStartY + 4.5);
+
+      if (col === 0) {
+        col = 1;
+      } else {
+        col = 0;
+        rowStartY += h + 1;
+      }
+    });
+    y = col === 1 ? rowStartY + 8 : rowStartY + 2;
+  }
+
   y += 3;
 
-  // ===== Dados Contratuais =====
+  // ===== Dados Contratuais (sem signer_name e sem signer_role) =====
   drawSection('DADOS CONTRATUAIS');
   drawRow('Responsável pela Implantação', lead.implementation_responsible);
-  drawRow('Pessoa que Assina', lead.signer_name);
-  drawRow('Cargo do Signatário', lead.signer_role);
-  y += 3;
-
-  // ===== Status no CRM =====
-  drawSection('STATUS NO CRM');
-  drawRow('Etapa', lead.stage);
-  drawRow('Temperatura', lead.temperature);
-  drawRow('Origem', lead.lead_source);
-  drawRow('Data de Entrada', fmtDate(lead.entry_date));
-  drawRow('Último Contato', fmtDate(lead.last_contact));
-  drawRow('Próximo Contato', fmtDate(lead.next_contact));
   y += 3;
 
   // ===== Reunião =====
@@ -176,7 +274,6 @@ function buildClientFichaPdf(lead: Lead, logoBase64: string | null): jsPDF {
     drawRow('Link da Reunião', lead.meeting_link);
     drawRow('Dor Identificada', lead.meeting_pain);
     drawRow('Necessidades', lead.meeting_needs);
-    drawRow('Status', lead.meeting_status);
     y += 3;
   }
 
