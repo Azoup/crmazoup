@@ -220,7 +220,14 @@ serve(async (req) => {
       userIds = [claimsData.user.id];
       console.log(`Authenticated sync for user ${userIds[0]}`);
     } else {
-      // Cron job call (anon key) - sync for ALL users who have leads
+      // Cron job call — verify dedicated cron secret
+      const cronSecret = Deno.env.get('CRON_SECRET');
+      if (!cronSecret || token !== cronSecret) {
+        return new Response(
+          JSON.stringify({ error: 'Não autorizado' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       console.log('Cron sync: fetching all user IDs with leads...');
       const { data: users } = await adminSupabase
         .from('leads')
