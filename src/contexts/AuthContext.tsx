@@ -109,7 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .insert({
           user_id: data.user.id,
           name,
-          role,
+          role: 'SDR',
         });
 
       if (profileError) {
