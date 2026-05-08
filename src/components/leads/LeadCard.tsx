@@ -109,6 +109,9 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp }: LeadCardPro
       <div className="flex justify-between items-start gap-2 mb-1.5">
         <h4 className={`font-bold text-sm leading-tight truncate ${isNew ? 'text-purple-700 dark:text-purple-300' : 'text-foreground'}`}>
           {lead.name || 'Sem nome'}
+          {leadMonthLabel && (
+            <span className="ml-1.5 text-[10px] font-bold text-primary">· {leadMonthLabel}</span>
+          )}
         </h4>
         {!isNew && (
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex-shrink-0 flex items-center gap-0.5 ${
