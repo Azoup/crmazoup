@@ -626,10 +626,32 @@ export function ReportView({ leads }: ReportViewProps) {
       {/* Lead Details with Notes */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Users size={18} className="text-primary" />
-            Detalhes por Lead
-          </CardTitle>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users size={18} className="text-primary" />
+              Detalhes por Lead
+              <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                {filteredDetailLeads.length} {filteredDetailLeads.length === 1 ? 'lead' : 'leads'}
+              </span>
+            </CardTitle>
+            <select
+              value={stageFilter}
+              onChange={(e) => setStageFilter(e.target.value)}
+              className="h-9 px-3 border border-border rounded-md text-sm bg-card outline-none font-medium text-foreground"
+            >
+              <option value="todos">Todos os status</option>
+              <option value="prospeccao">Prospecção</option>
+              <option value="interesse">Interesse</option>
+              <option value="reuniao">Reunião</option>
+              <option value="proposta">Proposta</option>
+              <option value="venda">Vendas (Ganhos)</option>
+              <option value="congelados">Congelados</option>
+              <option value="perdidos">Perdidos</option>
+              <option value="compareceu">Reuniões: Compareceu</option>
+              <option value="no_show">Reuniões: No Show</option>
+              <option value="reagendar">Reuniões: Reagendou</option>
+            </select>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-lg border border-border overflow-hidden">
