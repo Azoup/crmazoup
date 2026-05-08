@@ -668,14 +668,14 @@ export function ReportView({ leads }: ReportViewProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {monthlyLeads.length === 0 ? (
+                {filteredDetailLeads.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      Nenhum lead neste mês
+                      Nenhum lead encontrado para este filtro
                     </TableCell>
                   </TableRow>
                 ) : (
-                  monthlyLeads.map(lead => (
+                  filteredDetailLeads.map(lead => (
                     <TableRow key={lead.id} className="hover:bg-muted/30">
                       <TableCell className="font-medium">{lead.name}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{lead.company || '-'}</TableCell>
