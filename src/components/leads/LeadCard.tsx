@@ -70,6 +70,17 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp }: LeadCardPro
   const showNextContact = ['prospeccao', 'interesse'].includes(lead.stage);
   const nextContactStatus = showNextContact ? getNextContactStatus(lead.next_contact) : null;
 
+  const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  let leadMonthLabel: string | null = null;
+  if (lead.reference_month) {
+    const m = parseInt(lead.reference_month.split('-')[1], 10);
+    if (!isNaN(m) && m >= 1 && m <= 12) leadMonthLabel = monthNames[m - 1];
+  } else if (lead.entry_date) {
+    const [, mm] = lead.entry_date.split('-');
+    const m = parseInt(mm, 10);
+    if (!isNaN(m) && m >= 1 && m <= 12) leadMonthLabel = monthNames[m - 1];
+  }
+
   const borderColor = isNew
     ? 'border-l-purple-500'
     : status === 'late' 
