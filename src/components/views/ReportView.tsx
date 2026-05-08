@@ -56,10 +56,20 @@ function getWeekRange(year: number, week: number): { start: Date; end: Date } {
 export function ReportView({ leads }: ReportViewProps) {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentReferenceMonth());
   const [period, setPeriod] = useState<ReportPeriod>('daily');
+  const [stageFilter, setStageFilter] = useState<string>('todos');
 
   const monthlyLeads = useMemo(() => {
     return leads.filter(lead => lead.reference_month === selectedMonth);
   }, [leads, selectedMonth]);
+
+  const filteredDetailLeads = useMemo(() => {
+    if (stageFilter === 'todos') return monthlyLeads;
+    if (stageFilter === 'no_show') return monthlyLeads.filter(l => l.meeting_status === 'no_show');
+    if (stageFilter === 'compareceu') return monthlyLeads.filter(l => l.meeting_status === 'compareceu');
+    if (stageFilter === 'reagendar') return monthlyLeads.filter(l => l.meeting_status === 'reagendar');
+    return monthlyLeads.filter(l => l.stage === stageFilter);
+  }, [monthlyLeads, stageFilter]);
+
 
   // Build daily snapshots for the month
   const dailySnapshots = useMemo(() => {
