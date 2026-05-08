@@ -175,6 +175,14 @@ export function ManagerPipelineView({
                             <span className="font-medium text-sm text-foreground truncate">
                               {lead.name}
                             </span>
+                            {(() => {
+                              const months = ['Jan','Fev','Mar','Abr','Maio','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+                              const ref = lead.reference_month || (lead.entry_date ? lead.entry_date.slice(0,7) : null);
+                              if (!ref) return null;
+                              const m = parseInt(ref.split('-')[1], 10);
+                              if (isNaN(m) || m < 1 || m > 12) return null;
+                              return <span className="text-[10px] font-bold text-primary flex-shrink-0">· {months[m-1]}</span>;
+                            })()}
                           </div>
                           {lead.company && (
                             <p className="text-xs text-muted-foreground truncate">{lead.company}</p>

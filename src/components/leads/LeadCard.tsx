@@ -70,6 +70,17 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp }: LeadCardPro
   const showNextContact = ['prospeccao', 'interesse'].includes(lead.stage);
   const nextContactStatus = showNextContact ? getNextContactStatus(lead.next_contact) : null;
 
+  const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  let leadMonthLabel: string | null = null;
+  if (lead.reference_month) {
+    const m = parseInt(lead.reference_month.split('-')[1], 10);
+    if (!isNaN(m) && m >= 1 && m <= 12) leadMonthLabel = monthNames[m - 1];
+  } else if (lead.entry_date) {
+    const [, mm] = lead.entry_date.split('-');
+    const m = parseInt(mm, 10);
+    if (!isNaN(m) && m >= 1 && m <= 12) leadMonthLabel = monthNames[m - 1];
+  }
+
   const borderColor = isNew
     ? 'border-l-purple-500'
     : status === 'late' 
@@ -98,6 +109,9 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp }: LeadCardPro
       <div className="flex justify-between items-start gap-2 mb-1.5">
         <h4 className={`font-bold text-sm leading-tight truncate ${isNew ? 'text-purple-700 dark:text-purple-300' : 'text-foreground'}`}>
           {lead.name || 'Sem nome'}
+          {leadMonthLabel && (
+            <span className="ml-1.5 text-[10px] font-bold text-primary">· {leadMonthLabel}</span>
+          )}
         </h4>
         {!isNew && (
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex-shrink-0 flex items-center gap-0.5 ${
