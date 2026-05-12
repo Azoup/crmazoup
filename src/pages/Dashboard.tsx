@@ -15,6 +15,7 @@ import { SalesView } from '@/components/views/SalesView';
 import { QualificationView } from '@/components/views/QualificationView';
 import { ManagerView } from '@/components/views/ManagerView';
 import { ReportView } from '@/components/views/ReportView';
+import { WhatsAppView } from '@/components/views/WhatsAppView';
 import { LeadModal } from '@/components/modals/LeadModal';
 import { ProfileModal } from '@/components/modals/ProfileModal';
 import { MeetingStatusModal } from '@/components/modals/MeetingStatusModal';
@@ -26,7 +27,7 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
-type ViewType = 'pipeline' | 'prospeccao_ativa' | 'indicacao' | 'agenda' | 'vendas' | 'qualificacao' | 'relatorios' | 'gestor';
+type ViewType = 'pipeline' | 'prospeccao_ativa' | 'indicacao' | 'agenda' | 'vendas' | 'qualificacao' | 'relatorios' | 'whatsapp' | 'gestor';
 
 export function Dashboard() {
   const { user, profile } = useAuth();
@@ -245,6 +246,10 @@ export function Dashboard() {
 
         {view === 'relatorios' && (
           <ReportView leads={leads} />
+        )}
+
+        {view === 'whatsapp' && (
+          <WhatsAppView leads={leads} />
         )}
         
         {view === 'gestor' && isManager && (
