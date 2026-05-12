@@ -57,6 +57,10 @@ export type Database = {
           temperature: string
           updated_at: string
           user_id: string
+          utm_campaign: string | null
+          utm_conjunto: string | null
+          utm_medium: string | null
+          utm_source: string | null
           value: number | null
           website: string | null
           whatsapp: string | null
@@ -103,6 +107,10 @@ export type Database = {
           temperature?: string
           updated_at?: string
           user_id: string
+          utm_campaign?: string | null
+          utm_conjunto?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
           value?: number | null
           website?: string | null
           whatsapp?: string | null
@@ -149,6 +157,10 @@ export type Database = {
           temperature?: string
           updated_at?: string
           user_id?: string
+          utm_campaign?: string | null
+          utm_conjunto?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
           value?: number | null
           website?: string | null
           whatsapp?: string | null

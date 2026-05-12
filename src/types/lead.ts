@@ -42,6 +42,11 @@ export interface Lead {
   is_new?: boolean;
   manager_notes?: string | null;
   activecampaign_id?: string | null;
+  /** UTM / marketing (ActiveCampaign custom fields) */
+  utm_source?: string | null;
+  utm_campaign?: string | null;
+  utm_medium?: string | null;
+  utm_conjunto?: string | null;
   meeting_status?: MeetingStatus;
   reference_month?: string | null;
   pieces_per_month?: number | null;

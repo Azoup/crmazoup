@@ -6,10 +6,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+const UTM_MAX = 2000;
+
 function sanitizeString(input: unknown, maxLength: number): string {
   if (input === null || input === undefined) return '';
   if (typeof input !== 'string') return String(input).substring(0, maxLength);
   return input.trim().substring(0, maxLength).replace(/[<>{}[\]\\]/g, '');
+}
+
+/** UTM strings may contain brackets and punctuation — do not strip like sanitizeString */
+function sanitizeUtmValue(input: unknown, maxLength: number): string | null {
+  if (input === null || input === undefined) return null;
+  const s = typeof input === 'string' ? input : String(input);
+  const t = s.trim().substring(0, maxLength).replace(/\x00/g, '');
+  return t || null;
 }
 
 function isValidEmail(email: unknown): boolean {
@@ -25,6 +35,61 @@ function sanitizePhone(phone: unknown): string | null {
   return sanitized || null;
 }
 
+type UtmColumn = 'utm_source' | 'utm_campaign' | 'utm_medium' | 'utm_conjunto';
+
+interface UtmFields {
+  utm_source: string | null;
+  utm_campaign: string | null;
+  utm_medium: string | null;
+  utm_conjunto: string | null;
+}
+
+function emptyUtm(): UtmFields {
+  return { utm_source: null, utm_campaign: null, utm_medium: null, utm_conjunto: null };
+}
+
+/** Map ActiveCampaign field perstag/title to CRM column (alphanumeric only for matching) */
+function fieldToUtmColumn(perstag: string, title: string): UtmColumn | null {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const keys = [norm(perstag || ''), norm(title || '')].filter(Boolean);
+  const map: Record<string, UtmColumn> = {
+    utmsource: 'utm_source',
+    utmcampaign: 'utm_campaign',
+    utmmedium: 'utm_medium',
+    utmconjunto: 'utm_conjunto',
+  };
+  for (const k of keys) {
+    if (map[k]) return map[k];
+  }
+  return null;
+}
+
+async function fetchFieldIdToUtmColumn(acUrl: string, acApiKey: string): Promise<Record<string, UtmColumn>> {
+  const out: Record<string, UtmColumn> = {};
+  let offset = 0;
+  const limit = 100;
+  while (true) {
+    const response = await fetch(
+      `${acUrl}/api/3/fields?limit=${limit}&offset=${offset}`,
+      { headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' } },
+    );
+    if (!response.ok) {
+      console.error('AC fields API error', await response.text());
+      break;
+    }
+    const data = await response.json();
+    const fields = data.fields || [];
+    for (const f of fields) {
+      const col = fieldToUtmColumn(String(f.perstag || ''), String(f.title || ''));
+      if (col && f.id != null) out[String(f.id)] = col;
+    }
+    if (fields.length < limit) break;
+    offset += limit;
+  }
+  console.log(`Mapped ${Object.keys(out).length} ActiveCampaign custom fields to UTM columns`);
+  return out;
+}
+
 interface ValidatedContact {
   id: string;
   firstName: string;
@@ -33,20 +98,30 @@ interface ValidatedContact {
   phone: string | null;
   orgname: string | null;
   tags: string[];
+  utm_source: string | null;
+  utm_campaign: string | null;
+  utm_medium: string | null;
+  utm_conjunto: string | null;
 }
 
-function validateContact(contact: unknown, contactTags: Record<string, string[]>, orgNames: Record<string, string>): ValidatedContact | null {
+function validateContact(
+  contact: unknown,
+  contactTags: Record<string, string[]>,
+  orgNames: Record<string, string>,
+  utmByContactId: Record<string, UtmFields>,
+): ValidatedContact | null {
   if (!contact || typeof contact !== 'object') return null;
   const rawContact = contact as Record<string, unknown>;
   if (!rawContact.id) return null;
-  
+
   const id = String(rawContact.id);
-  // Try orgname from contact first, then look up by orgid
   let orgname = sanitizeString(rawContact.orgname, 200) || null;
   if (!orgname && rawContact.orgid) {
     orgname = orgNames[String(rawContact.orgid)] || null;
   }
-  
+
+  const utm = utmByContactId[id] ?? emptyUtm();
+
   return {
     id,
     firstName: sanitizeString(rawContact.firstName, 100),
@@ -55,70 +130,90 @@ function validateContact(contact: unknown, contactTags: Record<string, string[]>
     phone: sanitizePhone(rawContact.phone),
     orgname,
     tags: contactTags[id] || [],
+    utm_source: utm.utm_source,
+    utm_campaign: utm.utm_campaign,
+    utm_medium: utm.utm_medium,
+    utm_conjunto: utm.utm_conjunto,
   };
 }
 
-async function fetchAllContacts(acUrl: string, acApiKey: string): Promise<any[]> {
+async function fetchAllContacts(
+  acUrl: string,
+  acApiKey: string,
+  fieldIdToUtm: Record<string, UtmColumn>,
+): Promise<{ contacts: any[]; utmByContactId: Record<string, UtmFields> }> {
   const allContacts: any[] = [];
+  const utmByContactId: Record<string, UtmFields> = {};
   let offset = 0;
   const limit = 100;
-  // Only fetch contacts created from 2025-12-01 onwards
   const minDate = '2025-12-01T00:00:00-03:00';
-  
+
   while (true) {
-    console.log(`Fetching contacts offset=${offset}...`);
+    console.log(`Fetching contacts offset=${offset} (with fieldValues)...`);
     const response = await fetch(
-      `${acUrl}/api/3/contacts?limit=${limit}&offset=${offset}&orders[cdate]=DESC&filters[created_after]=${encodeURIComponent(minDate)}`,
-      { headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' } }
+      `${acUrl}/api/3/contacts?limit=${limit}&offset=${offset}&orders[cdate]=DESC&filters[created_after]=${encodeURIComponent(minDate)}&include=fieldValues`,
+      { headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' } },
     );
-    
+
     if (!response.ok) {
       console.error('AC API error at offset', offset, await response.text());
       break;
     }
-    
+
     const data = await response.json();
     const contacts = data.contacts || [];
     allContacts.push(...contacts);
-    
+
+    const fieldValues = data.fieldValues || [];
+    for (const fv of fieldValues) {
+      const contactId = fv.contact != null ? String(fv.contact) : null;
+      const fieldId = fv.field != null ? String(fv.field) : null;
+      if (!contactId || !fieldId) continue;
+      const col = fieldIdToUtm[fieldId];
+      if (!col) continue;
+      const val = sanitizeUtmValue(fv.value, UTM_MAX);
+      if (!utmByContactId[contactId]) utmByContactId[contactId] = emptyUtm();
+      if (val) utmByContactId[contactId][col] = val;
+    }
+
     if (contacts.length < limit) break;
     offset += limit;
   }
-  
-  return allContacts;
+
+  return { contacts: allContacts, utmByContactId };
 }
 
 async function fetchContactTags(contacts: any[], acUrl: string, acApiKey: string): Promise<Record<string, string[]>> {
   const contactTags: Record<string, string[]> = {};
   const tagNameCache: Record<string, string> = {};
-  
+
   const batchSize = 10;
   for (let i = 0; i < contacts.length; i += batchSize) {
     const batch = contacts.slice(i, i + batchSize);
-    
+
     await Promise.all(batch.map(async (contact: any) => {
       const contactId = String(contact.id);
       try {
         const tagsResponse = await fetch(`${acUrl}/api/3/contacts/${contactId}/contactTags`, {
           headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' },
         });
-        
+
         if (!tagsResponse.ok) return;
-        
+
         const tagsData = await tagsResponse.json();
         const tagIds = (tagsData.contactTags || []).map((ct: any) => ct.tag);
-        
+
         const tagNames: string[] = [];
         for (const tagId of tagIds) {
           if (tagNameCache[tagId]) {
             tagNames.push(tagNameCache[tagId]);
             continue;
           }
-          
+
           const tagResponse = await fetch(`${acUrl}/api/3/tags/${tagId}`, {
             headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' },
           });
-          
+
           if (tagResponse.ok) {
             const tagData = await tagResponse.json();
             if (tagData.tag?.tag) {
@@ -128,29 +223,29 @@ async function fetchContactTags(contacts: any[], acUrl: string, acApiKey: string
             }
           }
         }
-        
+
         contactTags[contactId] = tagNames;
       } catch (e) {
         console.error(`Error fetching tags for contact ${contactId}:`, e);
       }
     }));
   }
-  
+
   return contactTags;
 }
 
 async function fetchOrgNames(contacts: any[], acUrl: string, acApiKey: string): Promise<Record<string, string>> {
   const orgNames: Record<string, string> = {};
   const orgIds = new Set<string>();
-  
+
   for (const contact of contacts) {
     if (contact.orgid && String(contact.orgid) !== '0' && !contact.orgname) {
       orgIds.add(String(contact.orgid));
     }
   }
-  
+
   console.log(`Fetching ${orgIds.size} organization names...`);
-  
+
   const batchSize = 10;
   const orgIdArray = Array.from(orgIds);
   for (let i = 0; i < orgIdArray.length; i += batchSize) {
@@ -171,7 +266,7 @@ async function fetchOrgNames(contacts: any[], acUrl: string, acApiKey: string): 
       }
     }));
   }
-  
+
   return orgNames;
 }
 
@@ -185,7 +280,7 @@ serve(async (req) => {
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
         JSON.stringify({ error: 'Não autorizado' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -196,36 +291,33 @@ serve(async (req) => {
       console.error('ActiveCampaign credentials not configured');
       return new Response(
         JSON.stringify({ error: 'Serviço de integração não configurado' }),
-        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
     const adminSupabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // Try to authenticate as a specific user
     let userIds: string[] = [];
     const token = authHeader.replace('Bearer ', '');
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
+      { global: { headers: { Authorization: authHeader } } },
     );
     const { data: claimsData, error: claimsError } = await supabase.auth.getUser(token);
-    
+
     if (!claimsError && claimsData?.user) {
-      // Authenticated user call - sync for this user only
       userIds = [claimsData.user.id];
       console.log(`Authenticated sync for user ${userIds[0]}`);
     } else {
-      // Cron job call — verify dedicated cron secret
       const cronSecret = Deno.env.get('CRON_SECRET');
       if (!cronSecret || token !== cronSecret) {
         return new Response(
           JSON.stringify({ error: 'Não autorizado' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
       console.log('Cron sync: fetching all user IDs with leads...');
@@ -234,31 +326,33 @@ serve(async (req) => {
         .select('user_id')
         .eq('lead_source', 'marketing')
         .limit(1000);
-      
+
       userIds = [...new Set((users || []).map((u: any) => u.user_id))];
-      
+
       if (userIds.length === 0) {
-        // No existing users with leads, try profiles
         const { data: profiles } = await adminSupabase
           .from('profiles')
           .select('user_id')
           .eq('role', 'SDR');
         userIds = (profiles || []).map((p: any) => p.user_id);
       }
-      
+
       console.log(`Cron sync for ${userIds.length} users`);
     }
 
     if (userIds.length === 0) {
       return new Response(
         JSON.stringify({ success: true, imported: 0, total: 0 }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
+    console.log('Fetching AC field definitions for UTM mapping...');
+    const fieldIdToUtm = await fetchFieldIdToUtmColumn(acUrl, acApiKey);
+
     console.log('Fetching all contacts from ActiveCampaign...');
-    const contacts = await fetchAllContacts(acUrl, acApiKey);
-    console.log(`Found ${contacts.length} total contacts`);
+    const { contacts, utmByContactId } = await fetchAllContacts(acUrl, acApiKey, fieldIdToUtm);
+    console.log(`Found ${contacts.length} total contacts, ${Object.keys(utmByContactId).length} with UTM-related field values`);
 
     console.log('Fetching tags...');
     const contactTags = await fetchContactTags(contacts, acUrl, acApiKey);
@@ -269,36 +363,50 @@ serve(async (req) => {
     console.log(`Fetched ${Object.keys(orgNames).length} org names`);
 
     let totalImported = 0;
+    let totalUtmUpdates = 0;
     let totalDbErrors = 0;
     let validationErrors = 0;
 
-    // For each user, upsert all contacts
     for (const userId of userIds) {
-      // Fetch existing activecampaign_ids to explicitly skip them
       const { data: existingLeads } = await adminSupabase
         .from('leads')
         .select('activecampaign_id')
         .eq('user_id', userId)
         .not('activecampaign_id', 'is', null);
-      
+
       const existingAcIds = new Set((existingLeads || []).map((l: any) => l.activecampaign_id));
-      console.log(`User ${userId}: ${existingAcIds.size} existing AC leads, skipping them`);
+      console.log(`User ${userId}: ${existingAcIds.size} existing AC leads`);
 
       const leadsToInsert: any[] = [];
+      const utmUpdatesForUser: { acId: string; utm: UtmFields }[] = [];
 
       for (const contact of contacts) {
-        const validated = validateContact(contact, contactTags, orgNames);
+        const validated = validateContact(contact, contactTags, orgNames, utmByContactId);
         if (!validated) {
           if (userId === userIds[0]) validationErrors++;
           continue;
         }
 
-        // Skip if this contact already exists for this user
-        if (existingAcIds.has(validated.id)) continue;
-        
+        const utmPayload: UtmFields = {
+          utm_source: validated.utm_source,
+          utm_campaign: validated.utm_campaign,
+          utm_medium: validated.utm_medium,
+          utm_conjunto: validated.utm_conjunto,
+        };
+
+        if (existingAcIds.has(validated.id)) {
+          if (
+            utmPayload.utm_source || utmPayload.utm_campaign || utmPayload.utm_medium ||
+            utmPayload.utm_conjunto
+          ) {
+            utmUpdatesForUser.push({ acId: validated.id, utm: utmPayload });
+          }
+          continue;
+        }
+
         const fullName = `${validated.firstName} ${validated.lastName}`.trim();
         const tagsNote = validated.tags.length > 0 ? ` | Tags: ${validated.tags.join(', ')}` : '';
-        
+
         leadsToInsert.push({
           user_id: userId,
           name: fullName.substring(0, 255) || validated.email || 'Sem nome',
@@ -312,18 +420,21 @@ serve(async (req) => {
           activecampaign_id: validated.id,
           lead_source: 'marketing',
           value: 0,
+          utm_source: utmPayload.utm_source,
+          utm_campaign: utmPayload.utm_campaign,
+          utm_medium: utmPayload.utm_medium,
+          utm_conjunto: utmPayload.utm_conjunto,
           history: [{
             type: 'sistema',
             note: `Lead importado do ActiveCampaign em ${new Date().toLocaleDateString('pt-BR')}${tagsNote}`,
             date: new Date().toISOString(),
-            user: 'Sistema'
-          }]
+            user: 'Sistema',
+          }],
         });
       }
 
-      console.log(`User ${userId}: ${leadsToInsert.length} new leads to insert`);
+      console.log(`User ${userId}: ${leadsToInsert.length} new leads to insert, ${utmUpdatesForUser.length} UTM refreshes`);
 
-      // Insert only NEW leads (not upsert) in batches of 50
       for (let i = 0; i < leadsToInsert.length; i += 50) {
         const batch = leadsToInsert.slice(i, i + 50);
         const { error: insertError } = await adminSupabase
@@ -337,28 +448,50 @@ serve(async (req) => {
           totalImported += batch.length;
         }
       }
+
+      const chunk = 20;
+      for (let i = 0; i < utmUpdatesForUser.length; i += chunk) {
+        const slice = utmUpdatesForUser.slice(i, i + chunk);
+        const results = await Promise.all(slice.map(async ({ acId, utm }) => {
+          const { error } = await adminSupabase
+            .from('leads')
+            .update({
+              utm_source: utm.utm_source,
+              utm_campaign: utm.utm_campaign,
+              utm_medium: utm.utm_medium,
+              utm_conjunto: utm.utm_conjunto,
+            })
+            .eq('user_id', userId)
+            .eq('activecampaign_id', acId);
+          return !error;
+        }));
+        totalUtmUpdates += results.filter(Boolean).length;
+        if (results.some((ok) => !ok)) {
+          console.error('Some UTM batch updates failed for user', userId);
+        }
+      }
     }
 
-    console.log(`Successfully processed ${totalImported} leads for ${userIds.length} users`);
+    console.log(`Done: ${totalImported} imported, ${totalUtmUpdates} UTM updates`);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        imported: totalImported, 
+      JSON.stringify({
+        success: true,
+        imported: totalImported,
+        utm_updates: totalUtmUpdates,
         total: contacts.length,
         users: userIds.length,
-        errors: (validationErrors + totalDbErrors > 0) 
+        errors: (validationErrors + totalDbErrors > 0)
           ? `${validationErrors} validação, ${totalDbErrors} banco de dados`
-          : undefined
+          : undefined,
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
-
   } catch (error) {
     console.error('Error in sync-activecampaign:', error);
     return new Response(
       JSON.stringify({ error: 'Erro ao processar sincronização' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   }
 });

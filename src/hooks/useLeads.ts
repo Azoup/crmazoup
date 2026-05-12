@@ -80,6 +80,10 @@ function transformDbLead(dbLead: any): Lead {
       birthdate: dbLead.birthdate ?? null,
       address: dbLead.address ?? null,
       client_observations: dbLead.client_observations ?? null,
+    utm_source: dbLead.utm_source ?? null,
+    utm_campaign: dbLead.utm_campaign ?? null,
+    utm_medium: dbLead.utm_medium ?? null,
+    utm_conjunto: dbLead.utm_conjunto ?? null,
   };
 }
 
@@ -273,6 +277,10 @@ export function useLeads() {
           last_contact: new Date().toISOString(),
           entry_date: new Date().toISOString(),
           pieces_per_month: leadData.pieces_per_month != null ? Number(leadData.pieces_per_month) : null,
+          utm_source: leadData.utm_source?.trim() || null,
+          utm_campaign: leadData.utm_campaign?.trim() || null,
+          utm_medium: leadData.utm_medium?.trim() || null,
+          utm_conjunto: leadData.utm_conjunto?.trim() || null,
         })
         .select()
         .single();
@@ -377,6 +385,10 @@ export function useLeads() {
       if (updates.address !== undefined) updatePayload.address = updates.address ?? null;
       if (updates.client_observations !== undefined) updatePayload.client_observations = updates.client_observations ?? null;
       if (updates.manager_notes !== undefined) updatePayload.manager_notes = updates.manager_notes ?? null;
+      if (updates.utm_source !== undefined) updatePayload.utm_source = updates.utm_source ?? null;
+      if (updates.utm_campaign !== undefined) updatePayload.utm_campaign = updates.utm_campaign ?? null;
+      if (updates.utm_medium !== undefined) updatePayload.utm_medium = updates.utm_medium ?? null;
+      if (updates.utm_conjunto !== undefined) updatePayload.utm_conjunto = updates.utm_conjunto ?? null;
 
       const { error } = await supabase
         .from('leads')

@@ -64,6 +64,11 @@ function transformDbLead(dbLead: any): Lead {
     meeting_status: dbLead.meeting_status ?? null,
     reference_month: dbLead.reference_month ?? null,
     responsible_user_id: dbLead.responsible_user_id ?? null,
+    lead_source: dbLead.lead_source ?? 'marketing',
+    utm_source: dbLead.utm_source ?? null,
+    utm_campaign: dbLead.utm_campaign ?? null,
+    utm_medium: dbLead.utm_medium ?? null,
+    utm_conjunto: dbLead.utm_conjunto ?? null,
   };
 }
 
