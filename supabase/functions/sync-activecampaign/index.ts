@@ -17,7 +17,9 @@ function sanitizeString(input: unknown, maxLength: number): string {
 /** UTM strings may contain brackets and punctuation — do not strip like sanitizeString */
 function sanitizeUtmValue(input: unknown, maxLength: number): string | null {
   if (input === null || input === undefined) return null;
-  const s = typeof input === 'string' ? input : String(input);
+  const s = Array.isArray(input)
+    ? input.map((v) => (v == null ? '' : String(v))).filter(Boolean).join(', ')
+    : (typeof input === 'string' ? input : String(input));
   const t = s.trim().substring(0, maxLength).replace(/\x00/g, '');
   return t || null;
 }
@@ -48,7 +50,7 @@ function emptyUtm(): UtmFields {
   return { utm_source: null, utm_campaign: null, utm_medium: null, utm_conjunto: null };
 }
 
-/** Map ActiveCampaign field perstag/title to CRM column (alphanumeric only for matching) */
+/** Map ActiveCampaign field perstag/title to CRM column (alphanumeric only for exact keys) */
 function fieldToUtmColumn(perstag: string, title: string): UtmColumn | null {
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
   const keys = [norm(perstag || ''), norm(title || '')].filter(Boolean);
@@ -61,6 +63,12 @@ function fieldToUtmColumn(perstag: string, title: string): UtmColumn | null {
   for (const k of keys) {
     if (map[k]) return map[k];
   }
+  const hay = `${perstag} ${title}`.toLowerCase();
+  if (!hay.includes('utm')) return null;
+  if (hay.includes('conjunto') || hay.includes('adset')) return 'utm_conjunto';
+  if (hay.includes('campaign') || hay.includes('campanha')) return 'utm_campaign';
+  if (hay.includes('medium') || hay.includes('meio')) return 'utm_medium';
+  if (hay.includes('source') || hay.includes('origem')) return 'utm_source';
   return null;
 }
 
@@ -137,21 +145,37 @@ function validateContact(
   };
 }
 
-async function fetchAllContacts(
-  acUrl: string,
-  acApiKey: string,
+function mergeFieldValuesIntoUtmMap(
+  fieldValues: any[],
   fieldIdToUtm: Record<string, UtmColumn>,
-): Promise<{ contacts: any[]; utmByContactId: Record<string, UtmFields> }> {
+  utmByContactId: Record<string, UtmFields>,
+  fallbackContactId?: string,
+): void {
+  for (const fv of fieldValues) {
+    const contactId = fv.contact != null
+      ? String(fv.contact)
+      : (fv.owner != null ? String(fv.owner) : fallbackContactId);
+    const fieldId = fv.field != null ? String(fv.field) : null;
+    if (!contactId || !fieldId) continue;
+    const col = fieldIdToUtm[fieldId];
+    if (!col) continue;
+    const val = sanitizeUtmValue(fv.value, UTM_MAX);
+    if (!utmByContactId[contactId]) utmByContactId[contactId] = emptyUtm();
+    if (val) utmByContactId[contactId][col] = val;
+  }
+}
+
+/** List contacts (date filter). Sideload fieldValues is unreliable — use fetchContactFieldValuesBatched. */
+async function fetchAllContacts(acUrl: string, acApiKey: string): Promise<any[]> {
   const allContacts: any[] = [];
-  const utmByContactId: Record<string, UtmFields> = {};
   let offset = 0;
   const limit = 100;
   const minDate = '2025-12-01T00:00:00-03:00';
 
   while (true) {
-    console.log(`Fetching contacts offset=${offset} (with fieldValues)...`);
+    console.log(`Fetching contacts offset=${offset}...`);
     const response = await fetch(
-      `${acUrl}/api/3/contacts?limit=${limit}&offset=${offset}&orders[cdate]=DESC&filters[created_after]=${encodeURIComponent(minDate)}&include=fieldValues`,
+      `${acUrl}/api/3/contacts?limit=${limit}&offset=${offset}&orders[cdate]=DESC&filters[created_after]=${encodeURIComponent(minDate)}`,
       { headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' } },
     );
 
@@ -164,23 +188,55 @@ async function fetchAllContacts(
     const contacts = data.contacts || [];
     allContacts.push(...contacts);
 
-    const fieldValues = data.fieldValues || [];
-    for (const fv of fieldValues) {
-      const contactId = fv.contact != null ? String(fv.contact) : null;
-      const fieldId = fv.field != null ? String(fv.field) : null;
-      if (!contactId || !fieldId) continue;
-      const col = fieldIdToUtm[fieldId];
-      if (!col) continue;
-      const val = sanitizeUtmValue(fv.value, UTM_MAX);
-      if (!utmByContactId[contactId]) utmByContactId[contactId] = emptyUtm();
-      if (val) utmByContactId[contactId][col] = val;
-    }
-
     if (contacts.length < limit) break;
     offset += limit;
   }
 
-  return { contacts: allContacts, utmByContactId };
+  return allContacts;
+}
+
+/**
+ * ActiveCampaign often omits fieldValues when using include= on list contacts.
+ * Official approach: GET /contacts/:id/fieldValues per contact.
+ */
+async function fetchContactFieldValuesBatched(
+  contacts: any[],
+  acUrl: string,
+  acApiKey: string,
+  fieldIdToUtm: Record<string, UtmColumn>,
+): Promise<Record<string, UtmFields>> {
+  const utmByContactId: Record<string, UtmFields> = {};
+  const batchSize = 12;
+
+  for (let i = 0; i < contacts.length; i += batchSize) {
+    const batch = contacts.slice(i, i + batchSize);
+    await Promise.all(batch.map(async (contact: any) => {
+      const id = String(contact.id);
+      try {
+        const r = await fetch(
+          `${acUrl}/api/3/contacts/${encodeURIComponent(id)}/fieldValues`,
+          { headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' } },
+        );
+        if (r.status === 404) return;
+        if (!r.ok) {
+          console.error(`fieldValues HTTP ${r.status} for contact ${id}`);
+          return;
+        }
+        const data = await r.json();
+        mergeFieldValuesIntoUtmMap(data.fieldValues || [], fieldIdToUtm, utmByContactId, id);
+      } catch (e) {
+        console.error(`fieldValues error for contact ${id}:`, e);
+      }
+    }));
+  }
+
+  const withAny = Object.keys(utmByContactId).filter((cid) => {
+    const u = utmByContactId[cid];
+    return !!(u.utm_source || u.utm_campaign || u.utm_medium || u.utm_conjunto);
+  }).length;
+  console.log(`Per-contact fieldValues: ${contacts.length} contacts, ${withAny} with mapped UTM data`);
+
+  return utmByContactId;
 }
 
 async function fetchContactTags(contacts: any[], acUrl: string, acApiKey: string): Promise<Record<string, string[]>> {
@@ -349,10 +405,18 @@ serve(async (req) => {
 
     console.log('Fetching AC field definitions for UTM mapping...');
     const fieldIdToUtm = await fetchFieldIdToUtmColumn(acUrl, acApiKey);
+    if (Object.keys(fieldIdToUtm).length === 0) {
+      console.warn(
+        'Nenhum campo AC mapeado para UTM (perstag/título com utm_*). Confira os nomes dos campos personalizados no ActiveCampaign.',
+      );
+    }
 
     console.log('Fetching all contacts from ActiveCampaign...');
-    const { contacts, utmByContactId } = await fetchAllContacts(acUrl, acApiKey, fieldIdToUtm);
-    console.log(`Found ${contacts.length} total contacts, ${Object.keys(utmByContactId).length} with UTM-related field values`);
+    const contacts = await fetchAllContacts(acUrl, acApiKey);
+    console.log(`Found ${contacts.length} total contacts`);
+
+    console.log('Fetching custom field values (UTM) per contact...');
+    const utmByContactId = await fetchContactFieldValuesBatched(contacts, acUrl, acApiKey, fieldIdToUtm);
 
     console.log('Fetching tags...');
     const contactTags = await fetchContactTags(contacts, acUrl, acApiKey);
