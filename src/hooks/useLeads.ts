@@ -5,6 +5,7 @@ import { Lead, LeadHistory, LeadFilters, UserSettings } from '@/types/lead';
 import { useToast } from '@/hooks/use-toast';
 import { Json } from '@/integrations/supabase/types';
 import { useNewLeadSound } from '@/hooks/useNewLeadSound';
+import { runWithSchemaFallback } from '@/lib/supabaseRetry';
 
 function parseHistory(historyJson: Json): LeadHistory[] {
   if (!historyJson) return [];
@@ -252,38 +253,46 @@ export function useLeads() {
     }];
 
     try {
-      const { data, error } = await supabase
-        .from('leads')
-        .insert({
-          user_id: user.id,
-          name: trimmedName,
-          company: leadData.company?.trim() || null,
-          confection_type: leadData.confection_type?.trim() || null,
-          whatsapp: leadData.whatsapp?.trim() || null,
-          email: leadData.email?.trim() || null,
-          website: leadData.website?.trim() || null,
-          temperature: leadData.temperature || 'frio',
-          value: Number(leadData.value) || 0,
-          implementation_value: Number(leadData.implementation_value) || 0,
-          monthly_value: Number(leadData.monthly_value) || 0,
-          stage: leadData.stage || 'prospeccao',
-          lead_source: leadData.lead_source || 'marketing',
-          next_contact: leadData.next_contact || null,
-          meeting_pain: leadData.meeting_pain?.trim() || null,
-          meeting_needs: leadData.meeting_needs?.trim() || null,
-          meeting_link: leadData.meeting_link?.trim() || null,
-          meeting_date: leadData.meeting_date || null,
-          history: history as unknown as Json,
-          last_contact: new Date().toISOString(),
-          entry_date: new Date().toISOString(),
-          pieces_per_month: leadData.pieces_per_month != null ? Number(leadData.pieces_per_month) : null,
-          utm_source: leadData.utm_source?.trim() || null,
-          utm_campaign: leadData.utm_campaign?.trim() || null,
-          utm_medium: leadData.utm_medium?.trim() || null,
-          utm_conjunto: leadData.utm_conjunto?.trim() || null,
-        })
-        .select()
-        .single();
+      const insertPayload: Record<string, unknown> = {
+        user_id: user.id,
+        name: trimmedName,
+        company: leadData.company?.trim() || null,
+        confection_type: leadData.confection_type?.trim() || null,
+        whatsapp: leadData.whatsapp?.trim() || null,
+        email: leadData.email?.trim() || null,
+        website: leadData.website?.trim() || null,
+        temperature: leadData.temperature || 'frio',
+        value: Number(leadData.value) || 0,
+        implementation_value: Number(leadData.implementation_value) || 0,
+        monthly_value: Number(leadData.monthly_value) || 0,
+        stage: leadData.stage || 'prospeccao',
+        lead_source: leadData.lead_source || 'marketing',
+        next_contact: leadData.next_contact || null,
+        meeting_pain: leadData.meeting_pain?.trim() || null,
+        meeting_needs: leadData.meeting_needs?.trim() || null,
+        meeting_link: leadData.meeting_link?.trim() || null,
+        meeting_date: leadData.meeting_date || null,
+        history: history as unknown as Json,
+        last_contact: new Date().toISOString(),
+        entry_date: new Date().toISOString(),
+        pieces_per_month: leadData.pieces_per_month != null ? Number(leadData.pieces_per_month) : null,
+        utm_source: leadData.utm_source?.trim() || null,
+        utm_campaign: leadData.utm_campaign?.trim() || null,
+        utm_medium: leadData.utm_medium?.trim() || null,
+        utm_conjunto: leadData.utm_conjunto?.trim() || null,
+      };
+
+      const { data, error, skippedColumns } = await runWithSchemaFallback(
+        insertPayload,
+        async (payload) => {
+          const result = await supabase
+            .from('leads')
+            .insert(payload as never)
+            .select()
+            .single();
+          return { data: result.data, error: result.error };
+        },
+      );
 
       if (error) {
         console.error('Error adding lead:', error);
@@ -299,7 +308,14 @@ export function useLeads() {
       const createdLead = transformDbLead(data);
       setLeads(prev => (prev.some(l => l.id === createdLead.id) ? prev : [createdLead, ...prev]));
 
-      toast({ title: 'Sucesso', description: 'Lead criado com sucesso!' });
+      if (skippedColumns.length > 0) {
+        toast({
+          title: 'Lead criado (com ressalva)',
+          description: `Estes campos foram ignorados porque ainda não existem no banco: ${skippedColumns.join(', ')}. Aplique a migração no Supabase.`,
+        });
+      } else {
+        toast({ title: 'Sucesso', description: 'Lead criado com sucesso!' });
+      }
       return createdLead;
     } catch (err) {
       console.error('Unexpected error adding lead:', err);
@@ -410,33 +426,44 @@ export function useLeads() {
             : (updates.utm_conjunto ?? null);
       }
 
-      const { error } = await supabase
-        .from('leads')
-        .update(updatePayload)
-        .eq('id', leadId);
+      const { error, skippedColumns } = await runWithSchemaFallback(
+        updatePayload,
+        async (payload) => {
+          const result = await supabase
+            .from('leads')
+            .update(payload as never)
+            .eq('id', leadId);
+          return { data: null, error: result.error };
+        },
+      );
 
       if (error) {
         console.error('Error updating lead:', error);
-        const hint =
-          /column|schema|42703|utm_/i.test(error.message || '')
-            ? ' Verifique se a migração UTM foi aplicada no Supabase (colunas utm_* na tabela leads).'
-            : '';
         toast({
           title: 'Erro',
-          description: `Erro ao atualizar lead: ${error.message}${hint}`,
+          description: `Erro ao atualizar lead: ${error.message}`,
           variant: 'destructive',
         });
         return false;
       }
 
       // Update local state optimistically
-      setLeads(prev => prev.map(l => 
-        l.id === leadId 
-          ? { ...l, ...updatePayload, history: newHistory }
+      const appliedPayload = { ...updatePayload };
+      for (const col of skippedColumns) delete appliedPayload[col];
+      setLeads(prev => prev.map(l =>
+        l.id === leadId
+          ? { ...l, ...appliedPayload, history: newHistory }
           : l
       ));
 
-      toast({ title: 'Sucesso', description: 'Lead atualizado!' });
+      if (skippedColumns.length > 0) {
+        toast({
+          title: 'Lead salvo (com ressalva)',
+          description: `Estes campos não existem no banco e foram ignorados: ${skippedColumns.join(', ')}. Aplique a migração no Supabase para passá-los.`,
+        });
+      } else {
+        toast({ title: 'Sucesso', description: 'Lead atualizado!' });
+      }
       return true;
     } catch (err) {
       console.error('Unexpected error updating lead:', err);
