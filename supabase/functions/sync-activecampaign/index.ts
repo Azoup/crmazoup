@@ -79,8 +79,8 @@ function fieldToUtmColumn(perstag: string, title: string): UtmColumn | null {
   return null;
 }
 
-async function fetchFieldIdToUtmColumn(acUrl: string, acApiKey: string): Promise<Record<string, UtmColumn>> {
-  const out: Record<string, UtmColumn> = {};
+async function listAllFields(acUrl: string, acApiKey: string): Promise<any[]> {
+  const all: any[] = [];
   let offset = 0;
   const limit = 100;
   while (true) {
@@ -94,15 +94,25 @@ async function fetchFieldIdToUtmColumn(acUrl: string, acApiKey: string): Promise
     }
     const data = await response.json();
     const fields = data.fields || [];
-    for (const f of fields) {
-      const col = fieldToUtmColumn(String(f.perstag || ''), String(f.title || ''));
-      if (col && f.id != null) out[String(f.id)] = col;
-    }
+    all.push(...fields);
     if (fields.length < limit) break;
     offset += limit;
   }
-  console.log(`Mapped ${Object.keys(out).length} ActiveCampaign custom fields to UTM columns`);
-  return out;
+  return all;
+}
+
+async function fetchFieldIdToUtmColumn(
+  acUrl: string,
+  acApiKey: string,
+): Promise<{ map: Record<string, UtmColumn>; raw: any[] }> {
+  const all = await listAllFields(acUrl, acApiKey);
+  const out: Record<string, UtmColumn> = {};
+  for (const f of all) {
+    const col = fieldToUtmColumn(String(f.perstag || ''), String(f.title || ''));
+    if (col && f.id != null) out[String(f.id)] = col;
+  }
+  console.log(`Mapped ${Object.keys(out).length} ActiveCampaign custom fields to UTM columns (de ${all.length} fields totais)`);
+  return { map: out, raw: all };
 }
 
 /** Quando o ID não veio no list /fields, busca definição individual (AC às vezes pagina ou filtra diferente). */
@@ -482,7 +492,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    let userIds: string[] = [];
+    // Pré-valida a sessão Supabase (mesmo critério usado depois no fluxo de sync) — para debug e sync.
     const token = authHeader.replace('Bearer ', '');
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -490,6 +500,155 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     );
     const { data: claimsData, error: claimsError } = await supabase.auth.getUser(token);
+
+    // ---- DEBUG MODE -------------------------------------------------------
+    // Permite inspecionar a integração sem rodar o sync inteiro.
+    //   POST body: { debug: 'fields' }
+    //                       { debug: 'contact', acId: '123' }
+    //                       { debug: 'lead',    leadId: 'uuid' }   // resolve activecampaign_id do CRM
+    // ----------------------------------------------------------------------
+    let debugRequest: { mode?: string; acId?: string; leadId?: string } = {};
+    try {
+      if (req.headers.get('content-type')?.includes('application/json')) {
+        const body = await req.clone().json();
+        if (body && typeof body === 'object' && body.debug) {
+          debugRequest = {
+            mode: String(body.debug),
+            acId: body.acId ? String(body.acId) : undefined,
+            leadId: body.leadId ? String(body.leadId) : undefined,
+          };
+        }
+      }
+      const url = new URL(req.url);
+      if (!debugRequest.mode && url.searchParams.has('debug')) {
+        debugRequest = {
+          mode: url.searchParams.get('debug') || undefined,
+          acId: url.searchParams.get('acId') || undefined,
+          leadId: url.searchParams.get('leadId') || undefined,
+        };
+      }
+    } catch {
+      /* ignore body parse errors */
+    }
+
+    if (debugRequest.mode) {
+      // Debug exige usuário autenticado (mesma porta de entrada da UI)
+      if (claimsError || !claimsData?.user) {
+        return new Response(
+          JSON.stringify({ error: 'Não autorizado' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      console.log('Debug mode:', debugRequest, 'user:', claimsData.user.id);
+
+      if (debugRequest.mode === 'fields') {
+        const all = await listAllFields(acUrl, acApiKey);
+        const mapped: Record<string, { id: string; perstag: string; title: string }> = {};
+        for (const f of all) {
+          const col = fieldToUtmColumn(String(f.perstag || ''), String(f.title || ''));
+          if (col) mapped[col] = { id: String(f.id), perstag: String(f.perstag || ''), title: String(f.title || '') };
+        }
+        return new Response(
+          JSON.stringify({
+            success: true,
+            mode: 'fields',
+            total: all.length,
+            mapped_utm_fields: mapped,
+            fields: all.map((f: any) => ({
+              id: String(f.id ?? ''),
+              title: String(f.title ?? ''),
+              perstag: String(f.perstag ?? ''),
+              type: String(f.type ?? ''),
+              relation: f.relation ?? null,
+            })),
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      let acId = debugRequest.acId;
+      if (debugRequest.mode === 'lead' && debugRequest.leadId) {
+        const { data: lead } = await adminSupabase
+          .from('leads')
+          .select('activecampaign_id, name, email, whatsapp')
+          .eq('id', debugRequest.leadId)
+          .maybeSingle();
+        if (!lead) {
+          return new Response(JSON.stringify({ error: 'Lead não encontrado' }), {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        acId = lead.activecampaign_id ? String(lead.activecampaign_id) : undefined;
+        if (!acId) {
+          return new Response(
+            JSON.stringify({ success: true, mode: 'lead', message: 'Lead não tem activecampaign_id', lead }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          );
+        }
+      }
+
+      if (debugRequest.mode === 'contact' || debugRequest.mode === 'lead') {
+        if (!acId) {
+          return new Response(JSON.stringify({ error: 'acId obrigatório' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        const [contactR, fvR, cdR] = await Promise.all([
+          fetch(`${acUrl}/api/3/contacts/${encodeURIComponent(acId)}`, {
+            headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' },
+          }),
+          fetch(`${acUrl}/api/3/contacts/${encodeURIComponent(acId)}/fieldValues`, {
+            headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' },
+          }),
+          fetch(`${acUrl}/api/3/contacts/${encodeURIComponent(acId)}/contactData`, {
+            headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' },
+          }),
+        ]);
+        const allFields = await listAllFields(acUrl, acApiKey);
+        const fieldsById: Record<string, { perstag: string; title: string }> = {};
+        for (const f of allFields) {
+          fieldsById[String(f.id)] = { perstag: String(f.perstag || ''), title: String(f.title || '') };
+        }
+        const fvJson = fvR.ok ? await fvR.json() : { error: await fvR.text() };
+        const fieldValuesAnnotated = Array.isArray(fvJson.fieldValues)
+          ? fvJson.fieldValues.map((fv: any) => {
+            const fieldId = fv.field != null
+              ? (typeof fv.field === 'object' && fv.field !== null && 'id' in fv.field
+                ? String((fv.field as { id: unknown }).id)
+                : String(fv.field))
+              : null;
+            return {
+              fieldId,
+              fieldDef: fieldId ? fieldsById[fieldId] || null : null,
+              value: fv.value ?? null,
+              cdate: fv.cdate ?? null,
+              udate: fv.udate ?? null,
+            };
+          })
+          : [];
+        return new Response(
+          JSON.stringify({
+            success: true,
+            mode: debugRequest.mode,
+            acId,
+            contact: contactR.ok ? await contactR.json() : { error: await contactR.text() },
+            fieldValues: fieldValuesAnnotated,
+            contactData: cdR.ok ? await cdR.json() : { error: await cdR.text() },
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      return new Response(JSON.stringify({ error: 'debug inválido' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    // ---- END DEBUG MODE ---------------------------------------------------
+
+    let userIds: string[] = [];
 
     if (!claimsError && claimsData?.user) {
       userIds = [claimsData.user.id];
@@ -530,11 +689,22 @@ serve(async (req) => {
     }
 
     console.log('Fetching AC field definitions for UTM mapping...');
-    const fieldIdToUtm = await fetchFieldIdToUtmColumn(acUrl, acApiKey);
+    const { map: fieldIdToUtm, raw: allAcFields } = await fetchFieldIdToUtmColumn(acUrl, acApiKey);
     if (Object.keys(fieldIdToUtm).length === 0) {
       console.warn(
         'Nenhum campo AC mapeado para UTM (perstag/título com utm_*). Confira os nomes dos campos personalizados no ActiveCampaign.',
       );
+    }
+    const mappedFieldsByColumn: Record<string, { id: string; perstag: string; title: string }> = {};
+    for (const f of allAcFields) {
+      const col = fieldToUtmColumn(String(f.perstag || ''), String(f.title || ''));
+      if (col) {
+        mappedFieldsByColumn[col] = {
+          id: String(f.id),
+          perstag: String(f.perstag || ''),
+          title: String(f.title || ''),
+        };
+      }
     }
 
     console.log('Fetching all contacts from ActiveCampaign...');
@@ -717,6 +887,14 @@ serve(async (req) => {
 
     console.log(`Done: ${totalImported} imported, ${totalUtmUpdates} UTM updates`);
 
+    const utmCounts = { utm_source: 0, utm_campaign: 0, utm_medium: 0, utm_conjunto: 0 };
+    for (const u of Object.values(utmByContactId)) {
+      if (u.utm_source) utmCounts.utm_source++;
+      if (u.utm_campaign) utmCounts.utm_campaign++;
+      if (u.utm_medium) utmCounts.utm_medium++;
+      if (u.utm_conjunto) utmCounts.utm_conjunto++;
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -724,6 +902,12 @@ serve(async (req) => {
         utm_updates: totalUtmUpdates,
         total: contacts.length,
         users: userIds.length,
+        utm_diagnostics: {
+          mapped_fields: mappedFieldsByColumn,
+          contacts_with_any_utm: totalWithUtm,
+          contacts_with: utmCounts,
+          total_ac_fields_seen: allAcFields.length,
+        },
         errors: (validationErrors + totalDbErrors > 0)
           ? `${validationErrors} validação, ${totalDbErrors} banco de dados`
           : undefined,
