@@ -64,8 +64,12 @@ function fieldToUtmColumn(perstag: string, title: string): UtmColumn | null {
     if (map[k]) return map[k];
   }
   const hay = `${perstag} ${title}`.toLowerCase();
+  if (hay.includes('utm_conjunto') || hay.includes('utmconjunto')) return 'utm_conjunto';
+  if (hay.includes('utm_campaign') || hay.includes('utmcampaign')) return 'utm_campaign';
+  if (hay.includes('utm_medium') || hay.includes('utmmedium')) return 'utm_medium';
+  if (hay.includes('utm_source') || hay.includes('utmsource')) return 'utm_source';
   if (!hay.includes('utm')) return null;
-  if (hay.includes('conjunto') || hay.includes('adset')) return 'utm_conjunto';
+  if (hay.includes('conjunto') || hay.includes('adset') || hay.includes('ad set')) return 'utm_conjunto';
   if (hay.includes('campaign') || hay.includes('campanha')) return 'utm_campaign';
   if (hay.includes('medium') || hay.includes('meio')) return 'utm_medium';
   if (hay.includes('source') || hay.includes('origem')) return 'utm_source';
@@ -408,7 +412,8 @@ serve(async (req) => {
     }
 
     const acApiKey = Deno.env.get('ACTIVECAMPAIGN_API_KEY');
-    const acUrl = Deno.env.get('ACTIVECAMPAIGN_URL');
+    const acUrlRaw = Deno.env.get('ACTIVECAMPAIGN_URL');
+    const acUrl = acUrlRaw?.trim().replace(/\/$/, '') || '';
 
     if (!acApiKey || !acUrl) {
       console.error('ActiveCampaign credentials not configured');
@@ -485,6 +490,30 @@ serve(async (req) => {
     console.log('Fetching custom field values (UTM) per contact...');
     const utmByContactId = await fetchContactFieldValuesBatched(contacts, acUrl, acApiKey, fieldIdToUtm);
 
+    const { data: linkedLeads } = await adminSupabase
+      .from('leads')
+      .select('activecampaign_id')
+      .in('user_id', userIds)
+      .not('activecampaign_id', 'is', null);
+
+    const fromList = new Set(contacts.map((c: any) => String(c.id)));
+    const fromDb = [...new Set((linkedLeads || []).map((l: any) => String(l.activecampaign_id)).filter(Boolean))];
+    const onlyInDb = fromDb.filter((id) => !fromList.has(id)).slice(0, 500);
+    if (onlyInDb.length > 0) {
+      console.log(
+        `Fetching UTM for ${onlyInDb.length} leads já no CRM (ActiveCampaign ID fora da lista filtrada por data)...`,
+      );
+      await fetchContactFieldValuesForIds(onlyInDb, acUrl, acApiKey, fieldIdToUtm, utmByContactId);
+    }
+
+    const forDatum = [...new Set([...contacts.map((c: any) => String(c.id)), ...fromDb])].slice(0, 600);
+    await mergeContactDatumForIds(forDatum, acUrl, acApiKey, utmByContactId);
+
+    const totalWithUtm = Object.values(utmByContactId).filter((u) =>
+      u.utm_source || u.utm_campaign || u.utm_medium || u.utm_conjunto
+    ).length;
+    console.log(`UTM map: ${Object.keys(utmByContactId).length} contatos com dados brutos, ${totalWithUtm} com algum UTM preenchido`);
+
     console.log('Fetching tags...');
     const contactTags = await fetchContactTags(contacts, acUrl, acApiKey);
     console.log('Tags fetched');
@@ -505,7 +534,7 @@ serve(async (req) => {
         .eq('user_id', userId)
         .not('activecampaign_id', 'is', null);
 
-      const existingAcIds = new Set((existingLeads || []).map((l: any) => l.activecampaign_id));
+      const existingAcIds = new Set((existingLeads || []).map((l: any) => String(l.activecampaign_id)));
       console.log(`User ${userId}: ${existingAcIds.size} existing AC leads`);
 
       const leadsToInsert: any[] = [];
@@ -594,6 +623,7 @@ serve(async (req) => {
             })
             .eq('user_id', userId)
             .eq('activecampaign_id', acId);
+          if (error) console.error('UTM update failed', userId, acId, error.message);
           return !error;
         }));
         totalUtmUpdates += results.filter(Boolean).length;

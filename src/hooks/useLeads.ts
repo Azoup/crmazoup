@@ -385,10 +385,30 @@ export function useLeads() {
       if (updates.address !== undefined) updatePayload.address = updates.address ?? null;
       if (updates.client_observations !== undefined) updatePayload.client_observations = updates.client_observations ?? null;
       if (updates.manager_notes !== undefined) updatePayload.manager_notes = updates.manager_notes ?? null;
-      if (updates.utm_source !== undefined) updatePayload.utm_source = updates.utm_source ?? null;
-      if (updates.utm_campaign !== undefined) updatePayload.utm_campaign = updates.utm_campaign ?? null;
-      if (updates.utm_medium !== undefined) updatePayload.utm_medium = updates.utm_medium ?? null;
-      if (updates.utm_conjunto !== undefined) updatePayload.utm_conjunto = updates.utm_conjunto ?? null;
+      if (updates.utm_source !== undefined) {
+        updatePayload.utm_source =
+          typeof updates.utm_source === 'string' && updates.utm_source.trim() === ''
+            ? null
+            : (updates.utm_source ?? null);
+      }
+      if (updates.utm_campaign !== undefined) {
+        updatePayload.utm_campaign =
+          typeof updates.utm_campaign === 'string' && updates.utm_campaign.trim() === ''
+            ? null
+            : (updates.utm_campaign ?? null);
+      }
+      if (updates.utm_medium !== undefined) {
+        updatePayload.utm_medium =
+          typeof updates.utm_medium === 'string' && updates.utm_medium.trim() === ''
+            ? null
+            : (updates.utm_medium ?? null);
+      }
+      if (updates.utm_conjunto !== undefined) {
+        updatePayload.utm_conjunto =
+          typeof updates.utm_conjunto === 'string' && updates.utm_conjunto.trim() === ''
+            ? null
+            : (updates.utm_conjunto ?? null);
+      }
 
       const { error } = await supabase
         .from('leads')
@@ -397,7 +417,15 @@ export function useLeads() {
 
       if (error) {
         console.error('Error updating lead:', error);
-        toast({ title: 'Erro', description: `Erro ao atualizar lead: ${error.message}`, variant: 'destructive' });
+        const hint =
+          /column|schema|42703|utm_/i.test(error.message || '')
+            ? ' Verifique se a migração UTM foi aplicada no Supabase (colunas utm_* na tabela leads).'
+            : '';
+        toast({
+          title: 'Erro',
+          description: `Erro ao atualizar lead: ${error.message}${hint}`,
+          variant: 'destructive',
+        });
         return false;
       }
 

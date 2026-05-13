@@ -220,19 +220,13 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
         if (draftKey) localStorage.removeItem(draftKey);
         if (noteDraftKey) localStorage.removeItem(noteDraftKey);
         if (tabKey) localStorage.removeItem(tabKey);
-      } else {
-        // Keep modal open - error already shown via toast in parent
-        toast({
-          title: 'Erro ao salvar',
-          description: 'Não foi possível salvar. Verifique sua conexão e tente novamente.',
-          variant: 'destructive',
-        });
       }
+      // Em caso de falha, o hook (onSave) já exibe o toast com o motivo real — não mostrar "sem internet" aqui.
     } catch (err) {
       console.error('Error in handleSave:', err);
       toast({
         title: 'Erro inesperado',
-        description: 'Erro ao salvar. Tente novamente.',
+        description: err instanceof Error ? err.message : 'Erro ao salvar. Tente novamente.',
         variant: 'destructive',
       });
     } finally {
@@ -415,8 +409,13 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
     } catch (e) { 
       console.error('AI error:', e);
       toast({
-        title: 'Erro de conexão',
-        description: 'Verifique sua internet e tente novamente.',
+        title: 'Falha na requisição',
+        description:
+          e instanceof TypeError && e.message === 'Failed to fetch'
+            ? 'Não foi possível conectar ao servidor. Verifique sua internet ou tente mais tarde.'
+            : e instanceof Error
+              ? e.message
+              : 'Tente novamente.',
         variant: 'destructive',
       });
     } finally {
@@ -472,7 +471,16 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
       }
     } catch (e) {
       console.error('Objection AI error:', e);
-      toast({ title: 'Erro de conexão', description: 'Verifique sua internet e tente novamente.', variant: 'destructive' });
+      toast({
+        title: 'Falha na requisição',
+        description:
+          e instanceof TypeError && e.message === 'Failed to fetch'
+            ? 'Não foi possível conectar ao servidor. Verifique sua internet ou tente mais tarde.'
+            : e instanceof Error
+              ? e.message
+              : 'Tente novamente.',
+        variant: 'destructive',
+      });
     } finally {
       setIsGeneratingObjection(false);
     }
