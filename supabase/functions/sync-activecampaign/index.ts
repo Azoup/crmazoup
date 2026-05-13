@@ -201,22 +201,21 @@ async function fetchAllContacts(acUrl: string, acApiKey: string): Promise<any[]>
 }
 
 /**
- * ActiveCampaign often omits fieldValues when using include= on list contacts.
- * Official approach: GET /contacts/:id/fieldValues per contact.
+ * GET /contacts/:id/fieldValues for many contact IDs (deduplicated).
  */
-async function fetchContactFieldValuesBatched(
-  contacts: any[],
+async function fetchContactFieldValuesForIds(
+  contactIds: string[],
   acUrl: string,
   acApiKey: string,
   fieldIdToUtm: Record<string, UtmColumn>,
-): Promise<Record<string, UtmFields>> {
-  const utmByContactId: Record<string, UtmFields> = {};
-  const batchSize = 12;
+  utmByContactId: Record<string, UtmFields>,
+): Promise<void> {
+  const unique = [...new Set(contactIds.map((id) => String(id)).filter(Boolean))];
+  const batchSize = 10;
 
-  for (let i = 0; i < contacts.length; i += batchSize) {
-    const batch = contacts.slice(i, i + batchSize);
-    await Promise.all(batch.map(async (contact: any) => {
-      const id = String(contact.id);
+  for (let i = 0; i < unique.length; i += batchSize) {
+    const batch = unique.slice(i, i + batchSize);
+    await Promise.all(batch.map(async (id) => {
       try {
         const r = await fetch(
           `${acUrl}/api/3/contacts/${encodeURIComponent(id)}/fieldValues`,
@@ -234,6 +233,69 @@ async function fetchContactFieldValuesBatched(
       }
     }));
   }
+}
+
+/** GA / visit tracking on contactDatum — preenche UTM quando campos customizados estão vazios */
+async function mergeContactDatumForIds(
+  contactIds: string[],
+  acUrl: string,
+  acApiKey: string,
+  utmByContactId: Record<string, UtmFields>,
+): Promise<void> {
+  const unique = [...new Set(contactIds.map((id) => String(id)).filter(Boolean))];
+  const batchSize = 10;
+
+  for (let i = 0; i < unique.length; i += batchSize) {
+    const batch = unique.slice(i, i + batchSize);
+    await Promise.all(batch.map(async (id) => {
+      try {
+        const r = await fetch(
+          `${acUrl}/api/3/contacts/${encodeURIComponent(id)}/contactData`,
+          { headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' } },
+        );
+        if (!r.ok) return;
+        const data = await r.json();
+        const d = data.contactDatum;
+        if (!d || typeof d !== 'object') return;
+        if (!utmByContactId[id]) utmByContactId[id] = emptyUtm();
+        const u = utmByContactId[id];
+        if (!u.utm_source) {
+          const v = sanitizeUtmValue(d.ga_campaign_source, UTM_MAX);
+          if (v) u.utm_source = v;
+        }
+        if (!u.utm_campaign) {
+          const v = sanitizeUtmValue(d.ga_campaign_name, UTM_MAX);
+          if (v) u.utm_campaign = v;
+        }
+        if (!u.utm_medium) {
+          const v = sanitizeUtmValue(d.ga_campaign_medium, UTM_MAX);
+          if (v) u.utm_medium = v;
+        }
+        if (!u.utm_conjunto) {
+          const seg = d.ga_campaign_customsegment || d.ga_campaign_content || d.ga_campaign_term;
+          const v = sanitizeUtmValue(seg, UTM_MAX);
+          if (v) u.utm_conjunto = v;
+        }
+      } catch (e) {
+        console.error(`contactData error for contact ${id}:`, e);
+      }
+    }));
+  }
+}
+
+/**
+ * ActiveCampaign often omits fieldValues when using include= on list contacts.
+ * Official approach: GET /contacts/:id/fieldValues per contact.
+ */
+async function fetchContactFieldValuesBatched(
+  contacts: any[],
+  acUrl: string,
+  acApiKey: string,
+  fieldIdToUtm: Record<string, UtmColumn>,
+): Promise<Record<string, UtmFields>> {
+  const utmByContactId: Record<string, UtmFields> = {};
+  const ids = contacts.map((c) => String(c.id));
+  await fetchContactFieldValuesForIds(ids, acUrl, acApiKey, fieldIdToUtm, utmByContactId);
 
   const withAny = Object.keys(utmByContactId).filter((cid) => {
     const u = utmByContactId[cid];
