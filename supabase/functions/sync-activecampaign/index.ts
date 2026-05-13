@@ -8,6 +8,9 @@ const corsHeaders = {
 
 const UTM_MAX = 2000;
 
+/** Cache por execução da função: IDs de campo AC → coluna UTM ou null (já tentado). */
+const fieldUtmResolveCache = new Map<string, UtmColumn | null>();
+
 function sanitizeString(input: unknown, maxLength: number): string {
   if (input === null || input === undefined) return '';
   if (typeof input !== 'string') return String(input).substring(0, maxLength);
@@ -102,6 +105,43 @@ async function fetchFieldIdToUtmColumn(acUrl: string, acApiKey: string): Promise
   return out;
 }
 
+/** Quando o ID não veio no list /fields, busca definição individual (AC às vezes pagina ou filtra diferente). */
+async function resolveUtmColumnForFieldId(
+  fieldId: string,
+  acUrl: string,
+  acApiKey: string,
+  fieldIdToUtm: Record<string, UtmColumn>,
+): Promise<UtmColumn | null> {
+  if (fieldIdToUtm[fieldId]) return fieldIdToUtm[fieldId];
+  if (fieldUtmResolveCache.has(fieldId)) {
+    const cached = fieldUtmResolveCache.get(fieldId)!;
+    if (cached) fieldIdToUtm[fieldId] = cached;
+    return cached;
+  }
+  try {
+    const r = await fetch(`${acUrl}/api/3/fields/${encodeURIComponent(fieldId)}`, {
+      headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' },
+    });
+    if (!r.ok) {
+      fieldUtmResolveCache.set(fieldId, null);
+      return null;
+    }
+    const data = await r.json();
+    const f = data.field;
+    if (!f || f.id == null) {
+      fieldUtmResolveCache.set(fieldId, null);
+      return null;
+    }
+    const col = fieldToUtmColumn(String(f.perstag || ''), String(f.title || ''));
+    fieldUtmResolveCache.set(fieldId, col);
+    if (col) fieldIdToUtm[String(f.id)] = col;
+    return col;
+  } catch {
+    fieldUtmResolveCache.set(fieldId, null);
+    return null;
+  }
+}
+
 interface ValidatedContact {
   id: string;
   firstName: string;
@@ -149,12 +189,14 @@ function validateContact(
   };
 }
 
-function mergeFieldValuesIntoUtmMap(
+async function mergeFieldValuesIntoUtmMap(
   fieldValues: any[],
   fieldIdToUtm: Record<string, UtmColumn>,
   utmByContactId: Record<string, UtmFields>,
+  acUrl: string,
+  acApiKey: string,
   fallbackContactId?: string,
-): void {
+): Promise<void> {
   for (const fv of fieldValues) {
     const contactId = fv.contact != null
       ? String(fv.contact)
@@ -166,7 +208,10 @@ function mergeFieldValuesIntoUtmMap(
         : String(rawField))
       : null;
     if (!contactId || !fieldId) continue;
-    const col = fieldIdToUtm[fieldId];
+    let col = fieldIdToUtm[fieldId];
+    if (!col) {
+      col = await resolveUtmColumnForFieldId(fieldId, acUrl, acApiKey, fieldIdToUtm);
+    }
     if (!col) continue;
     const val = sanitizeUtmValue(fv.value, UTM_MAX);
     if (!utmByContactId[contactId]) utmByContactId[contactId] = emptyUtm();
@@ -231,7 +276,14 @@ async function fetchContactFieldValuesForIds(
           return;
         }
         const data = await r.json();
-        mergeFieldValuesIntoUtmMap(data.fieldValues || [], fieldIdToUtm, utmByContactId, id);
+        await mergeFieldValuesIntoUtmMap(
+          data.fieldValues || [],
+          fieldIdToUtm,
+          utmByContactId,
+          acUrl,
+          acApiKey,
+          id,
+        );
       } catch (e) {
         console.error(`fieldValues error for contact ${id}:`, e);
       }
@@ -403,6 +455,8 @@ serve(async (req) => {
   }
 
   try {
+    fieldUtmResolveCache.clear();
+
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
@@ -498,7 +552,7 @@ serve(async (req) => {
 
     const fromList = new Set(contacts.map((c: any) => String(c.id)));
     const fromDb = [...new Set((linkedLeads || []).map((l: any) => String(l.activecampaign_id)).filter(Boolean))];
-    const onlyInDb = fromDb.filter((id) => !fromList.has(id)).slice(0, 500);
+    const onlyInDb = fromDb.filter((id) => !fromList.has(id)).slice(0, 2500);
     if (onlyInDb.length > 0) {
       console.log(
         `Fetching UTM for ${onlyInDb.length} leads já no CRM (ActiveCampaign ID fora da lista filtrada por data)...`,
@@ -506,7 +560,7 @@ serve(async (req) => {
       await fetchContactFieldValuesForIds(onlyInDb, acUrl, acApiKey, fieldIdToUtm, utmByContactId);
     }
 
-    const forDatum = [...new Set([...contacts.map((c: any) => String(c.id)), ...fromDb])].slice(0, 600);
+    const forDatum = [...new Set([...contacts.map((c: any) => String(c.id)), ...fromDb])].slice(0, 2500);
     await mergeContactDatumForIds(forDatum, acUrl, acApiKey, utmByContactId);
 
     const totalWithUtm = Object.values(utmByContactId).filter((u) =>
@@ -539,6 +593,7 @@ serve(async (req) => {
 
       const leadsToInsert: any[] = [];
       const utmUpdatesForUser: { acId: string; utm: UtmFields }[] = [];
+      const utmUpdateQueued = new Set<string>();
 
       for (const contact of contacts) {
         const validated = validateContact(contact, contactTags, orgNames, utmByContactId);
@@ -560,6 +615,7 @@ serve(async (req) => {
             utmPayload.utm_conjunto
           ) {
             utmUpdatesForUser.push({ acId: validated.id, utm: utmPayload });
+            utmUpdateQueued.add(validated.id);
           }
           continue;
         }
@@ -591,6 +647,32 @@ serve(async (req) => {
             user: 'Sistema',
           }],
         });
+      }
+
+      // Leads já no CRM cujo contato NÃO entrou na lista filtrada do AC — mesmo assim temos UTM em utmByContactId
+      const { data: userAcLeads } = await adminSupabase
+        .from('leads')
+        .select('activecampaign_id')
+        .eq('user_id', userId)
+        .not('activecampaign_id', 'is', null);
+
+      for (const row of userAcLeads || []) {
+        const acId = String(row.activecampaign_id ?? '').trim();
+        if (!acId) continue;
+        const utm = utmByContactId[acId];
+        if (!utm) continue;
+        if (!(utm.utm_source || utm.utm_campaign || utm.utm_medium || utm.utm_conjunto)) continue;
+        if (utmUpdateQueued.has(acId)) continue;
+        utmUpdatesForUser.push({
+          acId,
+          utm: {
+            utm_source: utm.utm_source,
+            utm_campaign: utm.utm_campaign,
+            utm_medium: utm.utm_medium,
+            utm_conjunto: utm.utm_conjunto,
+          },
+        });
+        utmUpdateQueued.add(acId);
       }
 
       console.log(`User ${userId}: ${leadsToInsert.length} new leads to insert, ${utmUpdatesForUser.length} UTM refreshes`);
