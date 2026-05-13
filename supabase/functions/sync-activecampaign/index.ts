@@ -155,7 +155,12 @@ function mergeFieldValuesIntoUtmMap(
     const contactId = fv.contact != null
       ? String(fv.contact)
       : (fv.owner != null ? String(fv.owner) : fallbackContactId);
-    const fieldId = fv.field != null ? String(fv.field) : null;
+    const rawField = fv.field;
+    const fieldId = rawField != null
+      ? (typeof rawField === 'object' && rawField !== null && 'id' in rawField
+        ? String((rawField as { id: unknown }).id)
+        : String(rawField))
+      : null;
     if (!contactId || !fieldId) continue;
     const col = fieldIdToUtm[fieldId];
     if (!col) continue;
