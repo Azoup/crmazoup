@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLeads } from '@/hooks/useLeads';
 import { useToast } from '@/hooks/use-toast';
@@ -26,6 +26,7 @@ import { Lead, LeadSource } from '@/types/lead';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DailyNewLeadsCarousel } from '@/components/leads/DailyNewLeadsCarousel';
 
 type ViewType = 'pipeline' | 'prospeccao_ativa' | 'indicacao' | 'agenda' | 'vendas' | 'qualificacao' | 'relatorios' | 'whatsapp' | 'gestor';
 
@@ -60,6 +61,24 @@ export function Dashboard() {
   const [createLeadSource, setCreateLeadSource] = useState<LeadSource>('marketing');
 
   const isManager = profile?.role === 'Gestor';
+
+  const pipelineCarouselLeads = useMemo(
+    () =>
+      filteredLeads.filter(
+        (l) => l.user_id === user?.id && (l.lead_source === 'marketing' || !l.lead_source),
+      ),
+    [filteredLeads, user?.id],
+  );
+
+  const prospeccaoAtivaCarouselLeads = useMemo(
+    () => leads.filter((l) => l.user_id === user?.id && l.lead_source === 'prospeccao_ativa'),
+    [leads, user?.id],
+  );
+
+  const indicacaoCarouselLeads = useMemo(
+    () => leads.filter((l) => l.user_id === user?.id && l.lead_source === 'indicacao'),
+    [leads, user?.id],
+  );
 
   // Hook to monitor past meetings and prompt for status
   const { pendingReminder, dismissReminder, clearReminder } = useMeetingReminder(leads);
@@ -171,6 +190,36 @@ export function Dashboard() {
       <main className="p-4 md:p-6">
         {(view === 'pipeline' || view === 'agenda') && (
           <FilterBar filters={filters} setFilters={setFilters} />
+        )}
+
+        {!isManager && view === 'pipeline' && (
+          <DailyNewLeadsCarousel
+            leads={pipelineCarouselLeads}
+            onOpenLead={handleOpenLead}
+            getLeadStatus={getLeadStatus}
+            addHistory={addHistory}
+            msgTemplate={settings?.msg_template || ''}
+          />
+        )}
+
+        {!isManager && view === 'prospeccao_ativa' && (
+          <DailyNewLeadsCarousel
+            leads={prospeccaoAtivaCarouselLeads}
+            onOpenLead={handleOpenLead}
+            getLeadStatus={getLeadStatus}
+            addHistory={addHistory}
+            msgTemplate={settings?.msg_template || ''}
+          />
+        )}
+
+        {!isManager && view === 'indicacao' && (
+          <DailyNewLeadsCarousel
+            leads={indicacaoCarouselLeads}
+            onOpenLead={handleOpenLead}
+            getLeadStatus={getLeadStatus}
+            addHistory={addHistory}
+            msgTemplate={settings?.msg_template || ''}
+          />
         )}
         
         {view === 'pipeline' && (

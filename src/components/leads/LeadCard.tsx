@@ -7,6 +7,8 @@ interface LeadCardProps {
   onClick: () => void;
   status: 'late' | 'today' | 'ontime' | 'neutral';
   onQuickWhatsApp: (e: React.MouseEvent) => void;
+  /** Quando false, desativa drag nativo (ex.: dentro de carrossel com scroll por arraste). */
+  enableNativeDrag?: boolean;
 }
 
 const tempColors: Record<LeadTemperature, string> = {
@@ -50,7 +52,7 @@ function formatContactDateTime(date: Date): string {
   return `${pad(date.getDate())}/${pad(date.getMonth() + 1)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export function LeadCard({ lead, onClick, status, onQuickWhatsApp }: LeadCardProps) {
+export function LeadCard({ lead, onClick, status, onQuickWhatsApp, enableNativeDrag = true }: LeadCardProps) {
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData("leadId", lead.id);
   };
@@ -91,10 +93,12 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp }: LeadCardPro
 
   return (
     <div
-      draggable
-      onDragStart={handleDragStart}
+      draggable={enableNativeDrag}
+      onDragStart={enableNativeDrag ? handleDragStart : undefined}
       onClick={onClick}
-      className={`relative p-4 bg-card rounded-xl border border-border/50 cursor-grab active:cursor-grabbing hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 group border-l-4 ${borderColor} ${
+      className={`relative p-4 bg-card rounded-xl border border-border/50 ${
+        enableNativeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+      } hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 group border-l-4 ${borderColor} ${
         isNew ? 'ring-1 ring-purple-400/20 bg-purple-50/50 dark:bg-purple-950/20' : ''
       } shadow-sm`}
     >

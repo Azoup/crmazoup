@@ -629,6 +629,21 @@ export function useLeads() {
     return Math.min(100, (totalImplementation / settings.sales_goal) * 100);
   }, [totalImplementation, settings?.sales_goal]);
 
+  const debugActiveCampaign = async (
+    mode: 'fields' | 'contact' | 'lead',
+    params: { acId?: string; leadId?: string } = {},
+  ): Promise<{ data?: any; error?: string }> => {
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-activecampaign', {
+        body: { debug: mode, acId: params.acId, leadId: params.leadId },
+      });
+      if (error) return { error: error.message || 'Erro ao chamar debug' };
+      return { data };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : 'Erro inesperado' };
+    }
+  };
+
   const syncActiveCampaign = async (options?: { silent?: boolean }): Promise<{ imported: number; error?: string }> => {
     if (!user) {
       return { imported: 0, error: 'Você precisa estar logado' };
@@ -651,10 +666,25 @@ export function useLeads() {
 
       if (data.success) {
         if (!options?.silent) {
-          toast({ 
-            title: 'Sincronização Concluída', 
-            description: `${data.imported} leads importados do ActiveCampaign` 
+          const diag = data.utm_diagnostics as
+            | { contacts_with_any_utm?: number; mapped_fields?: Record<string, unknown> }
+            | undefined;
+          const mappedCount = diag?.mapped_fields ? Object.keys(diag.mapped_fields).length : 0;
+          const withUtm = diag?.contacts_with_any_utm ?? 0;
+          const utmUpdates = data.utm_updates ?? 0;
+          const extra = ` · UTM: ${mappedCount} campo(s) mapeado(s), ${withUtm} contato(s) com dado, ${utmUpdates} atualização(ões)`;
+          toast({
+            title: 'Sincronização Concluída',
+            description: `${data.imported} leads importados do ActiveCampaign${extra}`,
           });
+          if (mappedCount === 0) {
+            toast({
+              title: 'Atenção: nenhum campo UTM mapeado',
+              description:
+                'O ActiveCampaign não retornou nenhum campo personalizado com nome utm_source / utm_campaign / utm_medium / utm_conjunto. Verifique os nomes/perstags no AC.',
+              variant: 'destructive',
+            });
+          }
         }
         return { imported: data.imported };
       } else {
@@ -717,5 +747,6 @@ export function useLeads() {
     totalMonthly,
     percentGoal,
     syncActiveCampaign,
+    debugActiveCampaign,
   };
 }
