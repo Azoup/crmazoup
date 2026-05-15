@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Lead } from '@/types/lead';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { isWhatsAppGatewayConfigured, whatsappGatewayFetch, type WhatsAppGatewayStatus } from '@/lib/whatsappGateway';
+import {
+  getWhatsAppAccessToken,
+  getWhatsAppGatewayBlockReason,
+  isWhatsAppGatewayConfigured,
+  whatsappGatewayFetch,
+  type WhatsAppGatewayStatus,
+} from '@/lib/whatsappGateway';
 import { Loader2, LogOut, Send, Smartphone } from 'lucide-react';
 
 interface WhatsAppViewProps {
@@ -34,7 +40,9 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
   const [message, setMessage] = useState('');
 
   const configured = isWhatsAppGatewayConfigured();
+  const gatewayBlock = getWhatsAppGatewayBlockReason();
   const token = session?.access_token;
+  const didAutoReset = useRef(false);
 
   const leadsWithPhone = useMemo(
     () =>
@@ -51,28 +59,41 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
   );
 
   const refreshStatus = useCallback(async () => {
-    if (!configured || !token) return;
+    if (!configured || gatewayBlock) {
+      if (gatewayBlock) {
+        setStatus({
+          status: 'disconnected',
+          qrDataUrl: null,
+          phone: null,
+          error: gatewayBlock,
+        });
+      }
+      return;
+    }
+    if (!session) return;
     try {
-      const data = await whatsappGatewayFetch<WhatsAppGatewayStatus>('/api/whatsapp/status', token);
+      const accessToken = await getWhatsAppAccessToken();
+      const data = await whatsappGatewayFetch<WhatsAppGatewayStatus>('/api/whatsapp/status', accessToken);
       setStatus(data);
     } catch (e) {
       console.error(e);
-      setStatus((prev) => ({
+      setStatus({
         status: 'disconnected',
         qrDataUrl: null,
-        phone: prev?.phone ?? null,
+        phone: null,
         error: e instanceof Error ? e.message : 'Falha ao contactar o gateway',
-      }));
+      });
     }
-  }, [configured, token]);
+  }, [configured, gatewayBlock, session]);
 
   const handleResetQr = async () => {
-    if (!token) return;
+    if (!session || gatewayBlock) return;
     setLoading(true);
     try {
+      const accessToken = await getWhatsAppAccessToken();
       const data = await whatsappGatewayFetch<WhatsAppGatewayStatus & { ok?: boolean }>(
         '/api/whatsapp/reset',
-        token,
+        accessToken,
         { method: 'POST', body: '{}' },
       );
       setStatus({
@@ -99,7 +120,7 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
   };
 
   useEffect(() => {
-    if (!configured || !token) return;
+    if (!configured || !session || gatewayBlock) return;
     let cancelled = false;
     const tick = async () => {
       if (cancelled) return;
@@ -112,13 +133,24 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [configured, token, refreshStatus, status?.status]);
+  }, [configured, session, gatewayBlock, refreshStatus, status?.status]);
+
+  useEffect(() => {
+    if (didAutoReset.current || gatewayBlock || !configured || !session) return;
+    if (status?.qrDataUrl || status?.status === 'connected' || status?.status === 'qr') return;
+    if (status?.error?.includes('401') || status?.error?.includes('Sessão')) return;
+    if (status?.status === 'disconnected' && !status?.qrDataUrl) {
+      didAutoReset.current = true;
+      void handleResetQr();
+    }
+  }, [status, gatewayBlock, configured, session]);
 
   const handleLogout = async () => {
-    if (!token) return;
+    if (!session) return;
     setLoading(true);
     try {
-      await whatsappGatewayFetch('/api/whatsapp/logout', token, { method: 'POST', body: '{}' });
+      const accessToken = await getWhatsAppAccessToken();
+      await whatsappGatewayFetch('/api/whatsapp/logout', accessToken, { method: 'POST', body: '{}' });
       toast({ title: 'WhatsApp desconectado', description: 'Sessão removida neste servidor.' });
       setStatus({ status: 'disconnected', qrDataUrl: null, phone: null });
     } catch (e) {
@@ -133,7 +165,7 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
   };
 
   const handleSend = async () => {
-    if (!token || !selectedLead?.whatsapp) {
+    if (!session || !selectedLead?.whatsapp) {
       toast({ title: 'Selecione um lead', description: 'Escolha um lead com WhatsApp.', variant: 'destructive' });
       return;
     }
@@ -144,7 +176,8 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
     }
     setSending(true);
     try {
-      await whatsappGatewayFetch('/api/whatsapp/send', token, {
+      const accessToken = await getWhatsAppAccessToken();
+      await whatsappGatewayFetch('/api/whatsapp/send', accessToken, {
         method: 'POST',
         body: JSON.stringify({ phone: selectedLead.whatsapp, message: trimmed }),
       });
@@ -220,6 +253,12 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {(gatewayBlock || status?.error) && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive space-y-1">
+              <p className="font-semibold">Não foi possível conectar ao gateway</p>
+              <p>{gatewayBlock || status?.error}</p>
+            </div>
+          )}
           <div className="flex items-center justify-between gap-2">
             <div>
               <p className="text-xs text-muted-foreground uppercase font-bold">Status</p>

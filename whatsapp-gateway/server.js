@@ -21,6 +21,17 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const PORT = Number(process.env.PORT || 3847);
 
+function supabaseProjectRef() {
+  try {
+    const payload = SUPABASE_ANON_KEY?.split('.')[1];
+    if (!payload) return '?';
+    const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(Buffer.from(b64, 'base64').toString()).ref ?? '?';
+  } catch {
+    return '?';
+  }
+}
+
 if (!fs.existsSync(SESSIONS_ROOT)) fs.mkdirSync(SESSIONS_ROOT, { recursive: true });
 
 async function authMiddleware(req, res, next) {
@@ -29,7 +40,7 @@ async function authMiddleware(req, res, next) {
   }
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Não autorizado' });
+    return res.status(401).json({ error: 'Token ausente. Faça login no CRM.' });
   }
   try {
     const base = SUPABASE_URL.replace(/\/$/, '');
@@ -39,12 +50,24 @@ async function authMiddleware(req, res, next) {
         apikey: SUPABASE_ANON_KEY,
       },
     });
-    if (!r.ok) return res.status(401).json({ error: 'Sessão inválida ou expirada' });
+    if (!r.ok) {
+      const detail = await r.text().catch(() => '');
+      console.error('[auth] Supabase recusou token', r.status, detail.slice(0, 200));
+      return res.status(401).json({
+        error: 'Sessão inválida ou expirada',
+        hint: 'Use a mesma SUPABASE_ANON_KEY do .env do CRM e faça login de novo.',
+        supabaseRef: supabaseProjectRef(),
+      });
+    }
     const user = await r.json();
+    if (!user?.id) {
+      return res.status(401).json({ error: 'Usuário não identificado no token' });
+    }
     req.userId = user.id;
     next();
-  } catch {
-    return res.status(500).json({ error: 'Falha ao validar sessão' });
+  } catch (e) {
+    console.error('[auth] erro', e);
+    return res.status(500).json({ error: 'Falha ao validar sessão com o Supabase' });
   }
 }
 
@@ -330,4 +353,8 @@ app.post('/api/whatsapp/send', authMiddleware, async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`WhatsApp gateway em http://127.0.0.1:${PORT}`);
+  console.log(`Supabase: ${SUPABASE_URL || '(não definido)'} | ref: ${supabaseProjectRef()}`);
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.warn('AVISO: defina SUPABASE_URL e SUPABASE_ANON_KEY em whatsapp-gateway/.env');
+  }
 });
