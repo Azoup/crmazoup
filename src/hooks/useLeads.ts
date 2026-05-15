@@ -425,6 +425,9 @@ export function useLeads() {
             ? null
             : (updates.utm_conjunto ?? null);
       }
+      if (updates.activecampaign_id !== undefined) {
+        updatePayload.activecampaign_id = updates.activecampaign_id ?? null;
+      }
 
       const { error, skippedColumns } = await runWithSchemaFallback(
         updatePayload,
@@ -644,6 +647,21 @@ export function useLeads() {
     }
   };
 
+  const importActiveCampaignContact = async (
+    acId: string,
+  ): Promise<{ data?: any; error?: string }> => {
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-activecampaign', {
+        body: { action: 'importContact', acId },
+      });
+      if (error) return { error: error.message || 'Erro ao importar contato' };
+      if (data?.error) return { error: String(data.error) };
+      return { data };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : 'Erro inesperado' };
+    }
+  };
+
   const syncActiveCampaign = async (options?: { silent?: boolean }): Promise<{ imported: number; error?: string }> => {
     if (!user) {
       return { imported: 0, error: 'Você precisa estar logado' };
@@ -748,5 +766,6 @@ export function useLeads() {
     percentGoal,
     syncActiveCampaign,
     debugActiveCampaign,
+    importActiveCampaignContact,
   };
 }

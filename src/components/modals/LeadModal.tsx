@@ -21,6 +21,11 @@ import {
   Phone, Mail, StickyNote, History, UserCheck
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+  mapAcImportToLead,
+  parseActiveCampaignContactId,
+  type AcImportPreview,
+} from '@/lib/activecampaignMap';
 
 interface LeadModalProps {
   lead: Lead | null;
@@ -57,11 +62,9 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
   const [isSaving, setIsSaving] = useState(false);
   const [managerProfile, setManagerProfile] = useState<{ user_id: string; name: string } | null>(null);
   const [isDebuggingAc, setIsDebuggingAc] = useState(false);
-  const [acDebugResult, setAcDebugResult] = useState<null | {
-    summary: { utm_source: string | null; utm_campaign: string | null; utm_medium: string | null; utm_conjunto: string | null };
-    unmappedFields: { fieldId: string | null; title: string; perstag: string; value: unknown }[];
-    raw: any;
-  }>(null);
+  const [isImportingAc, setIsImportingAc] = useState(false);
+  const [acLinkInput, setAcLinkInput] = useState('');
+  const [acDebugResult, setAcDebugResult] = useState<null | (AcImportPreview & { raw: unknown })>(null);
 
   const [formData, setFormData] = useState<Partial<Lead>>({
     name: '', company: '', confection_type: '', whatsapp: '', email: '',
@@ -148,6 +151,11 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
       } else {
         setFormData(prev => ({ ...prev, history: lead.history }));
       }
+      if (lead.activecampaign_id) {
+        setAcLinkInput(`https://azouptecnologia.activehosted.com/app/contacts/${lead.activecampaign_id}`);
+      } else {
+        setAcLinkInput('');
+      }
       return;
     }
 
@@ -198,80 +206,57 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
     setFormData(prev => ({ ...prev, [name]: numericFields.includes(name) ? (value === '' ? null : Number(value)) : value }));
   };
 
-  const normalizeAcFieldName = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const matchUtmColumn = (perstag: string, title: string): keyof typeof formData | null => {
-    const candidates = [perstag, title].map(normalizeAcFieldName);
-    const has = (sub: string) => candidates.some((c) => c.includes(sub));
-    if (has('utmsource') || has('source')) return 'utm_source';
-    if (has('utmcampaign') || has('campaign') || has('campanha')) return 'utm_campaign';
-    if (has('utmmedium') || has('medium')) return 'utm_medium';
-    if (has('utmconjunto') || has('conjunto') || has('adset')) return 'utm_conjunto';
+  const resolveAcContactId = (): string | null => {
+    const fromLink = parseActiveCampaignContactId(acLinkInput);
+    if (fromLink) return fromLink;
+    if (lead?.activecampaign_id) return String(lead.activecampaign_id);
     return null;
   };
 
-  const handleDebugAc = async () => {
-    if (!lead?.id) return;
+  const fetchAcContactData = async (acId: string) => {
+    const { data, error } = await supabase.functions.invoke('sync-activecampaign', {
+      body: { debug: 'contact', acId },
+    });
+    if (error) throw new Error(error.message);
+    if (data?.error) throw new Error(String(data.error));
+    if (!data?.contact?.contact && !data?.fieldValues) {
+      throw new Error(data?.message || 'Contato não encontrado no ActiveCampaign.');
+    }
+    return data;
+  };
+
+  const handleFetchFromAc = async () => {
+    const acId = resolveAcContactId();
+    if (!acId) {
+      toast({
+        title: 'Link ou ID inválido',
+        description: 'Cole o link do contato (ex: .../contacts/1236) ou o número do ID.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsDebuggingAc(true);
     setAcDebugResult(null);
     try {
-      const { data, error } = await supabase.functions.invoke('sync-activecampaign', {
-        body: { debug: 'lead', leadId: lead.id },
+      const data = await fetchAcContactData(acId);
+      const preview = mapAcImportToLead({
+        contact: data.contact,
+        fieldValues: data.fieldValues,
+        contactData: data.contactData,
+        tags: data.tags,
       });
-      if (error) {
-        toast({ title: 'Erro no debug', description: error.message, variant: 'destructive' });
-        return;
-      }
-      if (!data?.fieldValues) {
-        toast({
-          title: 'Sem dados',
-          description: data?.message || 'Nenhum dado retornado pelo ActiveCampaign.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      const summary = {
-        utm_source: null as string | null,
-        utm_campaign: null as string | null,
-        utm_medium: null as string | null,
-        utm_conjunto: null as string | null,
-      };
-      const unmapped: { fieldId: string | null; title: string; perstag: string; value: unknown }[] = [];
-      for (const fv of data.fieldValues) {
-        const def = fv.fieldDef as { perstag?: string; title?: string } | null;
-        const col = def ? matchUtmColumn(def.perstag || '', def.title || '') : null;
-        const value = Array.isArray(fv.value) ? fv.value.join(', ') : fv.value;
-        if (col && value != null && String(value).trim() !== '') {
-          (summary as Record<string, string | null>)[col] = String(value).trim();
-        } else if (def && value != null && String(value).trim() !== '') {
-          unmapped.push({
-            fieldId: fv.fieldId,
-            title: def.title || '',
-            perstag: def.perstag || '',
-            value,
-          });
-        }
-      }
-      const cd = data.contactData?.contactData || data.contactData;
-      const gaSource = cd?.ga_campaign_source ?? cd?.tracking_source;
-      const gaCampaign = cd?.ga_campaign_name ?? cd?.tracking_campaign;
-      const gaMedium = cd?.ga_campaign_medium ?? cd?.tracking_medium;
-      if (!summary.utm_source && gaSource) summary.utm_source = String(gaSource);
-      if (!summary.utm_campaign && gaCampaign) summary.utm_campaign = String(gaCampaign);
-      if (!summary.utm_medium && gaMedium) summary.utm_medium = String(gaMedium);
-
-      setAcDebugResult({ summary, unmappedFields: unmapped, raw: data });
-
-      const any = summary.utm_source || summary.utm_campaign || summary.utm_medium || summary.utm_conjunto;
+      setAcDebugResult({ ...preview, raw: data });
+      const keys = Object.keys(preview.payload).filter((k) => preview.payload[k as keyof Lead] != null);
       toast({
-        title: any ? 'UTMs encontrados no ActiveCampaign' : 'Nenhum UTM encontrado',
-        description: any
-          ? 'Veja o resumo abaixo e clique em "Aplicar" para preencher os campos.'
-          : 'O contato existe no AC, mas não tem UTMs preenchidos nos campos personalizados.',
+        title: keys.length ? 'Dados do ActiveCampaign carregados' : 'Contato sem dados extras',
+        description: keys.length
+          ? `Campos encontrados: ${keys.join(', ')}. Clique em "Aplicar nos campos".`
+          : 'O contato existe, mas poucos campos estão preenchidos no AC.',
       });
     } catch (err) {
       toast({
-        title: 'Erro inesperado',
-        description: err instanceof Error ? err.message : 'Falha ao consultar ActiveCampaign',
+        title: 'Erro ao buscar ActiveCampaign',
+        description: err instanceof Error ? err.message : 'Falha na consulta',
         variant: 'destructive',
       });
     } finally {
@@ -279,17 +264,86 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
     }
   };
 
+  const handleDebugAc = async () => {
+    if (!lead?.activecampaign_id && !acLinkInput.trim()) {
+      await handleFetchFromAc();
+      return;
+    }
+    const acId = resolveAcContactId();
+    if (!acId) {
+      toast({ title: 'Sem ID do ActiveCampaign', description: 'Informe o link ou vincule o lead ao AC.', variant: 'destructive' });
+      return;
+    }
+    await handleFetchFromAc();
+  };
+
   const applyAcDebugResult = () => {
     if (!acDebugResult) return;
-    const { summary } = acDebugResult;
+    const { payload } = acDebugResult;
     setFormData((prev) => ({
       ...prev,
-      utm_source: summary.utm_source ?? prev.utm_source,
-      utm_campaign: summary.utm_campaign ?? prev.utm_campaign,
-      utm_medium: summary.utm_medium ?? prev.utm_medium,
-      utm_conjunto: summary.utm_conjunto ?? prev.utm_conjunto,
+      ...payload,
+      name: payload.name || prev.name,
+      email: payload.email ?? prev.email,
+      whatsapp: payload.whatsapp ?? prev.whatsapp,
+      company: payload.company ?? prev.company,
+      confection_type: payload.confection_type ?? prev.confection_type,
+      website: payload.website ?? prev.website,
+      pieces_per_month: payload.pieces_per_month ?? prev.pieces_per_month,
+      meeting_pain: payload.meeting_pain ?? prev.meeting_pain,
+      cpf_cnpj: payload.cpf_cnpj ?? prev.cpf_cnpj,
+      utm_source: payload.utm_source ?? prev.utm_source,
+      utm_campaign: payload.utm_campaign ?? prev.utm_campaign,
+      utm_medium: payload.utm_medium ?? prev.utm_medium,
+      utm_conjunto: payload.utm_conjunto ?? prev.utm_conjunto,
+      activecampaign_id: payload.activecampaign_id ?? prev.activecampaign_id,
     }));
-    toast({ title: 'Aplicado', description: 'Lembre-se de clicar em Salvar para gravar.' });
+    toast({ title: 'Aplicado', description: 'Revise os campos e clique em Salvar para gravar no CRM.' });
+  };
+
+  const handleImportAndSaveAc = async () => {
+    const acId = resolveAcContactId();
+    if (!acId) {
+      toast({
+        title: 'Link ou ID inválido',
+        description: 'Cole o link do ActiveCampaign (ex: .../contacts/1236).',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setIsImportingAc(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-activecampaign', {
+        body: { action: 'importContact', acId },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(String(data.error));
+
+      if (data?.mapped) {
+        setFormData((prev) => ({
+          ...prev,
+          ...data.mapped,
+          name: data.mapped.name || prev.name,
+        }));
+      }
+
+      toast({
+        title: data?.action === 'created' ? 'Lead criado do ActiveCampaign' : 'Lead atualizado',
+        description: `Contato AC #${acId} sincronizado no CRM.`,
+      });
+
+      if (data?.action === 'created' && data?.leadId) {
+        onClose();
+      }
+    } catch (err) {
+      toast({
+        title: 'Erro ao importar',
+        description: err instanceof Error ? err.message : 'Não foi possível salvar no CRM',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsImportingAc(false);
+    }
   };
 
   const handleSave = async () => {
@@ -700,35 +754,45 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
                         Campos vindos do ActiveCampaign na sincronização; podem ser editados aqui.
                       </p>
 
-                      {lead?.activecampaign_id && (
-                        <div className="mt-3 space-y-2 rounded-lg border border-dashed border-border/60 bg-background/60 p-3 text-xs">
-                          <div className="flex items-center justify-between gap-2">
-                            <div>
-                              <p className="font-medium text-foreground">
-                                Diagnóstico ActiveCampaign
-                              </p>
-                              <p className="text-muted-foreground">
-                                AC ID: <code className="font-mono">{String(lead.activecampaign_id)}</code>
-                              </p>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              disabled={isDebuggingAc}
-                              onClick={handleDebugAc}
-                            >
-                              {isDebuggingAc ? (
-                                <>
-                                  <Loader2 className="size-3 mr-1 animate-spin" /> Consultando...
-                                </>
-                              ) : (
-                                <>
-                                  <RefreshCw className="size-3 mr-1" /> Buscar UTMs no AC
-                                </>
-                              )}
-                            </Button>
-                          </div>
+                      <div className="mt-3 space-y-2 rounded-lg border border-dashed border-border/60 bg-background/60 p-3 text-xs">
+                        <p className="font-medium text-foreground">Importar do ActiveCampaign</p>
+                        <p className="text-muted-foreground">
+                          Cole o link do contato (ex: .../contacts/1236 → ID 1236).
+                        </p>
+                        <Input
+                          value={acLinkInput}
+                          onChange={(e) => setAcLinkInput(e.target.value)}
+                          placeholder="https://azouptecnologia.activehosted.com/app/contacts/1236"
+                          className="text-xs h-9"
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={isDebuggingAc}
+                            onClick={handleFetchFromAc}
+                          >
+                            {isDebuggingAc ? (
+                              <>
+                                <Loader2 className="size-3 mr-1 animate-spin" /> Buscando...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="size-3 mr-1" /> Buscar e preencher
+                              </>
+                            )}
+                          </Button>
+                          <Button type="button" size="sm" disabled={isImportingAc} onClick={handleImportAndSaveAc}>
+                            {isImportingAc ? (
+                              <>
+                                <Loader2 className="size-3 mr-1 animate-spin" /> Salvando...
+                              </>
+                            ) : (
+                              'Importar e salvar no CRM'
+                            )}
+                          </Button>
+                        </div>
 
                           {acDebugResult && (
                             <div className="space-y-2">
@@ -740,7 +804,7 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
                                   >
                                     <span className="font-mono text-[10px] text-muted-foreground">{k}</span>
                                     <span className="text-[11px] truncate ml-2">
-                                      {acDebugResult.summary[k] ?? <em className="text-muted-foreground">vazio</em>}
+                                      {String(acDebugResult.payload[k as keyof Lead] ?? '') || <em className="text-muted-foreground">vazio</em>}
                                     </span>
                                   </div>
                                 ))}
@@ -769,8 +833,7 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
                               </div>
                             </div>
                           )}
-                        </div>
-                      )}
+                      </div>
                     </CollapsibleContent>
                   </Collapsible>
                   <div>

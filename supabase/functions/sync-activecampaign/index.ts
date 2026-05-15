@@ -508,9 +508,13 @@ serve(async (req) => {
     //                       { debug: 'lead',    leadId: 'uuid' }   // resolve activecampaign_id do CRM
     // ----------------------------------------------------------------------
     let debugRequest: { mode?: string; acId?: string; leadId?: string } = {};
+    let importContactAcId: string | undefined;
     try {
       if (req.headers.get('content-type')?.includes('application/json')) {
         const body = await req.clone().json();
+        if (body && typeof body === 'object' && body.action === 'importContact' && body.acId) {
+          importContactAcId = String(body.acId).trim();
+        }
         if (body && typeof body === 'object' && body.debug) {
           debugRequest = {
             mode: String(body.debug),
@@ -529,6 +533,179 @@ serve(async (req) => {
       }
     } catch {
       /* ignore body parse errors */
+    }
+
+    async function fetchAcContactBundle(acId: string) {
+      const [contactR, fvR, cdR] = await Promise.all([
+        fetch(`${acUrl}/api/3/contacts/${encodeURIComponent(acId)}`, {
+          headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' },
+        }),
+        fetch(`${acUrl}/api/3/contacts/${encodeURIComponent(acId)}/fieldValues`, {
+          headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' },
+        }),
+        fetch(`${acUrl}/api/3/contacts/${encodeURIComponent(acId)}/contactData`, {
+          headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' },
+        }),
+      ]);
+      const allFields = await listAllFields(acUrl, acApiKey);
+      const fieldsById: Record<string, { perstag: string; title: string }> = {};
+      for (const f of allFields) {
+        fieldsById[String(f.id)] = { perstag: String(f.perstag || ''), title: String(f.title || '') };
+      }
+      const fvJson = fvR.ok ? await fvR.json() : { fieldValues: [] };
+      const fieldValuesAnnotated = Array.isArray(fvJson.fieldValues)
+        ? fvJson.fieldValues.map((fv: any) => {
+          const fieldId = fv.field != null
+            ? (typeof fv.field === 'object' && fv.field !== null && 'id' in fv.field
+              ? String((fv.field as { id: unknown }).id)
+              : String(fv.field))
+            : null;
+          return {
+            fieldId,
+            fieldDef: fieldId ? fieldsById[fieldId] || null : null,
+            value: fv.value ?? null,
+          };
+        })
+        : [];
+      const contactTags = await fetchContactTags(
+        [{ id: acId }],
+        acUrl,
+        acApiKey,
+      );
+      return {
+        contact: contactR.ok ? await contactR.json() : { error: await contactR.text() },
+        fieldValues: fieldValuesAnnotated,
+        contactData: cdR.ok ? await cdR.json() : { error: await cdR.text() },
+        tags: contactTags[acId] || [],
+      };
+    }
+
+    function mapAcBundleToLeadPayload(bundle: {
+      contact: any;
+      fieldValues: any[];
+      contactData: any;
+      tags: string[];
+    }): Record<string, unknown> {
+      const c = bundle.contact?.contact;
+      const out: Record<string, unknown> = {};
+      if (c) {
+        const fullName = `${sanitizeString(c.firstName, 100)} ${sanitizeString(c.lastName, 100)}`.trim();
+        if (fullName) out.name = fullName.substring(0, 255);
+        if (c.email && isValidEmail(c.email)) out.email = sanitizeString(c.email, 255);
+        const phone = sanitizePhone(c.phone);
+        if (phone) out.whatsapp = phone;
+        const org = sanitizeString(c.orgname, 200);
+        if (org) out.company = org;
+        if (c.id != null) out.activecampaign_id = String(c.id);
+      }
+      for (const fv of bundle.fieldValues || []) {
+        const def = fv.fieldDef as { perstag?: string; title?: string } | null;
+        if (!def) continue;
+        const col = fieldToUtmColumn(String(def.perstag || ''), String(def.title || ''));
+        const val = sanitizeUtmValue(fv.value, UTM_MAX);
+        if (col && val) out[col] = val;
+      }
+      const cd = bundle.contactData?.contactDatum || bundle.contactData;
+      if (cd && typeof cd === 'object') {
+        if (!out.utm_source) {
+          const v = sanitizeUtmValue(cd.ga_campaign_source, UTM_MAX);
+          if (v) out.utm_source = v;
+        }
+        if (!out.utm_campaign) {
+          const v = sanitizeUtmValue(cd.ga_campaign_name, UTM_MAX);
+          if (v) out.utm_campaign = v;
+        }
+        if (!out.utm_medium) {
+          const v = sanitizeUtmValue(cd.ga_campaign_medium, UTM_MAX);
+          if (v) out.utm_medium = v;
+        }
+        if (!out.utm_conjunto) {
+          const seg = cd.ga_campaign_customsegment || cd.ga_campaign_content || cd.ga_campaign_term;
+          const v = sanitizeUtmValue(seg, UTM_MAX);
+          if (v) out.utm_conjunto = v;
+        }
+      }
+      if (bundle.tags?.length && !out.confection_type) {
+        out.confection_type = bundle.tags[0];
+      }
+      return out;
+    }
+
+    if (importContactAcId) {
+      if (claimsError || !claimsData?.user) {
+        return new Response(
+          JSON.stringify({ error: 'Não autorizado' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      const userId = claimsData.user.id;
+      const bundle = await fetchAcContactBundle(importContactAcId);
+      if (bundle.contact?.error) {
+        return new Response(
+          JSON.stringify({ error: 'Contato não encontrado no ActiveCampaign', detail: bundle.contact.error }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      const mapped = mapAcBundleToLeadPayload(bundle);
+      const { data: existing } = await adminSupabase
+        .from('leads')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('activecampaign_id', importContactAcId)
+        .maybeSingle();
+
+      if (existing?.id) {
+        const { error: updErr } = await adminSupabase
+          .from('leads')
+          .update(mapped)
+          .eq('id', existing.id);
+        if (updErr) {
+          return new Response(JSON.stringify({ error: updErr.message }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        return new Response(
+          JSON.stringify({ success: true, action: 'updated', leadId: existing.id, acId: importContactAcId, mapped, bundle }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      const insertRow = {
+        user_id: userId,
+        stage: 'prospeccao',
+        temperature: 'frio',
+        is_new: true,
+        lead_source: 'marketing',
+        value: 0,
+        implementation_value: 0,
+        monthly_value: 0,
+        entry_date: new Date().toISOString(),
+        last_contact: new Date().toISOString(),
+        history: [{
+          type: 'sistema',
+          note: `Lead importado do ActiveCampaign (contato ${importContactAcId}) em ${new Date().toLocaleDateString('pt-BR')}`,
+          date: new Date().toISOString(),
+          user: 'Sistema',
+        }],
+        ...mapped,
+        name: mapped.name || mapped.email || 'Sem nome',
+      };
+      const { data: created, error: insErr } = await adminSupabase
+        .from('leads')
+        .insert(insertRow)
+        .select('id')
+        .single();
+      if (insErr) {
+        return new Response(JSON.stringify({ error: insErr.message }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(
+        JSON.stringify({ success: true, action: 'created', leadId: created?.id, acId: importContactAcId, mapped, bundle }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
     }
 
     if (debugRequest.mode) {
@@ -595,47 +772,17 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-        const [contactR, fvR, cdR] = await Promise.all([
-          fetch(`${acUrl}/api/3/contacts/${encodeURIComponent(acId)}`, {
-            headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' },
-          }),
-          fetch(`${acUrl}/api/3/contacts/${encodeURIComponent(acId)}/fieldValues`, {
-            headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' },
-          }),
-          fetch(`${acUrl}/api/3/contacts/${encodeURIComponent(acId)}/contactData`, {
-            headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' },
-          }),
-        ]);
-        const allFields = await listAllFields(acUrl, acApiKey);
-        const fieldsById: Record<string, { perstag: string; title: string }> = {};
-        for (const f of allFields) {
-          fieldsById[String(f.id)] = { perstag: String(f.perstag || ''), title: String(f.title || '') };
-        }
-        const fvJson = fvR.ok ? await fvR.json() : { error: await fvR.text() };
-        const fieldValuesAnnotated = Array.isArray(fvJson.fieldValues)
-          ? fvJson.fieldValues.map((fv: any) => {
-            const fieldId = fv.field != null
-              ? (typeof fv.field === 'object' && fv.field !== null && 'id' in fv.field
-                ? String((fv.field as { id: unknown }).id)
-                : String(fv.field))
-              : null;
-            return {
-              fieldId,
-              fieldDef: fieldId ? fieldsById[fieldId] || null : null,
-              value: fv.value ?? null,
-              cdate: fv.cdate ?? null,
-              udate: fv.udate ?? null,
-            };
-          })
-          : [];
+        const bundle = await fetchAcContactBundle(acId);
         return new Response(
           JSON.stringify({
             success: true,
             mode: debugRequest.mode,
             acId,
-            contact: contactR.ok ? await contactR.json() : { error: await contactR.text() },
-            fieldValues: fieldValuesAnnotated,
-            contactData: cdR.ok ? await cdR.json() : { error: await cdR.text() },
+            contact: bundle.contact,
+            fieldValues: bundle.fieldValues,
+            contactData: bundle.contactData,
+            tags: bundle.tags,
+            mapped: mapAcBundleToLeadPayload(bundle),
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
