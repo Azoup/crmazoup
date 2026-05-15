@@ -30,7 +30,8 @@ export async function whatsappGatewayFetch<T>(
 }
 
 export type WhatsAppGatewayStatus = {
-  status: 'disconnected' | 'qr' | 'connected';
+  status: 'disconnected' | 'connecting' | 'qr' | 'connected';
   qrDataUrl: string | null;
   phone: string | null;
+  error?: string | null;
 };

@@ -65,6 +65,14 @@ function toWhatsAppJid(raw) {
   return `${with55}@s.whatsapp.net`;
 }
 
+function clearSessionFiles(userId) {
+  try {
+    fs.rmSync(sessionDir(userId), { recursive: true, force: true });
+  } catch {
+    /* ignore */
+  }
+}
+
 function createUserCtx(userId) {
   const ctx = {
     sock: null,
@@ -72,37 +80,77 @@ function createUserCtx(userId) {
     status: 'disconnected',
     phone: null,
     initPromise: null,
+    reconnectTimer: null,
+    lastError: null,
   };
+
+  function scheduleReconnect(delayMs = 2000, wipeSession = false) {
+    if (ctx.reconnectTimer) return;
+    ctx.reconnectTimer = setTimeout(() => {
+      ctx.reconnectTimer = null;
+      if (ctx.status === 'connected' || ctx.status === 'qr') return;
+      if (wipeSession) clearSessionFiles(userId);
+      ctx.sock = null;
+      ctx.initPromise = null;
+      ensureSocket().catch((e) => {
+        console.error(`[${userId}] reconnect failed`, e);
+        ctx.lastError = e?.message || 'Falha ao reconectar';
+        scheduleReconnect(4000, true);
+      });
+    }, delayMs);
+  }
 
   function attachSocket(sock) {
     sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
+
       if (qr) {
         try {
           ctx.qrDataUrl = await QRCode.toDataURL(qr);
           ctx.status = 'qr';
-        } catch {
+          ctx.lastError = null;
+          console.log(`[${userId}] QR gerado`);
+        } catch (e) {
+          console.error(`[${userId}] QR encode error`, e);
           ctx.qrDataUrl = null;
         }
       }
-      if (connection === 'close') {
-        ctx.status = 'disconnected';
-        ctx.phone = null;
-        ctx.qrDataUrl = null;
-        const code = lastDisconnect?.error?.output?.statusCode;
-        ctx.sock = null;
-        if (code === DisconnectReason.loggedOut) {
-          try {
-            fs.rmSync(sessionDir(userId), { recursive: true, force: true });
-          } catch {
-            /* ignore */
-          }
-        }
+
+      if (connection === 'connecting') {
+        ctx.status = 'connecting';
       } else if (connection === 'open') {
         ctx.status = 'connected';
         ctx.qrDataUrl = null;
+        ctx.lastError = null;
         const wid = sock.user?.id;
         ctx.phone = typeof wid === 'string' ? wid.split(':')[0] : null;
+        console.log(`[${userId}] WhatsApp conectado`, ctx.phone);
+      } else if (connection === 'close') {
+        const code = lastDisconnect?.error?.output?.statusCode;
+        const loggedOut = code === DisconnectReason.loggedOut;
+        const restartRequired = code === DisconnectReason.restartRequired;
+        const badSession = loggedOut || restartRequired || code === 401 || code === 403;
+
+        console.log(`[${userId}] connection closed`, code ?? 'unknown');
+
+        ctx.status = 'disconnected';
+        ctx.phone = null;
+        ctx.sock = null;
+        ctx.initPromise = null;
+
+        if (loggedOut) {
+          clearSessionFiles(userId);
+          ctx.qrDataUrl = null;
+          return;
+        }
+
+        // Sessão corrompida ou expirada: apaga arquivos e tenta de novo com QR novo
+        if (badSession) {
+          clearSessionFiles(userId);
+          ctx.qrDataUrl = null;
+        }
+
+        scheduleReconnect(badSession ? 800 : 2000, badSession);
       }
     });
   }
@@ -111,6 +159,9 @@ function createUserCtx(userId) {
     if (ctx.sock) return ctx.sock;
     if (ctx.initPromise) return ctx.initPromise;
 
+    ctx.status = 'connecting';
+    ctx.lastError = null;
+
     ctx.initPromise = (async () => {
       const { state, saveCreds } = await useMultiFileAuthState(sessionDir(userId));
       const sock = makeWASocket({
@@ -118,6 +169,8 @@ function createUserCtx(userId) {
         logger: baileysLogger,
         printQRInTerminal: false,
         browser: ['Azoup', 'CRM', '1.0'],
+        syncFullHistory: false,
+        markOnlineOnConnect: false,
       });
       sock.ev.on('creds.update', saveCreds);
       attachSocket(sock);
@@ -127,13 +180,40 @@ function createUserCtx(userId) {
 
     try {
       await ctx.initPromise;
+    } catch (e) {
+      ctx.lastError = e?.message || 'Erro ao iniciar socket';
+      ctx.status = 'disconnected';
+      ctx.sock = null;
+      scheduleReconnect(3000, true);
+      throw e;
     } finally {
       ctx.initPromise = null;
     }
     return ctx.sock;
   }
 
-  return { ctx, ensureSocket };
+  function resetSession() {
+    if (ctx.reconnectTimer) {
+      clearTimeout(ctx.reconnectTimer);
+      ctx.reconnectTimer = null;
+    }
+    if (ctx.sock) {
+      try {
+        ctx.sock.end(undefined);
+      } catch {
+        /* ignore */
+      }
+      ctx.sock = null;
+    }
+    ctx.initPromise = null;
+    ctx.status = 'disconnected';
+    ctx.phone = null;
+    ctx.qrDataUrl = null;
+    ctx.lastError = null;
+    clearSessionFiles(userId);
+  }
+
+  return { ctx, ensureSocket, resetSession };
 }
 
 const userCtx = new Map();
@@ -150,40 +230,73 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true });
 });
 
+function waitForQr(ctx, maxMs = 12000) {
+  return new Promise((resolve) => {
+    if (ctx.qrDataUrl || ctx.status === 'connected') {
+      resolve();
+      return;
+    }
+    const started = Date.now();
+    const tick = setInterval(() => {
+      if (ctx.qrDataUrl || ctx.status === 'connected' || Date.now() - started >= maxMs) {
+        clearInterval(tick);
+        resolve();
+      }
+    }, 250);
+  });
+}
+
 app.get('/api/whatsapp/status', authMiddleware, async (req, res) => {
   try {
     const { ctx, ensureSocket } = getCtx(req.userId);
-    await ensureSocket();
+    if (!ctx.sock && !ctx.initPromise) {
+      await ensureSocket();
+    } else if (ctx.initPromise) {
+      await ctx.initPromise.catch(() => undefined);
+    }
+    await waitForQr(ctx);
     res.json({
       status: ctx.status,
       qrDataUrl: ctx.qrDataUrl,
       phone: ctx.phone,
+      error: ctx.lastError,
     });
   } catch (e) {
     console.error('status', e);
-    res.status(500).json({ error: 'Erro ao iniciar WhatsApp' });
+    res.status(500).json({ error: e?.message || 'Erro ao iniciar WhatsApp' });
+  }
+});
+
+app.post('/api/whatsapp/reset', authMiddleware, async (req, res) => {
+  try {
+    const entry = getCtx(req.userId);
+    entry.resetSession();
+    await entry.ensureSocket();
+    await waitForQr(entry.ctx);
+    res.json({
+      ok: true,
+      status: entry.ctx.status,
+      qrDataUrl: entry.ctx.qrDataUrl,
+      phone: entry.ctx.phone,
+      error: entry.ctx.lastError,
+    });
+  } catch (e) {
+    console.error('reset', e);
+    res.status(500).json({ error: e?.message || 'Erro ao gerar novo QR' });
   }
 });
 
 app.post('/api/whatsapp/logout', authMiddleware, async (req, res) => {
   try {
-    const { ctx } = getCtx(req.userId);
-    if (ctx.sock) {
+    const entry = getCtx(req.userId);
+    if (entry.ctx.sock) {
       try {
-        await ctx.sock.logout();
+        await entry.ctx.sock.logout();
       } catch {
         /* ignore */
       }
-      ctx.sock = null;
     }
-    ctx.status = 'disconnected';
-    ctx.phone = null;
-    ctx.qrDataUrl = null;
-    try {
-      fs.rmSync(sessionDir(req.userId), { recursive: true, force: true });
-    } catch {
-      /* ignore */
-    }
+    entry.resetSession();
     userCtx.delete(req.userId);
     res.json({ ok: true });
   } catch (e) {

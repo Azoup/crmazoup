@@ -57,8 +57,46 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
       setStatus(data);
     } catch (e) {
       console.error(e);
+      setStatus((prev) => ({
+        status: 'disconnected',
+        qrDataUrl: null,
+        phone: prev?.phone ?? null,
+        error: e instanceof Error ? e.message : 'Falha ao contactar o gateway',
+      }));
     }
   }, [configured, token]);
+
+  const handleResetQr = async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const data = await whatsappGatewayFetch<WhatsAppGatewayStatus & { ok?: boolean }>(
+        '/api/whatsapp/reset',
+        token,
+        { method: 'POST', body: '{}' },
+      );
+      setStatus({
+        status: data.status,
+        qrDataUrl: data.qrDataUrl,
+        phone: data.phone,
+        error: data.error,
+      });
+      if (!data.qrDataUrl) {
+        toast({
+          title: 'QR ainda não disponível',
+          description: data.error || 'Aguarde alguns segundos ou verifique o terminal do gateway.',
+        });
+      }
+    } catch (e) {
+      toast({
+        title: 'Erro ao gerar QR',
+        description: e instanceof Error ? e.message : 'Verifique se o gateway está rodando (npm start).',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!configured || !token) return;
@@ -68,7 +106,7 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
       await refreshStatus();
     };
     void tick();
-    const ms = status?.status === 'connected' ? 12000 : 2800;
+    const ms = status?.status === 'connected' ? 12000 : 1500;
     const id = window.setInterval(tick, ms);
     return () => {
       cancelled = true;
@@ -188,6 +226,7 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
               <p className="font-semibold capitalize">
                 {!status && 'Carregando…'}
                 {status?.status === 'disconnected' && 'Desconectado'}
+                {status?.status === 'connecting' && 'Conectando…'}
                 {status?.status === 'qr' && 'Aguardando leitura do QR'}
                 {status?.status === 'connected' && 'Conectado'}
               </p>
@@ -201,17 +240,30 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
             </Button>
           </div>
 
-          {status?.status === 'qr' && status.qrDataUrl && (
+          {status?.qrDataUrl && (
             <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-muted border border-border">
               <p className="text-sm text-center text-muted-foreground">Abra o WhatsApp → ⋮ ou Configurações → Aparelhos conectados → Conectar aparelho</p>
               <img src={status.qrDataUrl} alt="QR Code WhatsApp" className="w-56 h-56 md:w-64 md:h-64 rounded-lg bg-white p-2" />
             </div>
           )}
 
-          {status?.status === 'disconnected' && (
-            <p className="text-sm text-muted-foreground">
-              Aguarde alguns segundos: o QR aparecerá automaticamente quando o servidor estiver pronto.
-            </p>
+          {!status?.qrDataUrl && status?.status !== 'connected' && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                {status?.status === 'connecting'
+                  ? 'Gerando QR Code com o WhatsApp…'
+                  : 'Se o QR não aparecer em alguns segundos, clique em "Gerar QR Code".'}
+              </p>
+              {status?.error && (
+                <p className="text-xs text-destructive rounded-md border border-destructive/30 bg-destructive/5 p-2">
+                  {status.error}
+                </p>
+              )}
+              <Button variant="secondary" className="w-full" onClick={handleResetQr} disabled={loading}>
+                {loading ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+                Gerar QR Code
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
