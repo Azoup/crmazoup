@@ -250,8 +250,22 @@ app.use(cors());
 app.use(express.json({ limit: '64kb' }));
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true });
+  res.json({ ok: true, version: 2 });
 });
+
+async function handleWhatsAppReset(userId, res) {
+  const entry = getCtx(userId);
+  entry.resetSession();
+  await entry.ensureSocket();
+  await waitForQr(entry.ctx);
+  res.json({
+    ok: true,
+    status: entry.ctx.status,
+    qrDataUrl: entry.ctx.qrDataUrl,
+    phone: entry.ctx.phone,
+    error: entry.ctx.lastError,
+  });
+}
 
 function waitForQr(ctx, maxMs = 12000) {
   return new Promise((resolve) => {
@@ -271,7 +285,11 @@ function waitForQr(ctx, maxMs = 12000) {
 
 app.get('/api/whatsapp/status', authMiddleware, async (req, res) => {
   try {
-    const { ctx, ensureSocket } = getCtx(req.userId);
+    const entry = getCtx(req.userId);
+    if (req.query.reset === '1') {
+      entry.resetSession();
+    }
+    const { ctx, ensureSocket } = entry;
     if (!ctx.sock && !ctx.initPromise) {
       await ensureSocket();
     } else if (ctx.initPromise) {
@@ -290,19 +308,18 @@ app.get('/api/whatsapp/status', authMiddleware, async (req, res) => {
   }
 });
 
+app.get('/api/whatsapp/reset', authMiddleware, async (req, res) => {
+  try {
+    await handleWhatsAppReset(req.userId, res);
+  } catch (e) {
+    console.error('reset', e);
+    res.status(500).json({ error: e?.message || 'Erro ao gerar novo QR' });
+  }
+});
+
 app.post('/api/whatsapp/reset', authMiddleware, async (req, res) => {
   try {
-    const entry = getCtx(req.userId);
-    entry.resetSession();
-    await entry.ensureSocket();
-    await waitForQr(entry.ctx);
-    res.json({
-      ok: true,
-      status: entry.ctx.status,
-      qrDataUrl: entry.ctx.qrDataUrl,
-      phone: entry.ctx.phone,
-      error: entry.ctx.lastError,
-    });
+    await handleWhatsAppReset(req.userId, res);
   } catch (e) {
     console.error('reset', e);
     res.status(500).json({ error: e?.message || 'Erro ao gerar novo QR' });

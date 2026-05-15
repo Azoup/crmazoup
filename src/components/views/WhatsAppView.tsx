@@ -86,32 +86,53 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
     }
   }, [configured, gatewayBlock, session]);
 
+  const applyGatewayStatus = (data: WhatsAppGatewayStatus) => {
+    setStatus({
+      status: data.status,
+      qrDataUrl: data.qrDataUrl,
+      phone: data.phone,
+      error: data.error,
+    });
+    if (!data.qrDataUrl && data.status !== 'connected') {
+      toast({
+        title: 'QR ainda não disponível',
+        description: data.error || 'Aguarde alguns segundos ou veja o terminal do gateway.',
+      });
+    }
+  };
+
   const handleResetQr = async () => {
     if (!session || gatewayBlock) return;
     setLoading(true);
     try {
       const accessToken = await getWhatsAppAccessToken();
-      const data = await whatsappGatewayFetch<WhatsAppGatewayStatus & { ok?: boolean }>(
-        '/api/whatsapp/reset',
-        accessToken,
-        { method: 'POST', body: '{}' },
-      );
-      setStatus({
-        status: data.status,
-        qrDataUrl: data.qrDataUrl,
-        phone: data.phone,
-        error: data.error,
-      });
-      if (!data.qrDataUrl) {
-        toast({
-          title: 'QR ainda não disponível',
-          description: data.error || 'Aguarde alguns segundos ou verifique o terminal do gateway.',
-        });
+
+      let data: WhatsAppGatewayStatus;
+      try {
+        // Preferido: funciona no gateway atualizado sem depender de POST /reset
+        data = await whatsappGatewayFetch<WhatsAppGatewayStatus>(
+          '/api/whatsapp/status?reset=1',
+          accessToken,
+        );
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : '';
+        if (!msg.includes('404')) throw e;
+        // Gateway muito antigo: logout limpa sessão e status recria o socket
+        await whatsappGatewayFetch('/api/whatsapp/logout', accessToken, {
+          method: 'POST',
+          body: '{}',
+        }).catch(() => undefined);
+        data = await whatsappGatewayFetch<WhatsAppGatewayStatus>('/api/whatsapp/status', accessToken);
       }
+
+      applyGatewayStatus(data);
     } catch (e) {
       toast({
         title: 'Erro ao gerar QR',
-        description: e instanceof Error ? e.message : 'Verifique se o gateway está rodando (npm start).',
+        description:
+          e instanceof Error
+            ? e.message
+            : 'Reinicie o gateway: cd whatsapp-gateway && npm start',
         variant: 'destructive',
       });
     } finally {

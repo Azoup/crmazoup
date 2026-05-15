@@ -78,6 +78,11 @@ export async function whatsappGatewayFetch<T>(
     if (r.status === 503) {
       throw new Error((data as { error?: string }).error || 'Gateway sem SUPABASE_URL / SUPABASE_ANON_KEY.');
     }
+    if (r.status === 404) {
+      throw new Error(
+        'HTTP 404 — o gateway está desatualizado ou parado. Pare o processo (Ctrl+C), rode de novo: cd whatsapp-gateway && npm start',
+      );
+    }
     throw new Error((data as { error?: string }).error || `HTTP ${r.status}`);
   }
   return data as T;
