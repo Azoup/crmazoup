@@ -1,6 +1,6 @@
 /**
  * Gateway WhatsApp (Baileys) — rode separado do Vite: npm install && npm start
- * Variáveis: PORT, SUPABASE_URL, SUPABASE_ANON_KEY
+ * Variáveis: PORT, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY (ou VITE_SUPABASE_PUBLISHABLE_KEY)
  * Sessões: ./sessions/<userId>/
  */
 import 'dotenv/config';
@@ -19,8 +19,13 @@ const SESSIONS_ROOT = process.env.SESSIONS_PATH
   : path.join(__dirname, 'sessions');
 const baileysLogger = pino({ level: 'silent' });
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+// Mesmos nomes do .env do CRM (Railway / Vite) + aliases legados
+const SUPABASE_URL =
+  process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY =
+  process.env.VITE_SUPABASE_ANON_KEY ||
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.SUPABASE_ANON_KEY;
 const PORT = Number(process.env.PORT || 3847);
 
 function supabaseProjectRef() {
@@ -38,7 +43,9 @@ if (!fs.existsSync(SESSIONS_ROOT)) fs.mkdirSync(SESSIONS_ROOT, { recursive: true
 
 async function authMiddleware(req, res, next) {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    return res.status(503).json({ error: 'Configure SUPABASE_URL e SUPABASE_ANON_KEY no gateway.' });
+    return res.status(503).json({
+      error: 'Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY (ou VITE_SUPABASE_PUBLISHABLE_KEY) no Railway.',
+    });
   }
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) {
@@ -57,7 +64,7 @@ async function authMiddleware(req, res, next) {
       console.error('[auth] Supabase recusou token', r.status, detail.slice(0, 200));
       return res.status(401).json({
         error: 'Sessão inválida ou expirada',
-        hint: 'Use a mesma SUPABASE_ANON_KEY do .env do CRM e faça login de novo.',
+        hint: 'Use as mesmas VITE_SUPABASE_* do .env do CRM e faça login de novo.',
         supabaseRef: supabaseProjectRef(),
       });
     }
@@ -374,6 +381,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`WhatsApp gateway ouvindo na porta ${PORT}`);
   console.log(`Supabase: ${SUPABASE_URL || '(não definido)'} | ref: ${supabaseProjectRef()}`);
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.warn('AVISO: defina SUPABASE_URL e SUPABASE_ANON_KEY em whatsapp-gateway/.env');
+    console.warn('AVISO: defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY (ou PUBLISHABLE_KEY) no Railway/.env');
   }
 });

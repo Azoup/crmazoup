@@ -1,11 +1,11 @@
-# Deploy só esta pasta no Railway:
-# Service → Settings → Root Directory = whatsapp-gateway
+# Settings → Root Directory = whatsapp-gateway
+# Settings → Build → Builder = DOCKERFILE (não Railpack/Nixpacks)
 
 [build]
-builder = "nixpacks"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "npm start"
 healthcheckPath = "/health"
 healthcheckTimeout = 120
 restartPolicyType = "on_failure"

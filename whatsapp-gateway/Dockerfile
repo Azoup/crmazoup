@@ -1,15 +1,15 @@
-FROM node:20-alpine
+# Imagem oficial Node (inclui npm). Não usar oven/bun — Baileys roda em Node.
+FROM node:20-bookworm-slim
 
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-RUN npm install --omit=dev
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
 COPY server.js ./
 
 ENV NODE_ENV=production
-# Railway injeta PORT automaticamente
 
 EXPOSE 3847
 
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

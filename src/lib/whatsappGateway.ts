@@ -90,11 +90,11 @@ export async function whatsappGatewayFetch<T>(
     if (r.status === 401) {
       throw new Error(
         'Sessão inválida ou expirada. Saia do CRM, entre de novo e clique em "Gerar QR Code". ' +
-          'Confira se whatsapp-gateway/.env usa a mesma SUPABASE_ANON_KEY do .env da raiz.',
+          'Confira se o Railway tem VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY (iguais ao CRM).',
       );
     }
     if (r.status === 503) {
-      throw new Error((data as { error?: string }).error || 'Gateway sem SUPABASE_URL / SUPABASE_ANON_KEY.');
+      throw new Error((data as { error?: string }).error || 'Gateway sem VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY.');
     }
     if (r.status === 404) {
       throw new Error(
