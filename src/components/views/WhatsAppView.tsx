@@ -232,25 +232,22 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <ol className="list-decimal pl-5 space-y-2">
               <li>
-                No arquivo <code className="text-foreground">.env</code> do front, defina{' '}
-                <code className="text-foreground">VITE_WHATSAPP_GATEWAY_URL</code> com a URL do gateway (ex.:{' '}
-                <code className="text-foreground">http://127.0.0.1:3847</code> em desenvolvimento).
+                No <code className="text-foreground">.env</code> da raiz use{' '}
+                <code className="text-foreground">VITE_WHATSAPP_GATEWAY_URL=/wa-gateway</code> (proxy do Vite).
               </li>
               <li>
-                Na pasta <code className="text-foreground">whatsapp-gateway</code>, crie um{' '}
-                <code className="text-foreground">.env</code> com{' '}
-                <code className="text-foreground">SUPABASE_URL</code>,{' '}
-                <code className="text-foreground">SUPABASE_ANON_KEY</code> (iguais ao projeto) e opcionalmente{' '}
-                <code className="text-foreground">PORT=3847</code>.
+                Em outro terminal:{' '}
+                <code className="text-foreground">cd whatsapp-gateway &amp;&amp; npm install &amp;&amp; npm start</code>
               </li>
               <li>
-                Execute: <code className="text-foreground">cd whatsapp-gateway &amp;&amp; npm install &amp;&amp; npm start</code>
+                Abra o CRM em <code className="text-foreground">http://localhost:8080</code> com{' '}
+                <code className="text-foreground">npm run dev</code> (não use o link HTTPS de preview).
               </li>
-              <li>Recarregue o CRM e volte nesta tela para escanear o QR Code.</li>
+              <li>Recarregue a aba WhatsApp e clique em Gerar QR Code.</li>
             </ol>
             <p className="text-xs pt-2 border-t border-border">
-              Em produção (HTTPS), o gateway também precisa ser HTTPS no mesmo domínio ou com CORS liberado, para o
-              navegador permitir as chamadas.
+              Preview HTTPS (Lovable) não alcança o gateway no seu PC. Use localhost:8080 ou ngrok http 3847 com URL
+              HTTPS no .env.
             </p>
           </CardContent>
         </Card>

@@ -9,18 +9,38 @@ export function isWhatsAppGatewayConfigured(): boolean {
   return Boolean(baseUrl());
 }
 
-/** Bloqueio típico: CRM em HTTPS (produção) chamando gateway em http://127.0.0.1 */
+function isRelativeGatewayUrl(root: string): boolean {
+  return root.startsWith('/');
+}
+
+/** Bloqueio mixed content: HTTPS + gateway http:// absoluto */
 export function getWhatsAppGatewayBlockReason(): string | null {
   const root = baseUrl();
   if (!root) {
-    return 'Defina VITE_WHATSAPP_GATEWAY_URL no .env da raiz (ex.: http://127.0.0.1:3847) e reinicie o npm run dev.';
+    return (
+      'Defina VITE_WHATSAPP_GATEWAY_URL no .env (use /wa-gateway em dev) e reinicie o npm run dev.'
+    );
   }
   if (typeof window === 'undefined') return null;
+
+  // Caminho relativo = mesma origem (proxy Vite em dev)
+  if (isRelativeGatewayUrl(root)) {
+    if (import.meta.env.PROD) {
+      return (
+        'Em produção (HTTPS), /wa-gateway não existe no servidor publicado. ' +
+        'Publique o gateway com HTTPS (VPS, Railway, etc.) ou use ngrok: ngrok http 3847 ' +
+        'e defina VITE_WHATSAPP_GATEWAY_URL=https://SEU-TUNEL.ngrok-free.app no build.'
+      );
+    }
+    return null;
+  }
+
   if (window.location.protocol === 'https:' && root.startsWith('http://')) {
     return (
-      'O CRM está em HTTPS e o gateway em HTTP — o navegador bloqueia essa conexão. ' +
-      'Em desenvolvimento, abra o CRM em http://localhost:5173 (não use o link HTTPS de produção). ' +
-      'O gateway deve estar rodando com: cd whatsapp-gateway && npm start'
+      'O CRM está em HTTPS e o gateway em HTTP — o navegador bloqueia essa conexão.\n\n' +
+      'Opção A (recomendado): rode o CRM localmente com npm run dev e abra http://localhost:8080 ' +
+      '(use VITE_WHATSAPP_GATEWAY_URL=/wa-gateway no .env).\n\n' +
+      'Opção B: exponha o gateway com HTTPS (ngrok http 3847) e coloque essa URL HTTPS no .env.'
     );
   }
   return null;
@@ -61,9 +81,7 @@ export async function whatsappGatewayFetch<T>(
     r = await fetch(`${root}${path}`, { ...init, headers });
   } catch {
     throw new Error(
-      'Não foi possível conectar ao gateway em ' +
-        root +
-        '. Confira se está rodando: cd whatsapp-gateway && npm start',
+      'Não foi possível conectar ao gateway. Rode em outro terminal: cd whatsapp-gateway && npm start',
     );
   }
 
@@ -72,7 +90,7 @@ export async function whatsappGatewayFetch<T>(
     if (r.status === 401) {
       throw new Error(
         'Sessão inválida ou expirada. Saia do CRM, entre de novo e clique em "Gerar QR Code". ' +
-          'Confira também se whatsapp-gateway/.env usa a mesma SUPABASE_ANON_KEY do .env da raiz.',
+          'Confira se whatsapp-gateway/.env usa a mesma SUPABASE_ANON_KEY do .env da raiz.',
       );
     }
     if (r.status === 503) {
@@ -80,7 +98,7 @@ export async function whatsappGatewayFetch<T>(
     }
     if (r.status === 404) {
       throw new Error(
-        'HTTP 404 — o gateway está desatualizado ou parado. Pare o processo (Ctrl+C), rode de novo: cd whatsapp-gateway && npm start',
+        'HTTP 404 — reinicie o gateway: cd whatsapp-gateway && npm start (health deve mostrar version: 2).',
       );
     }
     throw new Error((data as { error?: string }).error || `HTTP ${r.status}`);

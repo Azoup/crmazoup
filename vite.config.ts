@@ -11,6 +11,14 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    // Evita mixed content (HTTPS do preview → HTTP do gateway): mesma origem no dev
+    proxy: {
+      "/wa-gateway": {
+        target: "http://127.0.0.1:3847",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/wa-gateway/, ""),
+      },
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
