@@ -14,7 +14,9 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SESSIONS_ROOT = path.join(__dirname, 'sessions');
+const SESSIONS_ROOT = process.env.SESSIONS_PATH
+  ? path.resolve(process.env.SESSIONS_PATH)
+  : path.join(__dirname, 'sessions');
 const baileysLogger = pino({ level: 'silent' });
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -368,8 +370,8 @@ app.post('/api/whatsapp/send', authMiddleware, async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`WhatsApp gateway em http://127.0.0.1:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`WhatsApp gateway ouvindo na porta ${PORT}`);
   console.log(`Supabase: ${SUPABASE_URL || '(não definido)'} | ref: ${supabaseProjectRef()}`);
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     console.warn('AVISO: defina SUPABASE_URL e SUPABASE_ANON_KEY em whatsapp-gateway/.env');

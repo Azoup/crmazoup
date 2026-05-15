@@ -7,6 +7,9 @@
     "start": "node server.js",
     "dev": "node --watch server.js"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.21",
     "cors": "^2.8.5",
