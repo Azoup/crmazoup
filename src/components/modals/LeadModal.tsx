@@ -245,12 +245,28 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
         contactData: data.contactData,
         tags: data.tags,
       });
+      const serverMapped = data.mapped as Partial<Lead> | undefined;
+      if (serverMapped) {
+        const utmKeys = ['utm_source', 'utm_campaign', 'utm_medium', 'utm_conjunto'] as const;
+        for (const k of utmKeys) {
+          if (serverMapped[k]) {
+            preview.payload[k] = serverMapped[k];
+            preview.marketing[k] = serverMapped[k];
+          }
+        }
+        if (serverMapped.name) preview.payload.name = serverMapped.name;
+        if (serverMapped.whatsapp) preview.payload.whatsapp = serverMapped.whatsapp;
+        if (serverMapped.email) preview.payload.email = serverMapped.email;
+      }
       setAcDebugResult({ ...preview, raw: data });
       const keys = Object.keys(preview.payload).filter((k) => preview.payload[k as keyof Lead] != null);
+      const utmFilled = (['utm_source', 'utm_campaign', 'utm_medium', 'utm_conjunto'] as const).filter(
+        (k) => preview.marketing[k],
+      );
       toast({
         title: keys.length ? 'Dados do ActiveCampaign carregados' : 'Contato sem dados extras',
         description: keys.length
-          ? `Campos encontrados: ${keys.join(', ')}. Clique em "Aplicar nos campos".`
+          ? `Campos: ${keys.join(', ')}${utmFilled.length ? ` · Marketing: ${utmFilled.join(', ')}` : ''}. Clique em "Aplicar nos campos".`
           : 'O contato existe, mas poucos campos estão preenchidos no AC.',
       });
     } catch (err) {
@@ -320,10 +336,15 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
       if (data?.error) throw new Error(String(data.error));
 
       if (data?.mapped) {
+        const m = data.mapped as Partial<Lead>;
         setFormData((prev) => ({
           ...prev,
-          ...data.mapped,
-          name: data.mapped.name || prev.name,
+          ...m,
+          name: m.name || prev.name,
+          utm_source: m.utm_source ?? prev.utm_source,
+          utm_campaign: m.utm_campaign ?? prev.utm_campaign,
+          utm_medium: m.utm_medium ?? prev.utm_medium,
+          utm_conjunto: m.utm_conjunto ?? prev.utm_conjunto,
         }));
       }
 

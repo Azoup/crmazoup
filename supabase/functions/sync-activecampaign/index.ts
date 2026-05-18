@@ -53,29 +53,43 @@ function emptyUtm(): UtmFields {
   return { utm_source: null, utm_campaign: null, utm_medium: null, utm_conjunto: null };
 }
 
-/** Map ActiveCampaign field perstag/title to CRM column (alphanumeric only for exact keys) */
+/** Map ActiveCampaign Marketing fields (utm-source, utm_campaign, etc.) → coluna CRM */
 function fieldToUtmColumn(perstag: string, title: string): UtmColumn | null {
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
   const keys = [norm(perstag || ''), norm(title || '')].filter(Boolean);
-  const map: Record<string, UtmColumn> = {
+  if (keys.length === 0) return null;
+
+  const exact: Record<string, UtmColumn> = {
     utmsource: 'utm_source',
     utmcampaign: 'utm_campaign',
     utmmedium: 'utm_medium',
     utmconjunto: 'utm_conjunto',
+    utmorigem: 'utm_source',
+    utmmeio: 'utm_medium',
+    utmcampanha: 'utm_campaign',
   };
   for (const k of keys) {
-    if (map[k]) return map[k];
+    if (exact[k]) return exact[k];
   }
+
   const hay = `${perstag} ${title}`.toLowerCase();
-  if (hay.includes('utm_conjunto') || hay.includes('utmconjunto')) return 'utm_conjunto';
-  if (hay.includes('utm_campaign') || hay.includes('utmcampaign')) return 'utm_campaign';
-  if (hay.includes('utm_medium') || hay.includes('utmmedium')) return 'utm_medium';
-  if (hay.includes('utm_source') || hay.includes('utmsource')) return 'utm_source';
-  if (!hay.includes('utm')) return null;
-  if (hay.includes('conjunto') || hay.includes('adset') || hay.includes('ad set')) return 'utm_conjunto';
-  if (hay.includes('campaign') || hay.includes('campanha')) return 'utm_campaign';
-  if (hay.includes('medium') || hay.includes('meio')) return 'utm_medium';
-  if (hay.includes('source') || hay.includes('origem')) return 'utm_source';
+  if (!hay.includes('utm') && !keys.some((t) =>
+    ['source', 'campaign', 'medium', 'conjunto', 'campanha', 'meio', 'origem'].includes(t)
+  )) {
+    return null;
+  }
+  if (hay.includes('utm_conjunto') || hay.includes('utmconjunto') || hay.includes('conjunto') || hay.includes('adset')) {
+    return 'utm_conjunto';
+  }
+  if (hay.includes('utm_campaign') || hay.includes('utmcampaign') || hay.includes('campanha')) {
+    return 'utm_campaign';
+  }
+  if (hay.includes('utm_medium') || hay.includes('utmmedium') || hay.includes('meio')) {
+    return 'utm_medium';
+  }
+  if (hay.includes('utm_source') || hay.includes('utmsource') || hay.includes('origem')) {
+    return 'utm_source';
+  }
   return null;
 }
 
@@ -553,20 +567,36 @@ serve(async (req) => {
         fieldsById[String(f.id)] = { perstag: String(f.perstag || ''), title: String(f.title || '') };
       }
       const fvJson = fvR.ok ? await fvR.json() : { fieldValues: [] };
-      const fieldValuesAnnotated = Array.isArray(fvJson.fieldValues)
-        ? fvJson.fieldValues.map((fv: any) => {
-          const fieldId = fv.field != null
-            ? (typeof fv.field === 'object' && fv.field !== null && 'id' in fv.field
-              ? String((fv.field as { id: unknown }).id)
-              : String(fv.field))
-            : null;
-          return {
-            fieldId,
-            fieldDef: fieldId ? fieldsById[fieldId] || null : null,
-            value: fv.value ?? null,
-          };
-        })
-        : [];
+      const rawFieldValues = Array.isArray(fvJson.fieldValues) ? fvJson.fieldValues : [];
+      const fieldValuesAnnotated: { fieldId: string | null; fieldDef: { perstag: string; title: string } | null; value: unknown }[] = [];
+      for (const fv of rawFieldValues) {
+        const fieldId = fv.field != null
+          ? (typeof fv.field === 'object' && fv.field !== null && 'id' in fv.field
+            ? String((fv.field as { id: unknown }).id)
+            : String(fv.field))
+          : null;
+        let fieldDef = fieldId ? fieldsById[fieldId] || null : null;
+        if (fieldId && !fieldDef) {
+          try {
+            const fr = await fetch(`${acUrl}/api/3/fields/${encodeURIComponent(fieldId)}`, {
+              headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' },
+            });
+            if (fr.ok) {
+              const fd = await fr.json();
+              if (fd.field) {
+                fieldDef = {
+                  perstag: String(fd.field.perstag || ''),
+                  title: String(fd.field.title || ''),
+                };
+                fieldsById[fieldId] = fieldDef;
+              }
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+        fieldValuesAnnotated.push({ fieldId, fieldDef, value: fv.value ?? null });
+      }
       const contactTags = await fetchContactTags(
         [{ id: acId }],
         acUrl,
@@ -580,12 +610,12 @@ serve(async (req) => {
       };
     }
 
-    function mapAcBundleToLeadPayload(bundle: {
+    async function mapAcBundleToLeadPayload(bundle: {
       contact: any;
       fieldValues: any[];
       contactData: any;
       tags: string[];
-    }): Record<string, unknown> {
+    }): Promise<Record<string, unknown>> {
       const c = bundle.contact?.contact;
       const out: Record<string, unknown> = {};
       if (c) {
@@ -598,13 +628,28 @@ serve(async (req) => {
         if (org) out.company = org;
         if (c.id != null) out.activecampaign_id = String(c.id);
       }
-      for (const fv of bundle.fieldValues || []) {
-        const def = fv.fieldDef as { perstag?: string; title?: string } | null;
-        if (!def) continue;
-        const col = fieldToUtmColumn(String(def.perstag || ''), String(def.title || ''));
-        const val = sanitizeUtmValue(fv.value, UTM_MAX);
-        if (col && val) out[col] = val;
-      }
+
+      const { map: fieldIdToUtm } = await fetchFieldIdToUtmColumn(acUrl, acApiKey);
+      const contactId = c?.id != null ? String(c.id) : '';
+      const utmByContactId: Record<string, UtmFields> = {};
+      await mergeFieldValuesIntoUtmMap(
+        (bundle.fieldValues || []).map((fv: any) => ({
+          contact: contactId,
+          field: fv.fieldId,
+          value: fv.value,
+        })),
+        fieldIdToUtm,
+        utmByContactId,
+        acUrl,
+        acApiKey,
+        contactId,
+      );
+      const utm = contactId ? (utmByContactId[contactId] ?? emptyUtm()) : emptyUtm();
+      if (utm.utm_source) out.utm_source = utm.utm_source;
+      if (utm.utm_campaign) out.utm_campaign = utm.utm_campaign;
+      if (utm.utm_medium) out.utm_medium = utm.utm_medium;
+      if (utm.utm_conjunto) out.utm_conjunto = utm.utm_conjunto;
+
       const cd = bundle.contactData?.contactDatum || bundle.contactData;
       if (cd && typeof cd === 'object') {
         if (!out.utm_source) {
@@ -646,7 +691,7 @@ serve(async (req) => {
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
-      const mapped = mapAcBundleToLeadPayload(bundle);
+      const mapped = await mapAcBundleToLeadPayload(bundle);
       const { data: existing } = await adminSupabase
         .from('leads')
         .select('id')
@@ -782,7 +827,7 @@ serve(async (req) => {
             fieldValues: bundle.fieldValues,
             contactData: bundle.contactData,
             tags: bundle.tags,
-            mapped: mapAcBundleToLeadPayload(bundle),
+            mapped: await mapAcBundleToLeadPayload(bundle),
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
