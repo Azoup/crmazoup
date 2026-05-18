@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Lead, LeadHistory } from '@/types/lead';
 import { useToast } from '@/hooks/use-toast';
 import { Json } from '@/integrations/supabase/types';
+import { AC_AUTO_SYNC_INTERVAL_MS } from '@/hooks/useLeads';
+import { useNewLeadSound } from '@/hooks/useNewLeadSound';
 
 interface SDRProfile {
   id: string;
@@ -79,6 +81,8 @@ export function useManagerData() {
   const [allLeads, setAllLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const { playNewLeadSound } = useNewLeadSound();
+  const syncInFlightRef = useRef(false);
 
   const isManager = profile?.role === 'Gestor';
 
@@ -372,35 +376,49 @@ export function useManagerData() {
     }
   };
 
-  const syncActiveCampaign = async () => {
-    if (!user) return;
+  const syncActiveCampaign = useCallback(async (options?: { silent?: boolean }) => {
+    if (!user || !isManager) return;
 
-    setSyncing(true);
+    if (!options?.silent) setSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke('sync-activecampaign');
 
       if (error) throw error;
 
       if (data.success) {
-        toast({ 
-          title: 'Sincronização Concluída', 
-          description: `${data.imported} leads importados do ActiveCampaign` 
-        });
-        fetchSDRs();
-      } else {
+        const imported = Number(data.imported) || 0;
+        await fetchSDRs();
+        if (imported > 0) {
+          playNewLeadSound();
+          if (options?.silent) {
+            toast({
+              title: 'Novos leads',
+              description: `${imported} lead(s) importado(s) do ActiveCampaign`,
+            });
+          }
+        }
+        if (!options?.silent) {
+          toast({
+            title: 'Sincronização Concluída',
+            description: `${imported} leads importados do ActiveCampaign`,
+          });
+        }
+      } else if (!options?.silent) {
         toast({ title: 'Erro', description: data.error, variant: 'destructive' });
       }
     } catch (error) {
       console.error('Error syncing ActiveCampaign:', error);
-      toast({ 
-        title: 'Erro', 
-        description: 'Erro ao sincronizar com ActiveCampaign', 
-        variant: 'destructive' 
-      });
+      if (!options?.silent) {
+        toast({
+          title: 'Erro',
+          description: 'Erro ao sincronizar com ActiveCampaign',
+          variant: 'destructive',
+        });
+      }
     } finally {
-      setSyncing(false);
+      if (!options?.silent) setSyncing(false);
     }
-  };
+  }, [user?.id, isManager, fetchSDRs, toast, playNewLeadSound]);
 
   const getLeadStatus = (lead: Lead): 'late' | 'today' | 'ontime' | 'neutral' => {
     if (['venda', 'perdidos', 'congelados'].includes(lead.stage)) return 'neutral';
@@ -505,6 +523,36 @@ export function useManagerData() {
       setLoading(false);
     }
   }, [isManager, fetchSDRs]);
+
+  useEffect(() => {
+    if (!user || !isManager) return;
+
+    const runAutoSync = async () => {
+      if (syncInFlightRef.current) return;
+      syncInFlightRef.current = true;
+      try {
+        await syncActiveCampaign({ silent: true });
+      } finally {
+        syncInFlightRef.current = false;
+      }
+    };
+
+    runAutoSync();
+
+    const intervalId = window.setInterval(runAutoSync, AC_AUTO_SYNC_INTERVAL_MS);
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void runAutoSync();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [user?.id, isManager, syncActiveCampaign]);
 
   return {
     sdrs,

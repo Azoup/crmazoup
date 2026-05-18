@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Lead, LeadHistory, LeadFilters, UserSettings } from '@/types/lead';
@@ -88,6 +88,9 @@ function transformDbLead(dbLead: any): Lead {
   };
 }
 
+/** Intervalo do sync automático ActiveCampaign → CRM */
+export const AC_AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
+
 export function useLeads() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
@@ -104,6 +107,23 @@ export function useLeads() {
 
   const isManager = profile?.role === 'Gestor';
 
+  const refetchLeads = useCallback(async () => {
+    if (!user) return;
+
+    const { data: leadsData, error: leadsError } = await supabase
+      .from('leads')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(5000);
+
+    if (leadsError) {
+      console.error('Error fetching leads:', leadsError);
+      return;
+    }
+
+    setLeads((leadsData || []).map(transformDbLead));
+  }, [user?.id]);
+
   useEffect(() => {
     if (!user) {
       setLeads([]);
@@ -114,21 +134,7 @@ export function useLeads() {
 
     const fetchData = async () => {
       setLoading(true);
-      
-      // Fetch leads according to RLS visibility (own, responsible, equipe/gestão)
-      // Fetch all leads (raise limit to avoid missing leads from prospeccao_ativa/indicacao)
-      const { data: leadsData, error: leadsError } = await supabase
-        .from('leads')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(5000);
-
-      if (leadsError) {
-        console.error('Error fetching leads:', leadsError);
-        toast({ title: 'Erro', description: 'Erro ao carregar leads', variant: 'destructive' });
-      } else {
-        setLeads((leadsData || []).map(transformDbLead));
-      }
+      await refetchLeads();
 
       const { data: settingsData, error: settingsError } = await supabase
         .from('user_settings')
@@ -152,7 +158,7 @@ export function useLeads() {
     };
 
     fetchData();
-  }, [user, isManager]);
+  }, [user?.id, refetchLeads]);
 
   // Realtime subscription (RLS já entrega apenas os registros visíveis para o usuário)
   useEffect(() => {
@@ -679,7 +685,7 @@ export function useLeads() {
     }
   };
 
-  const syncActiveCampaign = async (options?: { silent?: boolean }): Promise<{ imported: number; error?: string }> => {
+  const syncActiveCampaign = useCallback(async (options?: { silent?: boolean }): Promise<{ imported: number; error?: string }> => {
     if (!user) {
       return { imported: 0, error: 'Você precisa estar logado' };
     }
@@ -690,16 +696,29 @@ export function useLeads() {
       if (error) {
         console.error('Error syncing ActiveCampaign:', error);
         if (!options?.silent) {
-          toast({ 
-            title: 'Erro', 
-            description: 'Erro ao sincronizar com ActiveCampaign', 
-            variant: 'destructive' 
+          toast({
+            title: 'Erro',
+            description: 'Erro ao sincronizar com ActiveCampaign',
+            variant: 'destructive',
           });
         }
         return { imported: 0, error: error.message };
       }
 
       if (data.success) {
+        await refetchLeads();
+
+        const imported = Number(data.imported) || 0;
+        if (imported > 0) {
+          playNewLeadSound();
+          if (options?.silent) {
+            toast({
+              title: 'Novos leads',
+              description: `${imported} lead(s) importado(s) do ActiveCampaign`,
+            });
+          }
+        }
+
         if (!options?.silent) {
           const diag = data.utm_diagnostics as
             | { contacts_with_any_utm?: number; mapped_fields?: Record<string, unknown> }
@@ -711,7 +730,7 @@ export function useLeads() {
           const extra = ` · UTM: ${mappedCount} campo(s) mapeado(s), ${withUtm} contato(s) com dado, ${utmUpdates} atualização(ões)`;
           toast({
             title: 'Sincronização Concluída',
-            description: `${data.imported} leads importados do ActiveCampaign${extra}`,
+            description: `${imported} leads importados do ActiveCampaign${extra}`,
           });
           if (withUtm === 0 && utmUpdates === 0) {
             const probe = (diag as { ac_probe?: { ac_url_used?: string; fields_http?: number } })?.ac_probe;
@@ -734,48 +753,58 @@ export function useLeads() {
             });
           }
         }
-        return { imported: data.imported };
-      } else {
-        if (!options?.silent) {
-          toast({ title: 'Erro', description: data.error, variant: 'destructive' });
-        }
-        return { imported: 0, error: data.error };
+        return { imported };
       }
+
+      if (!options?.silent) {
+        toast({ title: 'Erro', description: data.error, variant: 'destructive' });
+      }
+      return { imported: 0, error: data.error };
     } catch (err) {
       console.error('Unexpected error syncing:', err);
       if (!options?.silent) {
-        toast({ 
-          title: 'Erro', 
-          description: 'Erro inesperado ao sincronizar', 
-          variant: 'destructive' 
+        toast({
+          title: 'Erro',
+          description: 'Erro inesperado ao sincronizar',
+          variant: 'destructive',
         });
       }
       return { imported: 0, error: 'Erro inesperado' };
     }
-  };
+  }, [user?.id, refetchLeads, toast, playNewLeadSound]);
+
+  const syncInFlightRef = useRef(false);
 
   useEffect(() => {
+    // Gestor: sync automático da equipe em useManagerData (evita chamar a Edge Function em duplicata)
     if (!user || isManager) return;
 
-    let isRunning = false;
-
     const runAutoSync = async () => {
-      if (isRunning) return;
-      isRunning = true;
-      await syncActiveCampaign({ silent: true });
-      isRunning = false;
+      if (syncInFlightRef.current) return;
+      syncInFlightRef.current = true;
+      try {
+        await syncActiveCampaign({ silent: true });
+      } finally {
+        syncInFlightRef.current = false;
+      }
     };
 
-    // Sync inicial ao abrir o CRM
     runAutoSync();
 
-    // Sync automático a cada 5 minutos
-    const intervalId = window.setInterval(runAutoSync, 5 * 60 * 1000);
+    const intervalId = window.setInterval(runAutoSync, AC_AUTO_SYNC_INTERVAL_MS);
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void runAutoSync();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
 
     return () => {
       window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [user?.id, isManager]);
+  }, [user?.id, isManager, syncActiveCampaign]);
 
   return {
     leads,

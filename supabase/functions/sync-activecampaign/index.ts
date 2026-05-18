@@ -1039,8 +1039,25 @@ serve(async (req) => {
     let userIds: string[] = [];
 
     if (!claimsError && claimsData?.user) {
-      userIds = [claimsData.user.id];
-      console.log(`Authenticated sync for user ${userIds[0]}`);
+      const authUserId = claimsData.user.id;
+      const { data: profile } = await adminSupabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', authUserId)
+        .maybeSingle();
+
+      if (profile?.role === 'Gestor') {
+        const { data: relations } = await adminSupabase
+          .from('manager_sdr_relations')
+          .select('sdr_id')
+          .eq('manager_id', authUserId);
+        const sdrIds = (relations || []).map((r: { sdr_id: string }) => r.sdr_id);
+        userIds = [...new Set([authUserId, ...sdrIds])];
+        console.log(`Gestor sync for ${userIds.length} user(s)`);
+      } else {
+        userIds = [authUserId];
+        console.log(`Authenticated sync for user ${userIds[0]}`);
+      }
     } else {
       const cronSecret = Deno.env.get('CRON_SECRET');
       if (!cronSecret || token !== cronSecret) {
