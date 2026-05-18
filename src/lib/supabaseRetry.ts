@@ -36,7 +36,24 @@ type RetryResult<T> = {
   data: T | null;
   error: PostgrestError | null;
   skippedColumns: string[];
+  lastError: PostgrestError | null;
 };
+
+/** Mensagem quando colunas existem no SQL mas a API ainda não as enxerga (cache PostgREST). */
+export function describeSkippedColumnsWarning(
+  skippedColumns: string[],
+  lastError?: PostgrestError | null,
+): string {
+  if (skippedColumns.length === 0) return '';
+  const cols = skippedColumns.join(', ');
+  const isSchemaCache =
+    lastError?.code === 'PGRST204' ||
+    /schema cache|find the .* column/i.test(lastError?.message ?? '');
+  if (isSchemaCache) {
+    return `A API do Supabase ainda não reconhece: ${cols}. No painel: Settings → API → Reload schema (ou rode NOTIFY pgrst, 'reload schema' no SQL Editor). As colunas já existem na tabela leads.`;
+  }
+  return `Estes campos não existem no banco e foram ignorados: ${cols}. Aplique a migração SQL no Supabase.`;
+}
 
 /**
  * Executa `runner(payload)` com possíveis retries removendo colunas que o banco
@@ -49,21 +66,24 @@ export async function runWithSchemaFallback<T>(
 ): Promise<RetryResult<T>> {
   let current: Record<string, unknown> = { ...payload };
   const skipped: string[] = [];
+  let lastError: PostgrestError | null = null;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const { data, error } = await runner(current);
 
     if (!error) {
-      return { data, error: null, skippedColumns: skipped };
+      return { data, error: null, skippedColumns: skipped, lastError: null };
     }
 
+    lastError = error;
+
     if (!isMissingColumnError(error)) {
-      return { data: null, error, skippedColumns: skipped };
+      return { data: null, error, skippedColumns: skipped, lastError };
     }
 
     const col = extractColumnFromMessage(error.message);
     if (!col || !(col in current)) {
-      return { data: null, error, skippedColumns: skipped };
+      return { data: null, error, skippedColumns: skipped, lastError };
     }
 
     delete current[col];
@@ -81,5 +101,6 @@ export async function runWithSchemaFallback<T>(
       name: 'PostgrestError',
     } as unknown as PostgrestError,
     skippedColumns: skipped,
+    lastError,
   };
 }

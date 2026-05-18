@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import {
   mapAcImportToLead,
+  needsActiveCampaignMarketingFetch,
   parseActiveCampaignContactId,
   type AcImportPreview,
   type AcImportRaw,
@@ -331,8 +332,15 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
   const syncFromActiveCampaign = useCallback(
     async (
       acId: string,
-      options?: { silent?: boolean; persist?: boolean },
+      options?: { silent?: boolean; persist?: boolean; force?: boolean },
     ): Promise<boolean> => {
+      if (!options?.force) {
+        const current = formDataRef.current;
+        if (!needsActiveCampaignMarketingFetch(current, acId)) {
+          return true;
+        }
+      }
+
       setIsDebuggingAc(true);
       try {
         const data = await fetchAcContactData(acId);
@@ -344,7 +352,7 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
           (k) => preview.marketing[k],
         );
 
-        if (options?.persist && lead?.id) {
+        if (options?.persist && lead?.id && utmFilled.length > 0) {
           const saved = await onSave(merged);
           if (!saved && !options.silent) {
             toast({
@@ -391,17 +399,39 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
       : parseActiveCampaignContactId(acLinkInput);
     if (!acId) return;
 
+    const snapshot = lead ?? formDataRef.current;
+    if (!needsActiveCampaignMarketingFetch(snapshot, acId)) {
+      acAutoFetchKeyRef.current = `${draftIdentity}:${acId}:ok`;
+      return;
+    }
+
     const fetchKey = `${draftIdentity}:${acId}`;
-    if (acAutoFetchKeyRef.current === fetchKey) return;
+    if (acAutoFetchKeyRef.current === fetchKey || acAutoFetchKeyRef.current === `${fetchKey}:ok`) {
+      return;
+    }
 
     const delayMs = lead?.activecampaign_id ? 400 : 900;
     const timer = window.setTimeout(() => {
       acAutoFetchKeyRef.current = fetchKey;
-      void syncFromActiveCampaign(acId, { silent: true, persist: Boolean(lead?.id) });
+      void syncFromActiveCampaign(acId, {
+        silent: true,
+        persist: Boolean(lead?.id),
+      });
     }, delayMs);
 
     return () => window.clearTimeout(timer);
-  }, [lead?.id, lead?.activecampaign_id, acLinkInput, draftIdentity, syncFromActiveCampaign]);
+  }, [
+    lead,
+    lead?.id,
+    lead?.activecampaign_id,
+    lead?.utm_source,
+    lead?.utm_campaign,
+    lead?.utm_medium,
+    lead?.utm_conjunto,
+    acLinkInput,
+    draftIdentity,
+    syncFromActiveCampaign,
+  ]);
 
   const handleFetchFromAc = async () => {
     const acId = resolveAcContactId();
@@ -413,8 +443,12 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
       });
       return;
     }
-    acAutoFetchKeyRef.current = `${draftIdentity}:${acId}`;
-    await syncFromActiveCampaign(acId, { silent: false, persist: Boolean(lead?.id) });
+    acAutoFetchKeyRef.current = null;
+    await syncFromActiveCampaign(acId, {
+      silent: false,
+      persist: Boolean(lead?.id),
+      force: true,
+    });
   };
 
   const handleDebugAc = async () => {
@@ -887,7 +921,7 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
                       <p className="text-[10px] text-muted-foreground mt-2 px-0.5">
                         {isDebuggingAc
                           ? 'Sincronizando com o ActiveCampaign…'
-                          : 'Preenchido automaticamente ao abrir o lead (badge AC) ou ao colar o link.'}
+                          : 'UTM vêm do sync/import do lead. Se faltar algum campo, buscamos no AC ao abrir (só uma vez).'}
                       </p>
 
                       <div className="mt-3 space-y-2 rounded-lg border border-dashed border-border/60 bg-background/60 p-3 text-xs">

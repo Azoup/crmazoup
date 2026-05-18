@@ -5,7 +5,7 @@ import { Lead, LeadHistory, LeadFilters, UserSettings } from '@/types/lead';
 import { useToast } from '@/hooks/use-toast';
 import { Json } from '@/integrations/supabase/types';
 import { useNewLeadSound } from '@/hooks/useNewLeadSound';
-import { runWithSchemaFallback } from '@/lib/supabaseRetry';
+import { describeSkippedColumnsWarning, runWithSchemaFallback } from '@/lib/supabaseRetry';
 
 function parseHistory(historyJson: Json): LeadHistory[] {
   if (!historyJson) return [];
@@ -299,7 +299,7 @@ export function useLeads() {
         utm_conjunto: leadData.utm_conjunto?.trim() || null,
       };
 
-      const { data, error, skippedColumns } = await runWithSchemaFallback(
+      const { data, error, skippedColumns, lastError } = await runWithSchemaFallback(
         insertPayload,
         async (payload) => {
           const result = await supabase
@@ -328,7 +328,7 @@ export function useLeads() {
       if (skippedColumns.length > 0) {
         toast({
           title: 'Lead criado (com ressalva)',
-          description: `Estes campos foram ignorados porque ainda não existem no banco: ${skippedColumns.join(', ')}. Aplique a migração no Supabase.`,
+          description: describeSkippedColumnsWarning(skippedColumns, lastError),
         });
       } else {
         toast({ title: 'Sucesso', description: 'Lead criado com sucesso!' });
@@ -446,7 +446,7 @@ export function useLeads() {
         updatePayload.activecampaign_id = updates.activecampaign_id ?? null;
       }
 
-      const { error, skippedColumns } = await runWithSchemaFallback(
+      const { error, skippedColumns, lastError } = await runWithSchemaFallback(
         updatePayload,
         async (payload) => {
           const result = await supabase
@@ -479,7 +479,7 @@ export function useLeads() {
       if (skippedColumns.length > 0) {
         toast({
           title: 'Lead salvo (com ressalva)',
-          description: `Estes campos não existem no banco e foram ignorados: ${skippedColumns.join(', ')}. Aplique a migração no Supabase para passá-los.`,
+          description: describeSkippedColumnsWarning(skippedColumns, lastError),
         });
       } else {
         toast({ title: 'Sucesso', description: 'Lead atualizado!' });

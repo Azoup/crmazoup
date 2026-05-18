@@ -28,7 +28,20 @@ function strValue(value: unknown): string | null {
   return t || null;
 }
 
-/** Extrai o ID do contato de URL do AC ou de um número puro. */
+/** True se todos os 4 UTMs já têm valor (não precisa buscar de novo no AC). */
+export function isMarketingDataComplete(data: Partial<Pick<Lead, UtmColumn>>): boolean {
+  return UTM_KEYS.every((k) => Boolean(data[k]?.trim()));
+}
+
+/** True se falta algum UTM e vale buscar no ActiveCampaign. */
+export function needsActiveCampaignMarketingFetch(
+  data: Partial<Pick<Lead, UtmColumn | 'activecampaign_id'>>,
+  acId?: string | null,
+): boolean {
+  if (!acId?.trim()) return false;
+  return !isMarketingDataComplete(data);
+}
+
 export function parseActiveCampaignContactId(input: string): string | null {
   const trimmed = input.trim();
   if (!trimmed) return null;
