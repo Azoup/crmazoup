@@ -90,43 +90,203 @@ function fieldToUtmColumn(perstag: string, title: string): UtmColumn | null {
   if (hay.includes('utm_source') || hay.includes('utmsource') || hay.includes('origem')) {
     return 'utm_source';
   }
+  // utm-source, utm medium (com hífen/espaço no título do AC)
+  if (hay.includes('utm')) {
+    if (hay.includes('conjunto') || hay.includes('adset')) return 'utm_conjunto';
+    if (hay.includes('campaign') || hay.includes('campanha')) return 'utm_campaign';
+    if (hay.includes('medium') || hay.includes('meio')) return 'utm_medium';
+    if (hay.includes('source') || hay.includes('origem')) return 'utm_source';
+  }
+  for (const k of keys) {
+    if (k.includes('conjunto')) return 'utm_conjunto';
+    if (k.includes('campaign') || k.includes('campanha')) return 'utm_campaign';
+    if (k.includes('medium') || k.includes('meio')) return 'utm_medium';
+    if (k.includes('source') || k.includes('origem')) return 'utm_source';
+  }
   return null;
 }
 
-async function listAllFields(acUrl: string, acApiKey: string): Promise<any[]> {
+function acFieldLabels(f: Record<string, unknown>): { perstag: string; title: string } {
+  return {
+    perstag: String(f.perstag ?? f.tag ?? ''),
+    title: String(f.title ?? f.label ?? f.name ?? ''),
+  };
+}
+
+function extractFieldIdFromFv(fv: Record<string, unknown>): string | null {
+  const raw = fv.field;
+  if (raw == null) return null;
+  if (typeof raw === 'object' && raw !== null && 'id' in raw) {
+    return String((raw as { id: unknown }).id);
+  }
+  return String(raw);
+}
+
+/**
+ * URL da API (não a URL do app .activehosted.com).
+ * Ex.: https://azouptecnologia.api-us1.com
+ */
+function normalizeAcApiUrl(raw: string): string {
+  let url = raw.trim().replace(/\/$/, '');
+  url = url.replace(/\/api\/3\/?$/i, '');
+  const hosted = url.match(/^https?:\/\/([^.]+)\.activehosted\.com/i);
+  if (hosted) {
+    const region = Deno.env.get('ACTIVECAMPAIGN_API_REGION')?.trim() || 'us1';
+    url = `https://${hosted[1]}.api-${region}.com`;
+    console.log(`ACTIVECAMPAIGN_URL convertida de activehosted → ${url}`);
+  }
+  return url;
+}
+
+/** IDs fixos via secret JSON: {"123":"utm_source","124":"utm_campaign",...} */
+function loadEnvFieldIdToUtm(): Record<string, UtmColumn> {
+  const raw =
+    Deno.env.get('ACTIVECAMPAIGN_UTM_FIELD_IDS') ||
+    Deno.env.get('ACTIVE_CAMPAIGN_UTM_FIELD_IDS');
+  if (!raw?.trim()) return {};
+  try {
+    const parsed = JSON.parse(raw) as Record<string, string>;
+    const out: Record<string, UtmColumn> = {};
+    const valid: UtmColumn[] = ['utm_source', 'utm_campaign', 'utm_medium', 'utm_conjunto'];
+    for (const [id, col] of Object.entries(parsed)) {
+      if (valid.includes(col as UtmColumn)) out[String(id)] = col as UtmColumn;
+    }
+    return out;
+  } catch {
+    console.warn('ACTIVECAMPAIGN_UTM_FIELD_IDS inválido (esperado JSON)');
+    return {};
+  }
+}
+
+function buildMappedFieldsByColumn(
+  fieldIdToUtm: Record<string, UtmColumn>,
+  allAcFields: any[],
+): Record<string, { id: string; perstag: string; title: string }> {
+  const byId = new Map(allAcFields.map((f: any) => [String(f.id), f]));
+  const out: Record<string, { id: string; perstag: string; title: string }> = {};
+  for (const [fieldId, col] of Object.entries(fieldIdToUtm)) {
+    const f = byId.get(fieldId);
+    const labels = f ? acFieldLabels(f) : { perstag: '', title: '' };
+    out[col] = { id: fieldId, perstag: labels.perstag, title: labels.title };
+  }
+  return out;
+}
+
+/** Quando /fields não lista Marketing, descobre IDs pelos fieldValues dos contatos. */
+async function discoverUtmFieldsFromContactSamples(
+  contactIds: string[],
+  acUrl: string,
+  acApiKey: string,
+  fieldIdToUtm: Record<string, UtmColumn>,
+  maxContacts = 40,
+): Promise<number> {
+  let added = 0;
+  const sample = [...new Set(contactIds.map(String).filter(Boolean))].slice(0, maxContacts);
+  for (const contactId of sample) {
+    try {
+      const r = await fetch(
+        `${acUrl}/api/3/contacts/${encodeURIComponent(contactId)}/fieldValues`,
+        { headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' } },
+      );
+      if (!r.ok) continue;
+      const data = await r.json();
+      for (const fv of data.fieldValues || []) {
+        const fieldId = extractFieldIdFromFv(fv);
+        if (!fieldId || fieldIdToUtm[fieldId]) continue;
+        const col = await resolveUtmColumnForFieldId(fieldId, acUrl, acApiKey, fieldIdToUtm);
+        if (col) added++;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  if (added > 0) {
+    console.log(`UTM bootstrap: ${added} campo(s) mapeado(s) a partir de fieldValues de contatos`);
+  }
+  return added;
+}
+
+interface ListFieldsResult {
+  fields: any[];
+  lastStatus: number;
+  lastError: string | null;
+}
+
+async function listAllFields(acUrl: string, acApiKey: string): Promise<ListFieldsResult> {
   const all: any[] = [];
   let offset = 0;
   const limit = 100;
+  let lastStatus = 0;
+  let lastError: string | null = null;
+  const headers = { 'Api-Token': acApiKey, 'Content-Type': 'application/json' };
+
   while (true) {
     const response = await fetch(
       `${acUrl}/api/3/fields?limit=${limit}&offset=${offset}`,
-      { headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' } },
+      { headers },
     );
+    lastStatus = response.status;
     if (!response.ok) {
-      console.error('AC fields API error', await response.text());
+      lastError = await response.text();
+      console.error('AC fields API error', lastStatus, lastError);
       break;
     }
     const data = await response.json();
-    const fields = data.fields || [];
+    const fields = Array.isArray(data.fields) ? data.fields : [];
     all.push(...fields);
     if (fields.length < limit) break;
     offset += limit;
   }
-  return all;
+
+  return { fields: all, lastStatus, lastError };
+}
+
+async function probeAcApi(
+  acUrl: string,
+  acApiKey: string,
+): Promise<Record<string, unknown>> {
+  const headers = { 'Api-Token': acApiKey, 'Content-Type': 'application/json' };
+  const fieldsR = await fetch(`${acUrl}/api/3/fields?limit=5`, { headers });
+  const contactsR = await fetch(`${acUrl}/api/3/contacts?limit=1`, { headers });
+  let fieldsBody: { count?: number; error?: string } = {};
+  let contactsBody: { count?: number; error?: string } = {};
+  try {
+    const fj = await fieldsR.json();
+    fieldsBody.count = Array.isArray(fj.fields) ? fj.fields.length : 0;
+  } catch {
+    fieldsBody.error = 'resposta inválida';
+  }
+  try {
+    const cj = await contactsR.json();
+    contactsBody.count = Array.isArray(cj.contacts) ? cj.contacts.length : 0;
+  } catch {
+    contactsBody.error = 'resposta inválida';
+  }
+  return {
+    ac_url_used: acUrl,
+    fields_http: fieldsR.status,
+    fields_sample_count: fieldsBody.count,
+    fields_error: fieldsR.ok ? null : (fieldsBody.error || 'HTTP ' + fieldsR.status),
+    contacts_http: contactsR.status,
+    contacts_sample_count: contactsBody.count,
+  };
 }
 
 async function fetchFieldIdToUtmColumn(
   acUrl: string,
   acApiKey: string,
-): Promise<{ map: Record<string, UtmColumn>; raw: any[] }> {
-  const all = await listAllFields(acUrl, acApiKey);
-  const out: Record<string, UtmColumn> = {};
+): Promise<{ map: Record<string, UtmColumn>; raw: any[]; fieldsMeta: ListFieldsResult }> {
+  const { fields: all, ...fieldsMeta } = await listAllFields(acUrl, acApiKey);
+  const out: Record<string, UtmColumn> = { ...loadEnvFieldIdToUtm() };
   for (const f of all) {
-    const col = fieldToUtmColumn(String(f.perstag || ''), String(f.title || ''));
+    const { perstag, title } = acFieldLabels(f);
+    const col = fieldToUtmColumn(perstag, title);
     if (col && f.id != null) out[String(f.id)] = col;
   }
-  console.log(`Mapped ${Object.keys(out).length} ActiveCampaign custom fields to UTM columns (de ${all.length} fields totais)`);
-  return { map: out, raw: all };
+  console.log(
+    `Mapped ${Object.keys(out).length} ActiveCampaign custom fields to UTM columns (de ${all.length} fields totais, ${Object.keys(loadEnvFieldIdToUtm()).length} via env)`,
+  );
+  return { map: out, raw: all, fieldsMeta };
 }
 
 /** Quando o ID não veio no list /fields, busca definição individual (AC às vezes pagina ou filtra diferente). */
@@ -156,7 +316,8 @@ async function resolveUtmColumnForFieldId(
       fieldUtmResolveCache.set(fieldId, null);
       return null;
     }
-    const col = fieldToUtmColumn(String(f.perstag || ''), String(f.title || ''));
+    const { perstag, title } = acFieldLabels(f);
+    const col = fieldToUtmColumn(perstag, title);
     fieldUtmResolveCache.set(fieldId, col);
     if (col) fieldIdToUtm[String(f.id)] = col;
     return col;
@@ -489,9 +650,10 @@ serve(async (req) => {
       );
     }
 
+    // Credenciais: .env na raiz → npm run ac:secrets (Supabase) ou npm run ac:serve (local)
     const acApiKey = Deno.env.get('ACTIVECAMPAIGN_API_KEY');
     const acUrlRaw = Deno.env.get('ACTIVECAMPAIGN_URL');
-    const acUrl = acUrlRaw?.trim().replace(/\/$/, '') || '';
+    const acUrl = acUrlRaw ? normalizeAcApiUrl(acUrlRaw) : '';
 
     if (!acApiKey || !acUrl) {
       console.error('ActiveCampaign credentials not configured');
@@ -561,10 +723,11 @@ serve(async (req) => {
           headers: { 'Api-Token': acApiKey, 'Content-Type': 'application/json' },
         }),
       ]);
-      const allFields = await listAllFields(acUrl, acApiKey);
+      const { fields: allFieldsList } = await listAllFields(acUrl, acApiKey);
       const fieldsById: Record<string, { perstag: string; title: string }> = {};
-      for (const f of allFields) {
-        fieldsById[String(f.id)] = { perstag: String(f.perstag || ''), title: String(f.title || '') };
+      for (const f of allFieldsList) {
+        const { perstag, title } = acFieldLabels(f);
+        fieldsById[String(f.id)] = { perstag, title };
       }
       const fvJson = fvR.ok ? await fvR.json() : { fieldValues: [] };
       const rawFieldValues = Array.isArray(fvJson.fieldValues) ? fvJson.fieldValues : [];
@@ -604,7 +767,9 @@ serve(async (req) => {
       );
       return {
         contact: contactR.ok ? await contactR.json() : { error: await contactR.text() },
+        contactHttpStatus: contactR.status,
         fieldValues: fieldValuesAnnotated,
+        fieldValuesHttpStatus: fvR.status,
         contactData: cdR.ok ? await cdR.json() : { error: await cdR.text() },
         tags: contactTags[acId] || [],
       };
@@ -764,25 +929,38 @@ serve(async (req) => {
       console.log('Debug mode:', debugRequest, 'user:', claimsData.user.id);
 
       if (debugRequest.mode === 'fields') {
-        const all = await listAllFields(acUrl, acApiKey);
-        const mapped: Record<string, { id: string; perstag: string; title: string }> = {};
-        for (const f of all) {
-          const col = fieldToUtmColumn(String(f.perstag || ''), String(f.title || ''));
-          if (col) mapped[col] = { id: String(f.id), perstag: String(f.perstag || ''), title: String(f.title || '') };
-        }
+        const { fields: all, lastStatus, lastError } = await listAllFields(acUrl, acApiKey);
+        const { map: fieldMap } = await fetchFieldIdToUtmColumn(acUrl, acApiKey);
+        const mapped = buildMappedFieldsByColumn(fieldMap, all);
+        const probe = await probeAcApi(acUrl, acApiKey);
+        const utmLike = all.filter((f: any) => {
+          const { perstag, title } = acFieldLabels(f);
+          const hay = `${perstag} ${title}`.toLowerCase();
+          return hay.includes('utm') || hay.includes('conjunto') || hay.includes('campanha');
+        });
         return new Response(
           JSON.stringify({
             success: true,
             mode: 'fields',
             total: all.length,
+            fields_api_status: lastStatus,
+            fields_api_error: lastError,
+            ac_probe: probe,
             mapped_utm_fields: mapped,
-            fields: all.map((f: any) => ({
-              id: String(f.id ?? ''),
-              title: String(f.title ?? ''),
-              perstag: String(f.perstag ?? ''),
-              type: String(f.type ?? ''),
-              relation: f.relation ?? null,
-            })),
+            utm_like_fields: utmLike.map((f: any) => {
+              const { perstag, title } = acFieldLabels(f);
+              return { id: String(f.id), title, perstag, type: f.type, relation: f.relation };
+            }),
+            fields: all.map((f: any) => {
+              const { perstag, title } = acFieldLabels(f);
+              return {
+                id: String(f.id ?? ''),
+                title,
+                perstag,
+                type: String(f.type ?? ''),
+                relation: f.relation ?? null,
+              };
+            }),
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
@@ -818,6 +996,22 @@ serve(async (req) => {
           });
         }
         const bundle = await fetchAcContactBundle(acId);
+        const contactObj = bundle.contact?.contact;
+        if (!contactObj && bundle.contact?.error) {
+          return new Response(
+            JSON.stringify({
+              error: 'Contato não encontrado no ActiveCampaign',
+              acId,
+              contactHttpStatus: bundle.contactHttpStatus,
+              detail: String(bundle.contact.error).slice(0, 500),
+              hint: bundle.contactHttpStatus === 404
+                ? 'Verifique o ID do link e se ACTIVECAMPAIGN_URL aponta para a mesma conta (*.api-us1.com).'
+                : 'Verifique ACTIVECAMPAIGN_API_KEY e rode npm run ac:secrets após alterar o .env.',
+            }),
+            { status: bundle.contactHttpStatus === 404 ? 404 : 502,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          );
+        }
         return new Response(
           JSON.stringify({
             success: true,
@@ -827,6 +1021,8 @@ serve(async (req) => {
             fieldValues: bundle.fieldValues,
             contactData: bundle.contactData,
             tags: bundle.tags,
+            contactHttpStatus: bundle.contactHttpStatus,
+            fieldValuesHttpStatus: bundle.fieldValuesHttpStatus,
             mapped: await mapAcBundleToLeadPayload(bundle),
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -881,30 +1077,40 @@ serve(async (req) => {
     }
 
     console.log('Fetching AC field definitions for UTM mapping...');
-    const { map: fieldIdToUtm, raw: allAcFields } = await fetchFieldIdToUtmColumn(acUrl, acApiKey);
-    if (Object.keys(fieldIdToUtm).length === 0) {
-      console.warn(
-        'Nenhum campo AC mapeado para UTM (perstag/título com utm_*). Confira os nomes dos campos personalizados no ActiveCampaign.',
-      );
-    }
-    const mappedFieldsByColumn: Record<string, { id: string; perstag: string; title: string }> = {};
-    for (const f of allAcFields) {
-      const col = fieldToUtmColumn(String(f.perstag || ''), String(f.title || ''));
-      if (col) {
-        mappedFieldsByColumn[col] = {
-          id: String(f.id),
-          perstag: String(f.perstag || ''),
-          title: String(f.title || ''),
-        };
-      }
-    }
+    const { map: fieldIdToUtm, raw: allAcFields, fieldsMeta } = await fetchFieldIdToUtmColumn(
+      acUrl,
+      acApiKey,
+    );
+    const acProbe = await probeAcApi(acUrl, acApiKey);
 
     console.log('Fetching all contacts from ActiveCampaign...');
     const contacts = await fetchAllContacts(acUrl, acApiKey);
     console.log(`Found ${contacts.length} total contacts`);
 
+    if (Object.keys(fieldIdToUtm).length === 0 && contacts.length > 0) {
+      console.warn('Nenhum UTM em /fields — tentando descobrir pelos fieldValues dos contatos...');
+      await discoverUtmFieldsFromContactSamples(
+        contacts.map((c: any) => String(c.id)),
+        acUrl,
+        acApiKey,
+        fieldIdToUtm,
+        80,
+      );
+    }
+
+    let mappedFieldsByColumn = buildMappedFieldsByColumn(fieldIdToUtm, allAcFields);
+    if (Object.keys(fieldIdToUtm).length === 0) {
+      console.warn(
+        'Nenhum campo AC mapeado para UTM. Confira títulos no AC ou defina secret ACTIVECAMPAIGN_UTM_FIELD_IDS.',
+      );
+    }
+
     console.log('Fetching custom field values (UTM) per contact...');
     const utmByContactId = await fetchContactFieldValuesBatched(contacts, acUrl, acApiKey, fieldIdToUtm);
+
+    if (Object.keys(mappedFieldsByColumn).length === 0 && Object.keys(fieldIdToUtm).length > 0) {
+      mappedFieldsByColumn = buildMappedFieldsByColumn(fieldIdToUtm, allAcFields);
+    }
 
     const { data: linkedLeads } = await adminSupabase
       .from('leads')
@@ -1099,6 +1305,9 @@ serve(async (req) => {
           contacts_with_any_utm: totalWithUtm,
           contacts_with: utmCounts,
           total_ac_fields_seen: allAcFields.length,
+          fields_api_status: fieldsMeta.lastStatus,
+          fields_api_error: fieldsMeta.lastError,
+          ac_probe: acProbe,
         },
         errors: (validationErrors + totalDbErrors > 0)
           ? `${validationErrors} validação, ${totalDbErrors} banco de dados`

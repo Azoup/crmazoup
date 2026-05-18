@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Lead, LeadTemperature, LeadHistory, LeadSource } from '@/types/lead';
 import { formatDateTime, getAISuggestion } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,15 +17,16 @@ import {
 } from '@/components/ui/select';
 import { 
   XCircle, User, MessageCircle, Calendar, Trash2, Save, 
-  Sparkles, ChevronRight, ChevronDown, RefreshCw, CheckCircle, Loader2, FileText,
+  Sparkles, ChevronRight, RefreshCw, CheckCircle, Loader2, FileText, Megaphone,
   Phone, Mail, StickyNote, History, UserCheck
 } from 'lucide-react';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   mapAcImportToLead,
   parseActiveCampaignContactId,
   type AcImportPreview,
+  type AcImportRaw,
 } from '@/lib/activecampaignMap';
+import { getFunctionInvokeErrorMessage } from '@/lib/supabaseFunctionError';
 
 interface LeadModalProps {
   lead: Lead | null;
@@ -65,6 +66,7 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
   const [isImportingAc, setIsImportingAc] = useState(false);
   const [acLinkInput, setAcLinkInput] = useState('');
   const [acDebugResult, setAcDebugResult] = useState<null | (AcImportPreview & { raw: unknown })>(null);
+  const acAutoFetchKeyRef = useRef<string | null>(null);
 
   const [formData, setFormData] = useState<Partial<Lead>>({
     name: '', company: '', confection_type: '', whatsapp: '', email: '',
@@ -74,6 +76,8 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
     pieces_per_month: null, responsible_user_id: null,
     utm_source: null, utm_campaign: null, utm_medium: null, utm_conjunto: null,
   });
+  const formDataRef = useRef(formData);
+  formDataRef.current = formData;
 
   // Fetch the manager who manages this SDR (if any)
   useEffect(() => {
@@ -214,16 +218,190 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
   };
 
   const fetchAcContactData = async (acId: string) => {
+    const id = String(acId);
+
+    if (import.meta.env.DEV) {
+      try {
+        const local = await fetch(`/api/ac-import/${encodeURIComponent(id)}`);
+        const localData = await local.json();
+        if (local.ok && localData?.contact?.contact) {
+          return localData;
+        }
+        if (localData?.error) {
+          throw new Error(
+            [String(localData.error), localData.hint].filter(Boolean).join(' — '),
+          );
+        }
+      } catch (devErr) {
+        if (devErr instanceof Error && !devErr.message.includes('Failed to fetch')) {
+          throw devErr;
+        }
+        console.warn('[AC] Proxy local (.env) indisponível, usando Edge Function…', devErr);
+      }
+    }
+
     const { data, error } = await supabase.functions.invoke('sync-activecampaign', {
-      body: { debug: 'contact', acId },
+      body: { debug: 'contact', acId: id },
     });
-    if (error) throw new Error(error.message);
-    if (data?.error) throw new Error(String(data.error));
-    if (!data?.contact?.contact && !data?.fieldValues) {
-      throw new Error(data?.message || 'Contato não encontrado no ActiveCampaign.');
+    if (error) {
+      const msg = await getFunctionInvokeErrorMessage(error, 'Falha ao chamar sync-activecampaign');
+      if (msg.includes('não configurado') || msg.includes('non-2xx')) {
+        throw new Error(
+          'Credenciais do ActiveCampaign não estão no Supabase. No painel: Edge Functions → Secrets → ACTIVECAMPAIGN_URL e ACTIVECAMPAIGN_API_KEY (mesmos valores do .env). Ou rode npm run ac:secrets após supabase login.',
+        );
+      }
+      throw new Error(msg);
+    }
+    if (data?.error) {
+      const hint = data.hint ? String(data.hint) : '';
+      throw new Error(
+        [String(data.error), data.detail, hint].filter(Boolean).join(' — ') ||
+          'Contato não encontrado no ActiveCampaign.',
+      );
+    }
+    if (data?.contact?.error && !data?.contact?.contact) {
+      throw new Error(
+        `ActiveCampaign HTTP ${data.contactHttpStatus ?? '?'}: ${String(data.contact.error).slice(0, 200)}. Confira os Secrets no Supabase (URL *.api-us1.com + API key do .env).`,
+      );
+    }
+    if (!data?.contact?.contact && !data?.fieldValues?.length) {
+      throw new Error(
+        'Resposta vazia do ActiveCampaign. Atualize a Edge Function sync-activecampaign no Supabase e configure os Secrets.',
+      );
     }
     return data;
   };
+
+  const buildPreviewFromAcData = (data: {
+    contact?: AcImportRaw['contact'];
+    fieldValues?: AcImportRaw['fieldValues'];
+    contactData?: AcImportRaw['contactData'];
+    tags?: string[];
+    mapped?: Partial<Lead>;
+  }): AcImportPreview => {
+    const preview = mapAcImportToLead({
+      contact: data.contact,
+      fieldValues: data.fieldValues,
+      contactData: data.contactData,
+      tags: data.tags,
+    });
+    const serverMapped = data.mapped as Partial<Lead> | undefined;
+    if (serverMapped) {
+      const utmKeys = ['utm_source', 'utm_campaign', 'utm_medium', 'utm_conjunto'] as const;
+      for (const k of utmKeys) {
+        if (serverMapped[k]) {
+          preview.payload[k] = serverMapped[k];
+          preview.marketing[k] = serverMapped[k];
+        }
+      }
+      if (serverMapped.name) preview.payload.name = serverMapped.name;
+      if (serverMapped.whatsapp) preview.payload.whatsapp = serverMapped.whatsapp;
+      if (serverMapped.email) preview.payload.email = serverMapped.email;
+      if (serverMapped.company) preview.payload.company = serverMapped.company;
+      if (serverMapped.confection_type) preview.payload.confection_type = serverMapped.confection_type;
+    }
+    return preview;
+  };
+
+  const mergeAcPayloadIntoForm = useCallback((payload: Partial<Lead>): Partial<Lead> => {
+    const prev = formDataRef.current;
+    const merged: Partial<Lead> = {
+      ...prev,
+      ...payload,
+      name: payload.name || prev.name,
+      email: payload.email ?? prev.email,
+      whatsapp: payload.whatsapp ?? prev.whatsapp,
+      company: payload.company ?? prev.company,
+      confection_type: payload.confection_type ?? prev.confection_type,
+      website: payload.website ?? prev.website,
+      pieces_per_month: payload.pieces_per_month ?? prev.pieces_per_month,
+      meeting_pain: payload.meeting_pain ?? prev.meeting_pain,
+      cpf_cnpj: payload.cpf_cnpj ?? prev.cpf_cnpj,
+      utm_source: payload.utm_source ?? prev.utm_source,
+      utm_campaign: payload.utm_campaign ?? prev.utm_campaign,
+      utm_medium: payload.utm_medium ?? prev.utm_medium,
+      utm_conjunto: payload.utm_conjunto ?? prev.utm_conjunto,
+      activecampaign_id: payload.activecampaign_id ?? prev.activecampaign_id,
+    };
+    setFormData(merged);
+    formDataRef.current = merged;
+    return merged;
+  }, []);
+
+  const syncFromActiveCampaign = useCallback(
+    async (
+      acId: string,
+      options?: { silent?: boolean; persist?: boolean },
+    ): Promise<boolean> => {
+      setIsDebuggingAc(true);
+      try {
+        const data = await fetchAcContactData(acId);
+        const preview = buildPreviewFromAcData(data);
+        setAcDebugResult({ ...preview, raw: data });
+        const merged = mergeAcPayloadIntoForm(preview.payload);
+
+        const utmFilled = (['utm_source', 'utm_campaign', 'utm_medium', 'utm_conjunto'] as const).filter(
+          (k) => preview.marketing[k],
+        );
+
+        if (options?.persist && lead?.id) {
+          const saved = await onSave(merged);
+          if (!saved && !options.silent) {
+            toast({
+              title: 'Dados carregados',
+              description: 'Não foi possível gravar automaticamente. Clique em Salvar.',
+              variant: 'destructive',
+            });
+            return false;
+          }
+        }
+
+        if (!options?.silent) {
+          toast({
+            title: utmFilled.length ? 'Marketing sincronizado' : 'Dados do ActiveCampaign',
+            description: utmFilled.length
+              ? `UTM: ${utmFilled.join(', ')}${options?.persist ? ' · gravado no CRM' : ' · clique em Salvar'}`
+              : 'Contato encontrado; UTMs vazios no ActiveCampaign.',
+          });
+        }
+        return true;
+      } catch (err) {
+        if (!options?.silent) {
+          toast({
+            title: 'Erro ao buscar ActiveCampaign',
+            description: err instanceof Error ? err.message : 'Falha na consulta',
+            variant: 'destructive',
+          });
+        }
+        return false;
+      } finally {
+        setIsDebuggingAc(false);
+      }
+    },
+    [lead?.id, mergeAcPayloadIntoForm, onSave, toast],
+  );
+
+  useEffect(() => {
+    acAutoFetchKeyRef.current = null;
+  }, [draftIdentity]);
+
+  useEffect(() => {
+    const acId = lead?.activecampaign_id
+      ? String(lead.activecampaign_id)
+      : parseActiveCampaignContactId(acLinkInput);
+    if (!acId) return;
+
+    const fetchKey = `${draftIdentity}:${acId}`;
+    if (acAutoFetchKeyRef.current === fetchKey) return;
+
+    const delayMs = lead?.activecampaign_id ? 400 : 900;
+    const timer = window.setTimeout(() => {
+      acAutoFetchKeyRef.current = fetchKey;
+      void syncFromActiveCampaign(acId, { silent: true, persist: Boolean(lead?.id) });
+    }, delayMs);
+
+    return () => window.clearTimeout(timer);
+  }, [lead?.id, lead?.activecampaign_id, acLinkInput, draftIdentity, syncFromActiveCampaign]);
 
   const handleFetchFromAc = async () => {
     const acId = resolveAcContactId();
@@ -235,49 +413,8 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
       });
       return;
     }
-    setIsDebuggingAc(true);
-    setAcDebugResult(null);
-    try {
-      const data = await fetchAcContactData(acId);
-      const preview = mapAcImportToLead({
-        contact: data.contact,
-        fieldValues: data.fieldValues,
-        contactData: data.contactData,
-        tags: data.tags,
-      });
-      const serverMapped = data.mapped as Partial<Lead> | undefined;
-      if (serverMapped) {
-        const utmKeys = ['utm_source', 'utm_campaign', 'utm_medium', 'utm_conjunto'] as const;
-        for (const k of utmKeys) {
-          if (serverMapped[k]) {
-            preview.payload[k] = serverMapped[k];
-            preview.marketing[k] = serverMapped[k];
-          }
-        }
-        if (serverMapped.name) preview.payload.name = serverMapped.name;
-        if (serverMapped.whatsapp) preview.payload.whatsapp = serverMapped.whatsapp;
-        if (serverMapped.email) preview.payload.email = serverMapped.email;
-      }
-      setAcDebugResult({ ...preview, raw: data });
-      const keys = Object.keys(preview.payload).filter((k) => preview.payload[k as keyof Lead] != null);
-      const utmFilled = (['utm_source', 'utm_campaign', 'utm_medium', 'utm_conjunto'] as const).filter(
-        (k) => preview.marketing[k],
-      );
-      toast({
-        title: keys.length ? 'Dados do ActiveCampaign carregados' : 'Contato sem dados extras',
-        description: keys.length
-          ? `Campos: ${keys.join(', ')}${utmFilled.length ? ` · Marketing: ${utmFilled.join(', ')}` : ''}. Clique em "Aplicar nos campos".`
-          : 'O contato existe, mas poucos campos estão preenchidos no AC.',
-      });
-    } catch (err) {
-      toast({
-        title: 'Erro ao buscar ActiveCampaign',
-        description: err instanceof Error ? err.message : 'Falha na consulta',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDebuggingAc(false);
-    }
+    acAutoFetchKeyRef.current = `${draftIdentity}:${acId}`;
+    await syncFromActiveCampaign(acId, { silent: false, persist: Boolean(lead?.id) });
   };
 
   const handleDebugAc = async () => {
@@ -295,25 +432,7 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
 
   const applyAcDebugResult = () => {
     if (!acDebugResult) return;
-    const { payload } = acDebugResult;
-    setFormData((prev) => ({
-      ...prev,
-      ...payload,
-      name: payload.name || prev.name,
-      email: payload.email ?? prev.email,
-      whatsapp: payload.whatsapp ?? prev.whatsapp,
-      company: payload.company ?? prev.company,
-      confection_type: payload.confection_type ?? prev.confection_type,
-      website: payload.website ?? prev.website,
-      pieces_per_month: payload.pieces_per_month ?? prev.pieces_per_month,
-      meeting_pain: payload.meeting_pain ?? prev.meeting_pain,
-      cpf_cnpj: payload.cpf_cnpj ?? prev.cpf_cnpj,
-      utm_source: payload.utm_source ?? prev.utm_source,
-      utm_campaign: payload.utm_campaign ?? prev.utm_campaign,
-      utm_medium: payload.utm_medium ?? prev.utm_medium,
-      utm_conjunto: payload.utm_conjunto ?? prev.utm_conjunto,
-      activecampaign_id: payload.activecampaign_id ?? prev.activecampaign_id,
-    }));
+    mergeAcPayloadIntoForm(acDebugResult.payload);
     toast({ title: 'Aplicado', description: 'Revise os campos e clique em Salvar para gravar no CRM.' });
   };
 
@@ -742,17 +861,11 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
                     <Label>Empresa</Label>
                     <Input name="company" value={formData.company || ''} onChange={handleChange} placeholder="Nome da empresa" />
                   </div>
-                  <Collapsible
-                    defaultOpen={
-                      !!(formData.utm_source || formData.utm_campaign || formData.utm_medium || formData.utm_conjunto || lead?.activecampaign_id)
-                    }
-                    className="md:col-span-2 space-y-2"
-                  >
-                    <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2 text-left text-sm font-semibold hover:bg-muted/50 [&[data-state=open]>svg]:rotate-180">
-                      <span>Marketing</span>
-                      <ChevronDown className="size-4 shrink-0 transition-transform duration-200" />
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
+                  <div className="md:col-span-2 space-y-3 rounded-lg border-2 border-primary/30 bg-primary/5 p-4">
+                    <div className="flex items-center gap-2">
+                      <Megaphone className="size-4 text-primary shrink-0" />
+                      <h3 className="text-sm font-semibold text-foreground">Marketing (UTM)</h3>
+                    </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 rounded-lg border border-border/60 bg-muted/15 p-3">
                         <div>
                           <Label className="text-muted-foreground">utm-source</Label>
@@ -772,7 +885,9 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
                         </div>
                       </div>
                       <p className="text-[10px] text-muted-foreground mt-2 px-0.5">
-                        Campos vindos do ActiveCampaign na sincronização; podem ser editados aqui.
+                        {isDebuggingAc
+                          ? 'Sincronizando com o ActiveCampaign…'
+                          : 'Preenchido automaticamente ao abrir o lead (badge AC) ou ao colar o link.'}
                       </p>
 
                       <div className="mt-3 space-y-2 rounded-lg border border-dashed border-border/60 bg-background/60 p-3 text-xs">
@@ -855,8 +970,7 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
                             </div>
                           )}
                       </div>
-                    </CollapsibleContent>
-                  </Collapsible>
+                  </div>
                   <div>
                     <Label>Tipo Confecção</Label>
                     <Input name="confection_type" value={formData.confection_type || ''} onChange={handleChange} placeholder="Ex: Moda Fitness, Uniformes" />

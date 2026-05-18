@@ -161,13 +161,23 @@ export function useLeads() {
     console.log('[Realtime] Setting up subscription', { userId: user.id, isManager });
 
     const channelName = `leads-realtime-${user.id}-${Date.now()}`;
+    const pgConfig: {
+      event: '*';
+      schema: 'public';
+      table: 'leads';
+      filter?: string;
+    } = {
+      event: '*',
+      schema: 'public',
+      table: 'leads',
+    };
+    if (!isManager) {
+      pgConfig.filter = `user_id=eq.${user.id}`;
+    }
+
     const channel = supabase
       .channel(channelName)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'leads',
-      }, (payload) => {
+      .on('postgres_changes', pgConfig, (payload) => {
         const newLead = payload.new as any;
         const oldLead = payload.old as any;
 
@@ -205,9 +215,16 @@ export function useLeads() {
         }
       })
       .subscribe((status, err) => {
-        console.log('[Realtime] Subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('[Realtime] Conectado à tabela leads');
+          return;
+        }
         if (status === 'CHANNEL_ERROR') {
-          console.error('[Realtime] Channel error - will retry on next interaction:', err);
+          // Não bloqueia o CRM — só atualização ao vivo; refresh manual continua funcionando
+          console.warn(
+            '[Realtime] Canal indisponível (normal se Realtime estiver limitado no plano).',
+            err?.message ?? '',
+          );
         }
       });
 
@@ -690,16 +707,29 @@ export function useLeads() {
           const mappedCount = diag?.mapped_fields ? Object.keys(diag.mapped_fields).length : 0;
           const withUtm = diag?.contacts_with_any_utm ?? 0;
           const utmUpdates = data.utm_updates ?? 0;
+          const totalAcFields = (diag as { total_ac_fields_seen?: number })?.total_ac_fields_seen ?? 0;
           const extra = ` · UTM: ${mappedCount} campo(s) mapeado(s), ${withUtm} contato(s) com dado, ${utmUpdates} atualização(ões)`;
           toast({
             title: 'Sincronização Concluída',
             description: `${data.imported} leads importados do ActiveCampaign${extra}`,
           });
-          if (mappedCount === 0) {
+          if (withUtm === 0 && utmUpdates === 0) {
+            const probe = (diag as { ac_probe?: { ac_url_used?: string; fields_http?: number } })?.ac_probe;
+            const fieldsHttp = (diag as { fields_api_status?: number })?.fields_api_status;
+            const urlHint = probe?.ac_url_used
+              ? ` URL API: ${probe.ac_url_used}`
+              : '';
+            const apiHint =
+              totalAcFields === 0 && fieldsHttp && fieldsHttp !== 200
+                ? ` API /fields retornou HTTP ${fieldsHttp}. Confira ACTIVECAMPAIGN_URL (deve ser *.api-us1.com, não activehosted.com) e a API key.`
+                : totalAcFields === 0
+                  ? ` A API listou 0 campos personalizados.${urlHint} Use a URL em Configurações → Desenvolvedor no ActiveCampaign.`
+                  : '';
             toast({
-              title: 'Atenção: nenhum campo UTM mapeado',
-              description:
-                'O ActiveCampaign não retornou nenhum campo personalizado com nome utm_source / utm_campaign / utm_medium / utm_conjunto. Verifique os nomes/perstags no AC.',
+              title: 'Atenção: UTMs não encontrados',
+              description: mappedCount === 0
+                ? `Nenhum campo UTM mapeado.${apiHint} Ou importe no lead: Marketing → link do contato AC. Secret opcional: ACTIVECAMPAIGN_UTM_FIELD_IDS.`
+                : 'Campos UTM existem no AC, mas os contatos sincronizados não têm valores na seção Marketing.',
               variant: 'destructive',
             });
           }

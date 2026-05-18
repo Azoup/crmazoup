@@ -53,6 +53,16 @@ function getWeekRange(year: number, week: number): { start: Date; end: Date } {
   return { start, end };
 }
 
+function truncateText(text: string, max: number): string {
+  const t = text.trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
+}
+
+function leadHasMarketing(lead: Lead): boolean {
+  return !!(lead.utm_source || lead.utm_campaign || lead.utm_medium || lead.utm_conjunto);
+}
+
 export function ReportView({ leads }: ReportViewProps) {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentReferenceMonth());
   const [period, setPeriod] = useState<ReportPeriod>('daily');
@@ -246,7 +256,12 @@ export function ReportView({ leads }: ReportViewProps) {
     doc.text(`Valor Total Ganhos: ${formatCurrency(vendasValue)}`, 15, y + 5);
     const mrrValue = monthlyLeads.filter(l => l.stage === 'venda').reduce((s, l) => s + (l.monthly_value || 0), 0);
     doc.text(`MRR Vendas: ${formatCurrency(mrrValue)}`, 130, y + 5);
+    const withMarketing = monthlyLeads.filter(leadHasMarketing).length;
     doc.text(`Leads no Pipeline: Prosp. ${monthlyLeads.filter(l => l.stage === 'prospeccao').length} | Inter. ${monthlyLeads.filter(l => l.stage === 'interesse').length} | Reun. ${monthlyLeads.filter(l => l.stage === 'reuniao').length} | Prop. ${monthlyLeads.filter(l => l.stage === 'proposta').length}`, 200, y + 5);
+    y += 14;
+    doc.setFillColor(245, 235, 255);
+    doc.rect(10, y - 3, pageW - 20, 12, 'F');
+    doc.text(`Leads com Marketing/UTM (ActiveCampaign): ${withMarketing} de ${totalPipeline}`, 15, y + 5);
     y += 18;
 
     // Table header
@@ -307,6 +322,73 @@ export function ReportView({ leads }: ReportViewProps) {
       doc.rect(160, y - 3, Math.max(1, r.percent * 0.8), 4, 'F');
       y += 8;
     });
+
+    const renderMarketingPage = () => {
+      const marketingLeads = monthlyLeads.filter(leadHasMarketing);
+      if (marketingLeads.length === 0) return;
+
+      doc.addPage('landscape');
+      doc.setFillColor(88, 28, 135);
+      doc.rect(0, 0, pageW, 30, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.text(`Marketing / UTM (${marketingLeads.length} leads)`, 15, 15);
+      doc.setFontSize(10);
+      doc.text(title, 15, 24);
+
+      let my = 40;
+      const mCols = ['Lead', 'Empresa', 'utm-source', 'utm_campaign', 'utm_medium', 'utm_conjunto'];
+      const mX = [15, 52, 95, 125, 195, 235];
+      const mW = [34, 40, 27, 67, 37, 57];
+
+      const drawMarketingHeader = () => {
+        doc.setFillColor(240, 240, 245);
+        doc.rect(10, my - 5, pageW - 20, 10, 'F');
+        doc.setTextColor(50, 50, 50);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'bold');
+        mCols.forEach((col, i) => doc.text(col, mX[i], my + 2));
+        doc.setFont('helvetica', 'normal');
+        my += 11;
+      };
+
+      drawMarketingHeader();
+      const pageH = doc.internal.pageSize.getHeight();
+
+      marketingLeads.forEach((lead, idx) => {
+        const texts = [
+          lead.name || '-',
+          lead.company || '-',
+          lead.utm_source || '-',
+          lead.utm_campaign || '-',
+          lead.utm_medium || '-',
+          lead.utm_conjunto || '-',
+        ];
+        doc.setFontSize(6);
+        const splitTexts = texts.map((t, i) => doc.splitTextToSize(truncateText(t, i >= 2 ? 120 : 80), mW[i]));
+        const rowLines = Math.max(...splitTexts.map((st) => st.length));
+        const rowHeight = Math.max(9, rowLines * 7);
+
+        if (my + rowHeight > pageH - 25) {
+          doc.addPage('landscape');
+          my = 20;
+          drawMarketingHeader();
+        }
+
+        if (idx % 2 === 0) {
+          doc.setFillColor(248, 248, 252);
+          doc.rect(10, my - 4, pageW - 20, rowHeight, 'F');
+        }
+
+        doc.setTextColor(30, 30, 30);
+        splitTexts.forEach((lines, i) => {
+          lines.forEach((line: string, li: number) => {
+            doc.text(line, mX[i], my + 2 + li * 7);
+          });
+        });
+        my += rowHeight;
+      });
+    };
 
     // Helper to render a detail page with leads
     const renderDetailPage = (pageTitle: string, detailLeads: Lead[], headerColor: [number, number, number]) => {
@@ -377,8 +459,35 @@ export function ReportView({ leads }: ReportViewProps) {
         });
 
         dy += rowHeight;
+
+        if (leadHasMarketing(lead)) {
+          const marketingParts = [
+            lead.utm_source ? `Source: ${lead.utm_source}` : '',
+            lead.utm_campaign ? `Campanha: ${truncateText(lead.utm_campaign, 55)}` : '',
+            lead.utm_medium ? `Medium: ${truncateText(lead.utm_medium, 40)}` : '',
+            lead.utm_conjunto ? `Conjunto: ${truncateText(lead.utm_conjunto, 40)}` : '',
+          ].filter(Boolean);
+          const marketingLine = doc.splitTextToSize(marketingParts.join('  |  '), pageW - 30);
+          const mktHeight = Math.max(8, marketingLine.length * 6);
+
+          if (dy + mktHeight > pageH - 25) {
+            doc.addPage('landscape');
+            dy = 20;
+          }
+
+          doc.setFontSize(6);
+          doc.setTextColor(88, 28, 135);
+          marketingLine.forEach((line: string, li: number) => {
+            doc.text(line, 18, dy + 2 + li * 6);
+          });
+          doc.setTextColor(30, 30, 30);
+          doc.setFontSize(7);
+          dy += mktHeight + 2;
+        }
       });
     };
+
+    renderMarketingPage();
 
     // Detail pages
     const vendasLeads = monthlyLeads.filter(l => l.stage === 'venda');
@@ -663,6 +772,10 @@ export function ReportView({ leads }: ReportViewProps) {
                   <TableHead className="font-bold"><span className="flex items-center gap-1"><Shirt size={12} /> Tipo Confecção</span></TableHead>
                   <TableHead className="font-bold">Etapa</TableHead>
                   <TableHead className="font-bold">Status Reunião</TableHead>
+                  <TableHead className="font-bold">utm-source</TableHead>
+                  <TableHead className="font-bold">utm_campaign</TableHead>
+                  <TableHead className="font-bold">utm_medium</TableHead>
+                  <TableHead className="font-bold">utm_conjunto</TableHead>
                   <TableHead className="font-bold">Motivo</TableHead>
                   <TableHead className="font-bold">Observação</TableHead>
                 </TableRow>
@@ -670,7 +783,7 @@ export function ReportView({ leads }: ReportViewProps) {
               <TableBody>
                 {filteredDetailLeads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                       Nenhum lead encontrado para este filtro
                     </TableCell>
                   </TableRow>
@@ -694,10 +807,22 @@ export function ReportView({ leads }: ReportViewProps) {
                       <TableCell className="text-xs">
                         {lead.meeting_status ? MEETING_STATUS_LABELS[lead.meeting_status] || lead.meeting_status : '-'}
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">
+                      <TableCell className="text-xs max-w-[90px] truncate" title={lead.utm_source || ''}>
+                        {lead.utm_source || '-'}
+                      </TableCell>
+                      <TableCell className="text-xs max-w-[120px] truncate" title={lead.utm_campaign || ''}>
+                        {lead.utm_campaign || '-'}
+                      </TableCell>
+                      <TableCell className="text-xs max-w-[100px] truncate" title={lead.utm_medium || ''}>
+                        {lead.utm_medium || '-'}
+                      </TableCell>
+                      <TableCell className="text-xs max-w-[100px] truncate" title={lead.utm_conjunto || ''}>
+                        {lead.utm_conjunto || '-'}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">
                         {lead.loss_reason || '-'}
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
+                      <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">
                         {lead.client_observations || lead.manager_notes || '-'}
                       </TableCell>
                     </TableRow>

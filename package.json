@@ -12,7 +12,10 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "whatsapp-gateway": "npm run start --prefix whatsapp-gateway"
+    "whatsapp-gateway": "npm run start --prefix whatsapp-gateway",
+    "ac:env-sync": "node scripts/sync-ac-env.mjs",
+    "ac:secrets": "npm run ac:env-sync && npx supabase@latest secrets set --env-file supabase/.env --project-ref ciwnnlnbptyjoppthxhy",
+    "ac:serve": "npm run ac:env-sync && npx supabase@latest functions serve sync-activecampaign --env-file supabase/.env --project-ref ciwnnlnbptyjoppthxhy"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

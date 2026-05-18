@@ -75,6 +75,18 @@ export function fieldToUtmColumn(perstag: string, title: string): UtmColumn | nu
   if (hay.includes('utm_source') || hay.includes('utmsource') || hay.includes('origem')) {
     return 'utm_source';
   }
+  if (hay.includes('utm')) {
+    if (hay.includes('conjunto') || hay.includes('adset')) return 'utm_conjunto';
+    if (hay.includes('campaign') || hay.includes('campanha')) return 'utm_campaign';
+    if (hay.includes('medium') || hay.includes('meio')) return 'utm_medium';
+    if (hay.includes('source') || hay.includes('origem')) return 'utm_source';
+  }
+  for (const k of tags) {
+    if (k.includes('conjunto')) return 'utm_conjunto';
+    if (k.includes('campaign') || k.includes('campanha')) return 'utm_campaign';
+    if (k.includes('medium') || k.includes('meio')) return 'utm_medium';
+    if (k.includes('source') || k.includes('origem')) return 'utm_source';
+  }
 
   return null;
 }
