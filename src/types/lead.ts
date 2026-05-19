@@ -6,6 +6,9 @@ export type LeadSource = 'marketing' | 'prospeccao_ativa' | 'indicacao' | 'orcam
 
 export type MeetingStatus = 'compareceu' | 'no_show' | 'reagendar' | null;
 
+/** Forma do próximo contato agendado (retorno) */
+export type NextContactType = 'ligacao' | 'mensagem';
+
 export interface LeadHistory {
   type: string;
   note: string;
@@ -29,6 +32,7 @@ export interface Lead {
   stage: LeadStage;
   loss_reason: string | null;
   next_contact: string | null;
+  next_contact_type?: NextContactType | null;
   last_contact: string | null;
   entry_date: string | null;
   meeting_pain: string | null;

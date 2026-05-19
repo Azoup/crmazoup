@@ -15,9 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   XCircle, User, MessageCircle, Calendar, Trash2, Save, 
-  Sparkles, ChevronRight, RefreshCw, CheckCircle, Loader2, FileText, Megaphone,
+  Sparkles, ChevronRight, ChevronDown, RefreshCw, CheckCircle, Loader2, FileText, Megaphone,
   Phone, Mail, StickyNote, History, UserCheck
 } from 'lucide-react';
 import {
@@ -895,11 +896,26 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
                     <Label>Empresa</Label>
                     <Input name="company" value={formData.company || ''} onChange={handleChange} placeholder="Nome da empresa" />
                   </div>
-                  <div className="md:col-span-2 space-y-3 rounded-lg border-2 border-primary/30 bg-primary/5 p-4">
-                    <div className="flex items-center gap-2">
-                      <Megaphone className="size-4 text-primary shrink-0" />
-                      <h3 className="text-sm font-semibold text-foreground">Marketing (UTM)</h3>
-                    </div>
+                  <Collapsible
+                    className="md:col-span-2 space-y-2"
+                    defaultOpen={
+                      !!(
+                        formData.utm_source ||
+                        formData.utm_campaign ||
+                        formData.utm_medium ||
+                        formData.utm_conjunto ||
+                        lead?.activecampaign_id
+                      )
+                    }
+                  >
+                    <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-left text-sm font-semibold hover:bg-muted/50 [&[data-state=open]>svg:last-child]:rotate-180">
+                      <span className="flex items-center gap-2">
+                        <Megaphone className="size-4 text-primary shrink-0" />
+                        Marketing (UTM)
+                      </span>
+                      <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform duration-200" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-3 pt-1">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 rounded-lg border border-border/60 bg-muted/15 p-3">
                         <div>
                           <Label className="text-muted-foreground">utm-source</Label>
@@ -918,13 +934,13 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
                           <Input name="utm_conjunto" value={formData.utm_conjunto || ''} onChange={handleChange} placeholder="Conjunto" />
                         </div>
                       </div>
-                      <p className="text-[10px] text-muted-foreground mt-2 px-0.5">
+                      <p className="text-[10px] text-muted-foreground px-0.5">
                         {isDebuggingAc
                           ? 'Sincronizando com o ActiveCampaign…'
                           : 'UTM vêm do sync/import do lead. Se faltar algum campo, buscamos no AC ao abrir (só uma vez).'}
                       </p>
 
-                      <div className="mt-3 space-y-2 rounded-lg border border-dashed border-border/60 bg-background/60 p-3 text-xs">
+                      <div className="space-y-2 rounded-lg border border-dashed border-border/60 bg-background/60 p-3 text-xs">
                         <p className="font-medium text-foreground">Importar do ActiveCampaign</p>
                         <p className="text-muted-foreground">
                           Cole o link do contato (ex: .../contacts/1236 → ID 1236).
@@ -964,47 +980,51 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
                           </Button>
                         </div>
 
-                          {acDebugResult && (
-                            <div className="space-y-2">
-                              <div className="grid grid-cols-2 gap-1">
-                                {(['utm_source', 'utm_campaign', 'utm_medium', 'utm_conjunto'] as const).map((k) => (
-                                  <div
-                                    key={k}
-                                    className="flex items-center justify-between rounded border border-border/40 bg-muted/30 px-2 py-1"
-                                  >
-                                    <span className="font-mono text-[10px] text-muted-foreground">{k}</span>
-                                    <span className="text-[11px] truncate ml-2">
-                                      {String(acDebugResult.payload[k as keyof Lead] ?? '') || <em className="text-muted-foreground">vazio</em>}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-
-                              {acDebugResult.unmappedFields.length > 0 && (
-                                <details className="rounded border border-border/40 bg-muted/20 px-2 py-1">
-                                  <summary className="cursor-pointer text-[11px] font-medium text-muted-foreground">
-                                    Outros campos personalizados ({acDebugResult.unmappedFields.length}) — clique para ver
-                                  </summary>
-                                  <ul className="mt-1 space-y-0.5 text-[10px]">
-                                    {acDebugResult.unmappedFields.map((f, i) => (
-                                      <li key={i} className="font-mono">
-                                        <span className="text-muted-foreground">[{f.perstag}]</span> {f.title}:{' '}
-                                        <span className="text-foreground">{String(f.value)}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </details>
-                              )}
-
-                              <div className="flex justify-end">
-                                <Button type="button" size="sm" onClick={applyAcDebugResult}>
-                                  Aplicar nos campos
-                                </Button>
-                              </div>
+                        {acDebugResult && (
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-2 gap-1">
+                              {(['utm_source', 'utm_campaign', 'utm_medium', 'utm_conjunto'] as const).map((k) => (
+                                <div
+                                  key={k}
+                                  className="flex items-center justify-between rounded border border-border/40 bg-muted/30 px-2 py-1"
+                                >
+                                  <span className="font-mono text-[10px] text-muted-foreground">{k}</span>
+                                  <span className="text-[11px] truncate ml-2">
+                                    {String(acDebugResult.payload[k as keyof Lead] ?? '') || (
+                                      <em className="text-muted-foreground">vazio</em>
+                                    )}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
-                          )}
+
+                            {acDebugResult.unmappedFields.length > 0 && (
+                              <details className="rounded border border-border/40 bg-muted/20 px-2 py-1">
+                                <summary className="cursor-pointer text-[11px] font-medium text-muted-foreground">
+                                  Outros campos personalizados ({acDebugResult.unmappedFields.length}) — clique para ver
+                                </summary>
+                                <ul className="mt-1 space-y-0.5 text-[10px]">
+                                  {acDebugResult.unmappedFields.map((f, i) => (
+                                    <li key={i} className="font-mono">
+                                      <span className="text-muted-foreground">[{f.perstag}]</span> {f.title}:{' '}
+                                      <span className="text-foreground">{String(f.value)}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </details>
+                            )}
+
+                            <div className="flex justify-end">
+                              <Button type="button" size="sm" onClick={applyAcDebugResult}>
+                                Aplicar nos campos
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                  </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+
                   <div>
                     <Label>Tipo Confecção</Label>
                     <Input name="confection_type" value={formData.confection_type || ''} onChange={handleChange} placeholder="Ex: Moda Fitness, Uniformes" />

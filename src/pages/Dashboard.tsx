@@ -22,7 +22,8 @@ import { MeetingStatusModal } from '@/components/modals/MeetingStatusModal';
 import { ProposalReminderModal } from '@/components/modals/ProposalReminderModal';
 import { MeetingAlertModal } from '@/components/modals/MeetingAlertModal';
 import { ReturnReminderModal } from '@/components/modals/ReturnReminderModal';
-import { Lead, LeadSource } from '@/types/lead';
+import { Lead, LeadSource, NextContactType } from '@/types/lead';
+import { formatScheduledReturnNote } from '@/lib/contactFollowUp';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -87,7 +88,43 @@ export function Dashboard() {
   // 15-min pre-meeting alert
   const { alertLead, dismissAlert } = useMeetingAlert(leads);
   // Return contact reminder
-  const { pendingReturn, markReturnCompleted, dismissReturn, snoozeAll, canSnooze, snoozeCount, snoozeShort, canShortSnooze, shortSnoozeCount } = useReturnReminder(isManager ? [] : leads);
+  const {
+    pendingReturn,
+    markReturnCompleted,
+    clearReturnCompleted,
+    dismissReturn,
+    snoozeAll,
+    canSnooze,
+    snoozeCount,
+    snoozeShort,
+    canShortSnooze,
+    shortSnoozeCount,
+  } = useReturnReminder(isManager ? [] : leads);
+
+  const handleScheduleReturn = async (
+    leadId: string,
+    nextContact: string,
+    contactType: NextContactType,
+  ): Promise<boolean> => {
+    const lead = leads.find((l) => l.id === leadId);
+    if (!lead) return false;
+
+    const ok = await updateLead(leadId, {
+      next_contact: nextContact,
+      next_contact_type: contactType,
+      is_new: false,
+      last_contact: new Date().toISOString(),
+    });
+    if (!ok) return false;
+
+    clearReturnCompleted(leadId);
+    await addHistory(leadId, 'retorno', formatScheduledReturnNote(nextContact, contactType, lead));
+    toast({
+      title: 'Retorno agendado',
+      description: new Date(nextContact).toLocaleString('pt-BR'),
+    });
+    return true;
+  };
 
   const handleSyncAC = async () => {
     setSyncing(true);
@@ -198,6 +235,7 @@ export function Dashboard() {
             onOpenLead={handleOpenLead}
             getLeadStatus={getLeadStatus}
             addHistory={addHistory}
+            onScheduleReturn={handleScheduleReturn}
             msgTemplate={settings?.msg_template || ''}
           />
         )}
@@ -208,6 +246,7 @@ export function Dashboard() {
             onOpenLead={handleOpenLead}
             getLeadStatus={getLeadStatus}
             addHistory={addHistory}
+            onScheduleReturn={handleScheduleReturn}
             msgTemplate={settings?.msg_template || ''}
           />
         )}
@@ -218,6 +257,7 @@ export function Dashboard() {
             onOpenLead={handleOpenLead}
             getLeadStatus={getLeadStatus}
             addHistory={addHistory}
+            onScheduleReturn={handleScheduleReturn}
             msgTemplate={settings?.msg_template || ''}
           />
         )}
@@ -405,24 +445,32 @@ export function Dashboard() {
       {pendingReturn && (
         <ReturnReminderModal
           lead={pendingReturn}
-          onReturnCompleted={async (leadId, nextContact, moveToStage, lossReason) => {
-            markReturnCompleted(leadId);
+          onReturnCompleted={async (leadId, nextContact, moveToStage, lossReason, nextContactType) => {
+            markReturnCompleted(leadId, Boolean(nextContact));
+            const lead = leads.find((l) => l.id === leadId);
             const updates: Partial<Lead> = {};
             if (nextContact) updates.next_contact = nextContact;
+            if (nextContactType) updates.next_contact_type = nextContactType;
             if (moveToStage) updates.stage = moveToStage;
             if (lossReason) updates.loss_reason = lossReason;
-            // Always update last_contact when return is completed
             updates.last_contact = new Date().toISOString();
-            if (Object.keys(updates).length > 0) {
-              await updateLead(leadId, updates);
-            }
+            await updateLead(leadId, updates);
             const stageLabels: Record<string, string> = {
               congelados: '❄️ Lead congelado via retorno',
               perdidos: '❌ Lead descartado via retorno',
               reuniao: '📅 Reunião agendada via retorno',
             };
-            const note = moveToStage ? stageLabels[moveToStage] || '✅ Retorno realizado' : '✅ Nova tentativa de contato realizada';
-            await addHistory(leadId, 'retorno', note);
+            if (moveToStage) {
+              await addHistory(leadId, 'retorno', stageLabels[moveToStage] || '✅ Retorno realizado');
+            } else if (nextContact && lead && nextContactType) {
+              await addHistory(
+                leadId,
+                'retorno',
+                `${formatScheduledReturnNote(nextContact, nextContactType, lead)} (após contato)`,
+              );
+            } else {
+              await addHistory(leadId, 'retorno', '✅ Nova tentativa de contato realizada');
+            }
           }}
           onDismiss={dismissReturn}
           onSnoozeAll={snoozeAll}

@@ -1,13 +1,20 @@
 import { useState } from 'react';
-import { Lead, LeadStage } from '@/types/lead';
+import { Lead, LeadStage, NextContactType } from '@/types/lead';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { getReturnReminderCopy, suggestNextContactDateTime } from '@/lib/contactFollowUp';
 import { Phone, Mail, MessageSquare, RotateCcw, Clock, User, Building2, TimerOff, Snowflake, XCircle, Calendar, Shuffle } from 'lucide-react';
 
 interface ReturnReminderModalProps {
   lead: Lead;
-  onReturnCompleted: (leadId: string, nextContact?: string, moveToStage?: LeadStage, lossReason?: string) => void;
+  onReturnCompleted: (
+    leadId: string,
+    nextContact?: string,
+    moveToStage?: LeadStage,
+    lossReason?: string,
+    nextContactType?: NextContactType,
+  ) => void;
   onDismiss: (leadId: string) => void;
   onSnoozeAll?: () => void;
   onSnoozeShort?: () => void;
@@ -27,31 +34,6 @@ function parseDateLocal(dateStr: string): Date {
   }
   const [y, m, day] = cleanStr.split('-').map(Number);
   return new Date(y, m - 1, day);
-}
-
-function generateRandomBusinessDate(): string {
-  const now = new Date();
-  // Random 1-3 days ahead
-  const daysAhead = Math.floor(Math.random() * 3) + 1;
-  const target = new Date(now);
-  target.setDate(target.getDate() + daysAhead);
-  // Skip weekends
-  while (target.getDay() === 0 || target.getDay() === 6) {
-    target.setDate(target.getDate() + 1);
-  }
-  // Random business hour: 08:30 - 17:30
-  const hour = Math.floor(Math.random() * 9) + 8; // 8-16
-  const minute = hour === 8 ? Math.floor(Math.random() * 3) * 10 + 30 : // 8:30-8:50
-                 hour === 17 ? Math.floor(Math.random() * 3) * 10 : // 17:00-17:20
-                 Math.floor(Math.random() * 6) * 10; // :00 to :50
-  const finalHour = Math.min(hour, 17);
-  const finalMinute = finalHour === 17 ? Math.min(minute, 50) : minute;
-  
-  return `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}T${String(finalHour).padStart(2, '0')}:${String(finalMinute).padStart(2, '0')}`;
-}
-
-function suggestNextDate(): string {
-  return generateRandomBusinessDate();
 }
 
 const LOSS_REASONS = [
@@ -76,8 +58,12 @@ const FREEZE_REASONS = [
 
 export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoozeAll, onSnoozeShort, canSnooze = true, snoozeCount = 0, canShortSnooze = true, shortSnoozeCount = 0 }: ReturnReminderModalProps) {
   const contactTime = lead.next_contact ? parseDateLocal(lead.next_contact) : null;
+  const reminderCopy = getReturnReminderCopy(lead);
   const [showActions, setShowActions] = useState(false);
-  const [nextDate, setNextDate] = useState(suggestNextDate());
+  const [nextDate, setNextDate] = useState(suggestNextContactDateTime);
+  const [nextContactType, setNextContactType] = useState<NextContactType>(
+    lead.next_contact_type === 'ligacao' ? 'ligacao' : 'mensagem',
+  );
   const [action, setAction] = useState<'completed' | 'congelados' | 'perdidos' | 'reuniao' | null>(null);
   const [lossReason, setLossReason] = useState('');
   const [customReason, setCustomReason] = useState('');
@@ -90,22 +76,26 @@ export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoo
   };
 
   const handleRandomize = () => {
-    setNextDate(generateRandomBusinessDate());
+    setNextDate(suggestNextContactDateTime());
   };
 
   const finalReason = lossReason === 'Outro' ? customReason : lossReason;
 
   const handleConfirm = () => {
+    const contactTypeForNext =
+      action === 'perdidos' ? undefined : nextContactType;
     if (action === 'completed') {
-      onReturnCompleted(lead.id, nextDate || undefined);
+      onReturnCompleted(lead.id, nextDate || undefined, undefined, undefined, contactTypeForNext);
     } else if (action === 'congelados') {
-      onReturnCompleted(lead.id, nextDate || undefined, 'congelados', finalReason || undefined);
+      onReturnCompleted(lead.id, nextDate || undefined, 'congelados', finalReason || undefined, contactTypeForNext);
     } else if (action === 'perdidos') {
       onReturnCompleted(lead.id, undefined, 'perdidos', finalReason || undefined);
     } else if (action === 'reuniao') {
-      onReturnCompleted(lead.id, nextDate || undefined, 'reuniao');
+      onReturnCompleted(lead.id, nextDate || undefined, 'reuniao', undefined, contactTypeForNext);
     }
   };
+
+  const nextPreview = getReturnReminderCopy(lead, nextContactType);
 
   const reasonOptions = action === 'perdidos' ? LOSS_REASONS : FREEZE_REASONS;
 
@@ -119,8 +109,8 @@ export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoo
               <RotateCcw size={24} className="text-warning" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-foreground">📞 Hora de Retornar!</h2>
-              <p className="text-sm text-muted-foreground">Retorno de contato agendado</p>
+              <h2 className="text-lg font-bold text-foreground">{reminderCopy.title}</h2>
+              <p className="text-sm text-muted-foreground">{reminderCopy.subtitle}</p>
             </div>
           </div>
         </div>
@@ -252,32 +242,62 @@ export function ReturnReminderModal({ lead, onReturnCompleted, onDismiss, onSnoo
               )}
 
               {action !== 'perdidos' && (
-                <div>
-                  <Label className="text-xs">Próximo contato</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      type="datetime-local"
-                      value={nextDate}
-                      onChange={(e) => setNextDate(e.target.value)}
-                      className="flex-1"
-                    />
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={handleRandomize}
-                      title="Aleatorizar horário (1-3 dias, horário comercial)"
-                      className="shrink-0"
-                    >
-                      <Shuffle size={16} />
-                    </Button>
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs font-semibold">Próximo contato será por</Label>
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      <Button
+                        type="button"
+                        variant={nextContactType === 'mensagem' ? 'default' : 'outline'}
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => setNextContactType('mensagem')}
+                      >
+                        <MessageSquare size={14} /> Mensagem
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={nextContactType === 'ligacao' ? 'default' : 'outline'}
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => setNextContactType('ligacao')}
+                      >
+                        <Phone size={14} /> Ligação
+                      </Button>
+                    </div>
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    Horário comercial · até 3 dias à frente
-                  </p>
+                  <div className="rounded-md border border-border/60 bg-background/80 px-2 py-1.5 text-[11px] text-muted-foreground">
+                    <span className="font-medium text-foreground">{nextPreview.title}</span>
+                    {' — '}
+                    {nextPreview.subtitle}
+                  </div>
+                  <div>
+                    <Label className="text-xs">Data e hora</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        type="datetime-local"
+                        value={nextDate}
+                        onChange={(e) => setNextDate(e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={handleRandomize}
+                        title="Aleatorizar horário (1-3 dias, horário comercial)"
+                        className="shrink-0"
+                      >
+                        <Shuffle size={16} />
+                      </Button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Horário comercial · até 3 dias à frente
+                    </p>
+                  </div>
                 </div>
               )}
 
-              <Button onClick={handleConfirm} className="w-full" disabled={
+                            <Button onClick={handleConfirm} className="w-full" disabled={
                 (action === 'congelados' || action === 'perdidos') && !finalReason
               }>
                 Confirmar

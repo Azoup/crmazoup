@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
-import { Lead, LeadHistory } from '@/types/lead';
+import { useMemo, useState } from 'react';
+import { Lead, LeadHistory, NextContactType } from '@/types/lead';
 import { LeadCard } from '@/components/leads/LeadCard';
+import { ScheduleReturnModal } from '@/components/modals/ScheduleReturnModal';
 import { cleanPhoneNumber } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
 import {
   Carousel,
   CarouselContent,
@@ -10,7 +12,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel';
-import { ListTodo, Sparkles } from 'lucide-react';
+import { CalendarClock, ListTodo, Sparkles } from 'lucide-react';
 
 const PRE_MEETING_STAGES = new Set(['prospeccao', 'interesse']);
 
@@ -47,6 +49,11 @@ interface DailyNewLeadsCarouselProps {
   onOpenLead: (lead: Lead) => void;
   getLeadStatus: (lead: Lead) => 'late' | 'today' | 'ontime' | 'neutral';
   addHistory: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
+  onScheduleReturn: (
+    leadId: string,
+    nextContact: string,
+    contactType: NextContactType,
+  ) => Promise<boolean>;
   msgTemplate: string;
 }
 
@@ -55,9 +62,11 @@ export function DailyNewLeadsCarousel({
   onOpenLead,
   getLeadStatus,
   addHistory,
+  onScheduleReturn,
   msgTemplate,
 }: DailyNewLeadsCarouselProps) {
   const { profile } = useAuth();
+  const [scheduleLead, setScheduleLead] = useState<Lead | null>(null);
 
   const queue = useMemo(() => {
     return leads
@@ -128,7 +137,7 @@ export function DailyNewLeadsCarousel({
               key={lead.id}
               className="pl-2 md:pl-3 basis-[min(100%,17.5rem)] sm:basis-72 md:basis-80"
             >
-              <div className="h-full min-h-[200px]">
+              <div className="flex h-full min-h-[200px] flex-col gap-2">
                 <LeadCard
                   lead={lead}
                   onClick={() => onOpenLead(lead)}
@@ -136,6 +145,19 @@ export function DailyNewLeadsCarousel({
                   onQuickWhatsApp={(e) => sendWhatsApp(lead, e)}
                   enableNativeDrag={false}
                 />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="w-full gap-1.5 text-xs shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setScheduleLead(lead);
+                  }}
+                >
+                  <CalendarClock className="h-3.5 w-3.5" />
+                  Marcar retorno
+                </Button>
               </div>
             </CarouselItem>
           ))}
@@ -149,6 +171,17 @@ export function DailyNewLeadsCarousel({
           className="right-1 top-[calc(50%-12px)] z-10 h-9 w-9 border-border/80 bg-background/95 shadow-md md:right-0"
         />
       </Carousel>
+
+      {scheduleLead && (
+        <ScheduleReturnModal
+          lead={scheduleLead}
+          onClose={() => setScheduleLead(null)}
+          onConfirm={async (nextContact, contactType) => {
+            const ok = await onScheduleReturn(scheduleLead.id, nextContact, contactType);
+            if (ok) setScheduleLead(null);
+          }}
+        />
+      )}
     </section>
   );
 }

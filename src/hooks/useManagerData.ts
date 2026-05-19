@@ -51,6 +51,10 @@ function transformDbLead(dbLead: any): Lead {
     stage: dbLead.stage,
     loss_reason: dbLead.loss_reason,
     next_contact: dbLead.next_contact,
+    next_contact_type:
+      dbLead.next_contact_type === 'ligacao' || dbLead.next_contact_type === 'mensagem'
+        ? dbLead.next_contact_type
+        : null,
     last_contact: dbLead.last_contact,
     entry_date: dbLead.entry_date,
     meeting_pain: dbLead.meeting_pain,

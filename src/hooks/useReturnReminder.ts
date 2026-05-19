@@ -143,13 +143,28 @@ export function useReturnReminder(leads: Lead[]) {
     return () => clearTimeout(timer);
   }, [snoozeUntil]);
 
-  const markReturnCompleted = useCallback((leadId: string) => {
-    setCompletedIds(prev => {
-      const next = new Set([...prev, leadId]);
+  const markReturnCompleted = useCallback((leadId: string, scheduledNextContact?: boolean) => {
+    setCompletedIds((prev) => {
+      const next = new Set(prev);
+      if (scheduledNextContact) {
+        next.delete(leadId);
+      } else {
+        next.add(leadId);
+      }
       localStorage.setItem('azoup-return-completed', JSON.stringify([...next]));
       return next;
     });
     setPendingReturn(null);
+  }, []);
+
+  const clearReturnCompleted = useCallback((leadId: string) => {
+    setCompletedIds((prev) => {
+      if (!prev.has(leadId)) return prev;
+      const next = new Set(prev);
+      next.delete(leadId);
+      localStorage.setItem('azoup-return-completed', JSON.stringify([...next]));
+      return next;
+    });
   }, []);
 
   const dismissReturn = useCallback((_leadId: string) => {
@@ -178,5 +193,16 @@ export function useReturnReminder(leads: Lead[]) {
     setPendingReturn(null);
   }, [canShortSnooze, shortSnoozeCount]);
 
-  return { pendingReturn, markReturnCompleted, dismissReturn, snoozeAll, canSnooze, snoozeCount, snoozeShort, canShortSnooze, shortSnoozeCount };
+  return {
+    pendingReturn,
+    markReturnCompleted,
+    clearReturnCompleted,
+    dismissReturn,
+    snoozeAll,
+    canSnooze,
+    snoozeCount,
+    snoozeShort,
+    canShortSnooze,
+    shortSnoozeCount,
+  };
 }

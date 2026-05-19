@@ -51,6 +51,10 @@ function transformDbLead(dbLead: any): Lead {
     stage: safeStage,
     loss_reason: dbLead.loss_reason ?? null,
     next_contact: dbLead.next_contact ?? null,
+    next_contact_type:
+      dbLead.next_contact_type === 'ligacao' || dbLead.next_contact_type === 'mensagem'
+        ? dbLead.next_contact_type
+        : null,
     last_contact: dbLead.last_contact ?? null,
     entry_date: dbLead.entry_date ?? null,
     meeting_pain: dbLead.meeting_pain ?? null,
@@ -403,6 +407,9 @@ export function useLeads() {
       if (updates.stage !== undefined) updatePayload.stage = updates.stage;
       if (updates.loss_reason !== undefined) updatePayload.loss_reason = updates.loss_reason ?? null;
       if (updates.next_contact !== undefined) updatePayload.next_contact = updates.next_contact ?? null;
+      if (updates.next_contact_type !== undefined) {
+        updatePayload.next_contact_type = updates.next_contact_type ?? null;
+      }
       if (updates.meeting_pain !== undefined) updatePayload.meeting_pain = updates.meeting_pain ?? null;
       if (updates.meeting_needs !== undefined) updatePayload.meeting_needs = updates.meeting_needs ?? null;
       if (updates.meeting_link !== undefined) updatePayload.meeting_link = updates.meeting_link ?? null;

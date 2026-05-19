@@ -45,6 +45,7 @@ export type Database = {
           monthly_value: number | null
           name: string
           next_contact: string | null
+          next_contact_type: string | null
           pieces_per_month: number | null
           reference_month: string | null
           responsible_user_id: string | null
@@ -95,6 +96,7 @@ export type Database = {
           monthly_value?: number | null
           name: string
           next_contact?: string | null
+          next_contact_type?: string | null
           pieces_per_month?: number | null
           reference_month?: string | null
           responsible_user_id?: string | null
@@ -145,6 +147,7 @@ export type Database = {
           monthly_value?: number | null
           name?: string
           next_contact?: string | null
+          next_contact_type?: string | null
           pieces_per_month?: number | null
           reference_month?: string | null
           responsible_user_id?: string | null

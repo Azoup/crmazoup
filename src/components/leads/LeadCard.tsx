@@ -1,6 +1,6 @@
 import { Lead, LeadTemperature } from '@/types/lead';
 import { getDaysSince, formatCurrencyCompact } from '@/lib/utils';
-import { AlertTriangle, DollarSign, MessageCircle, Sparkles, UserCheck, UserX, Calendar, Clock } from 'lucide-react';
+import { AlertTriangle, DollarSign, MessageCircle, Phone, Sparkles, UserCheck, UserX, Calendar, Clock } from 'lucide-react';
 
 interface LeadCardProps {
   lead: Lead;
@@ -156,8 +156,11 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp, enableNativeD
       {/* Next contact indicator */}
       {nextContactStatus && (
         <div className={`flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border mb-2.5 ${nextContactStatus.colorClass}`}>
-          <Clock size={11} />
-          {nextContactStatus.label}
+          {lead.next_contact_type === 'ligacao' ? <Phone size={11} /> : <Clock size={11} />}
+          <span className="truncate">
+            {lead.next_contact_type === 'ligacao' ? 'Ligar · ' : lead.next_contact_type === 'mensagem' ? 'Msg · ' : ''}
+            {nextContactStatus.label}
+          </span>
         </div>
       )}
       
