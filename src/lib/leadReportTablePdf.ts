@@ -161,9 +161,10 @@ export function buildMonthlyFullTablePdf(
   leads: Lead[],
   selectedMonth: string,
   monthLabel: string,
+  userId?: string | null,
 ): jsPDF {
   const doc = new jsPDF({ orientation: 'landscape' });
-  const monthLeads = filterLeadsByReferenceMonth(leads, selectedMonth);
+  const monthLeads = filterLeadsByReferenceMonth(leads, selectedMonth, userId);
   const rows = buildLeadReportRows(monthLeads);
 
   renderReportBanner(
@@ -188,9 +189,10 @@ export function buildWeeklyFullTablePdf(
   leads: Lead[],
   selectedMonth: string,
   monthLabel: string,
+  userId?: string | null,
 ): jsPDF {
   const doc = new jsPDF({ orientation: 'landscape' });
-  const monthLeads = filterLeadsByReferenceMonth(leads, selectedMonth);
+  const monthLeads = filterLeadsByReferenceMonth(leads, selectedMonth, userId);
   const weeks = groupLeadsByWeek(monthLeads, selectedMonth);
 
   renderReportBanner(

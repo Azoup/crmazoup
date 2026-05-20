@@ -1,4 +1,63 @@
 import { Lead, LeadStage, STAGE_LABELS, MEETING_STATUS_LABELS } from '@/types/lead';
+import {
+  getMeetingAttributionMonth,
+  isMeetingNoShowInMonth,
+  isMeetingScheduledInMonth,
+} from '@/lib/meetingMetrics';
+
+/** Mesmo critério do dashboard (métricas do perfil / pipeline marketing). */
+export function isMarketingLead(lead: Lead): boolean {
+  return !lead.lead_source || lead.lead_source === 'marketing';
+}
+
+/** Leads que pertencem ao mês de referência no CRM (marketing, opcionalmente por usuário). */
+export function filterLeadsForMonthlyReport(
+  leads: Lead[],
+  month: string,
+  userId?: string | null,
+): Lead[] {
+  return leads.filter((lead) => {
+    if (lead.reference_month !== month) return false;
+    if (!isMarketingLead(lead)) return false;
+    if (userId && lead.user_id !== userId) return false;
+    return true;
+  });
+}
+
+export interface ReportSnapshotCounts {
+  agendados: number;
+  naoAgendados: number;
+  noShow: number;
+  reagendados: number;
+  congelados: number;
+  descartados: number;
+  vendas: number;
+}
+
+/** Totais únicos do mês (não soma eventos por dia — evita inflar o relatório). */
+export function computeMonthlySnapshotTotals(
+  monthLeads: Lead[],
+  month: string,
+): ReportSnapshotCounts {
+  return {
+    agendados: monthLeads.filter(
+      (l) => isMeetingScheduledInMonth(l, month) && l.meeting_status !== 'no_show',
+    ).length,
+    naoAgendados: monthLeads.filter(
+      (l) =>
+        ['prospeccao', 'interesse'].includes(l.stage) &&
+        !l.meeting_date &&
+        !isMeetingScheduledInMonth(l, month),
+    ).length,
+    noShow: monthLeads.filter((l) => isMeetingNoShowInMonth(l, month)).length,
+    reagendados: monthLeads.filter(
+      (l) => l.meeting_status === 'reagendar' && getMeetingAttributionMonth(l) === month,
+    ).length,
+    congelados: monthLeads.filter((l) => l.stage === 'congelados').length,
+    descartados: monthLeads.filter((l) => l.stage === 'perdidos').length,
+    vendas: monthLeads.filter((l) => l.stage === 'venda').length,
+  };
+}
 
 /** Linha da tabela completa por lead (modelo relatório semanal/mensal) */
 export interface LeadReportRow {
@@ -121,8 +180,12 @@ export function buildLeadReportRows(leads: Lead[]): LeadReportRow[] {
     .map(buildLeadReportRow);
 }
 
-export function filterLeadsByReferenceMonth(leads: Lead[], month: string): Lead[] {
-  return leads.filter((l) => l.reference_month === month);
+export function filterLeadsByReferenceMonth(
+  leads: Lead[],
+  month: string,
+  userId?: string | null,
+): Lead[] {
+  return filterLeadsForMonthlyReport(leads, month, userId);
 }
 
 export function getWeekNumberFromIso(dateIso: string): number {

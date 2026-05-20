@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Lead } from '@/types/lead';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,8 @@ import {
 } from '@/components/ui/collapsible';
 import {
   buildLeadReportRows,
+  computeMonthlySnapshotTotals,
+  filterLeadsForMonthlyReport,
   groupLeadsByWeek,
   LEAD_REPORT_COLUMNS,
   leadReportRowsToCsv,
@@ -62,13 +65,20 @@ function getWeekRange(year: number, week: number): { start: Date; end: Date } {
 }
 
 export function ReportView({ leads }: ReportViewProps) {
+  const { user, profile } = useAuth();
+  const isManager = profile?.role === 'Gestor';
   const [selectedMonth, setSelectedMonth] = useState(getCurrentReferenceMonth());
   const [period, setPeriod] = useState<ReportPeriod>('daily');
   const [stageFilter, setStageFilter] = useState<string>('todos');
 
+  /** Mesmo universo do CRM: reference_month + marketing; SDR só vê os próprios leads. */
   const monthlyLeads = useMemo(() => {
-    return leads.filter(lead => lead.reference_month === selectedMonth);
-  }, [leads, selectedMonth]);
+    return filterLeadsForMonthlyReport(
+      leads,
+      selectedMonth,
+      isManager ? null : user?.id,
+    );
+  }, [leads, selectedMonth, user?.id, isManager]);
 
   const filteredDetailLeads = useMemo(() => {
     if (stageFilter === 'todos') return monthlyLeads;
@@ -90,45 +100,37 @@ export function ReportView({ leads }: ReportViewProps) {
       const dayDate = new Date(year, month - 1, day);
       if (dayDate > new Date()) break; // Don't show future days
 
-      // Leads that had activity on this day
-      const dayLeads = leads.filter(lead => {
-        const entryDate = lead.entry_date?.substring(0, 10);
-        const meetingDate = lead.meeting_date?.substring(0, 10);
-        const updatedDate = lead.updated_at?.substring(0, 10);
-        return entryDate === dateStr || meetingDate === dateStr || updatedDate === dateStr;
-      });
-
-      const agendados = leads.filter(l => {
+      const agendados = monthlyLeads.filter((l) => {
         const md = l.meeting_date?.substring(0, 10);
         return md === dateStr && l.meeting_status !== 'no_show';
       }).length;
 
-      const naoAgendados = leads.filter(l => {
+      const naoAgendados = monthlyLeads.filter((l) => {
         const ed = l.entry_date?.substring(0, 10);
         return ed === dateStr && !l.meeting_date && l.stage === 'prospeccao';
       }).length;
 
-      const noShow = leads.filter(l => {
+      const noShow = monthlyLeads.filter((l) => {
         const md = l.meeting_date?.substring(0, 10);
         return md === dateStr && l.meeting_status === 'no_show';
       }).length;
 
-      const reagendados = leads.filter(l => {
+      const reagendados = monthlyLeads.filter((l) => {
         const md = l.meeting_date?.substring(0, 10);
         return md === dateStr && l.meeting_status === 'reagendar';
       }).length;
 
-      const congelados = leads.filter(l => {
+      const congelados = monthlyLeads.filter((l) => {
         const ud = l.updated_at?.substring(0, 10);
         return ud === dateStr && l.stage === 'congelados';
       }).length;
 
-      const descartados = leads.filter(l => {
+      const descartados = monthlyLeads.filter((l) => {
         const ud = l.updated_at?.substring(0, 10);
         return ud === dateStr && l.stage === 'perdidos';
       }).length;
 
-      const vendas = leads.filter(l => {
+      const vendas = monthlyLeads.filter((l) => {
         const ud = l.updated_at?.substring(0, 10);
         return ud === dateStr && l.stage === 'venda';
       }).length;
@@ -137,7 +139,7 @@ export function ReportView({ leads }: ReportViewProps) {
     }
 
     return snapshots;
-  }, [leads, selectedMonth]);
+  }, [monthlyLeads, selectedMonth]);
 
   // Weekly aggregation
   const weeklySnapshots = useMemo(() => {
@@ -159,22 +161,14 @@ export function ReportView({ leads }: ReportViewProps) {
     return Object.values(weeks);
   }, [dailySnapshots]);
 
-  // Monthly totals
+  // Totais do mês: leads únicos (não soma linhas diárias — evita 147 vs 76 no CRM)
   const monthlyTotals = useMemo(() => {
-    return dailySnapshots.reduce(
-      (acc, day) => ({
-        date: formatReferenceMonth(selectedMonth),
-        agendados: acc.agendados + day.agendados,
-        naoAgendados: acc.naoAgendados + day.naoAgendados,
-        noShow: acc.noShow + day.noShow,
-        reagendados: acc.reagendados + day.reagendados,
-        congelados: acc.congelados + day.congelados,
-        descartados: acc.descartados + day.descartados,
-        vendas: acc.vendas + day.vendas,
-      }),
-      { date: '', agendados: 0, naoAgendados: 0, noShow: 0, reagendados: 0, congelados: 0, descartados: 0, vendas: 0 }
-    );
-  }, [dailySnapshots, selectedMonth]);
+    const totals = computeMonthlySnapshotTotals(monthlyLeads, selectedMonth);
+    return {
+      date: formatReferenceMonth(selectedMonth),
+      ...totals,
+    };
+  }, [monthlyLeads, selectedMonth]);
 
   // Loss reasons dashboard
   const lossReasons = useMemo(() => {
@@ -237,16 +231,17 @@ export function ReportView({ leads }: ReportViewProps) {
 
   const generatePDF = useCallback((reportPeriod: 'weekly' | 'monthly') => {
     const monthLabel = formatReferenceMonth(selectedMonth);
+    const userId = isManager ? null : user?.id;
     if (reportPeriod === 'monthly') {
-      buildMonthlyFullTablePdf(leads, selectedMonth, monthLabel).save(
+      buildMonthlyFullTablePdf(leads, selectedMonth, monthLabel, userId).save(
         `relatorio_mensal_${selectedMonth}.pdf`,
       );
       return;
     }
-    buildWeeklyFullTablePdf(leads, selectedMonth, monthLabel).save(
+    buildWeeklyFullTablePdf(leads, selectedMonth, monthLabel, userId).save(
       `relatorio_semanal_${selectedMonth}.pdf`,
     );
-  }, [leads, selectedMonth]);
+  }, [leads, selectedMonth, user?.id, isManager]);
 
   const filteredReportRows = useMemo(
     () => buildLeadReportRows(filteredDetailLeads),
@@ -290,6 +285,7 @@ export function ReportView({ leads }: ReportViewProps) {
 
   // Summary cards
   const summaryCards = [
+    { label: 'Leads no mês', value: monthlyLeads.length, icon: Users, color: 'text-primary', bg: 'bg-primary/10' },
     { label: 'Agendados', value: monthlyTotals.agendados, icon: CalendarCheck, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
     { label: 'Não Agendaram', value: monthlyTotals.naoAgendados, icon: CalendarX, color: 'text-amber-500', bg: 'bg-amber-500/10' },
     { label: 'No Show', value: monthlyTotals.noShow, icon: UserX, color: 'text-red-500', bg: 'bg-red-500/10' },
@@ -307,7 +303,9 @@ export function ReportView({ leads }: ReportViewProps) {
             <FileText size={24} className="text-primary" />
             Relatórios
           </h2>
-          <p className="text-sm text-muted-foreground mt-1">Acompanhamento diário de leads e resultados</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Leads de marketing com mês de referência {formatReferenceMonth(selectedMonth)} — alinhado ao dashboard do CRM
+          </p>
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
@@ -358,7 +356,7 @@ export function ReportView({ leads }: ReportViewProps) {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
         {summaryCards.map(card => (
           <Card key={card.label} className="border-border/50">
             <CardContent className="p-4">
