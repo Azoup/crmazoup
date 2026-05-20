@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Lead, STAGE_LABELS, MEETING_STATUS_LABELS } from '@/types/lead';
+import { Lead } from '@/types/lead';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,7 @@ import { getCurrentReferenceMonth, formatReferenceMonth } from '@/hooks/useMonth
 import {
   CalendarCheck, CalendarX, UserX, RefreshCw, Snowflake, XCircle,
   Download, ChevronLeft, ChevronRight, BarChart3, TrendingDown,
-  FileText, Presentation, Calendar, Users, ChevronDown, ChevronUp, Shirt
+  FileText, Calendar, Users
 } from 'lucide-react';
 import { 
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
@@ -18,7 +18,15 @@ import {
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger
 } from '@/components/ui/collapsible';
-import jsPDF from 'jspdf';
+import {
+  buildLeadReportRows,
+  groupLeadsByWeek,
+  LEAD_REPORT_COLUMNS,
+  leadReportRowsToCsv,
+  downloadCsv,
+  type LeadReportRow,
+} from '@/lib/leadReportTable';
+import { buildMonthlyFullTablePdf, buildWeeklyFullTablePdf } from '@/lib/leadReportTablePdf';
 
 interface ReportViewProps {
   leads: Lead[];
@@ -51,16 +59,6 @@ function getWeekRange(year: number, week: number): { start: Date; end: Date } {
   const end = new Date(start);
   end.setDate(end.getDate() + 6);
   return { start, end };
-}
-
-function truncateText(text: string, max: number): string {
-  const t = text.trim();
-  if (t.length <= max) return t;
-  return `${t.slice(0, max - 1)}…`;
-}
-
-function leadHasMarketing(lead: Lead): boolean {
-  return !!(lead.utm_source || lead.utm_campaign || lead.utm_medium || lead.utm_conjunto);
 }
 
 export function ReportView({ leads }: ReportViewProps) {
@@ -212,310 +210,83 @@ export function ReportView({ leads }: ReportViewProps) {
     setSelectedMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   };
 
-  const generatePDF = useCallback((reportPeriod: 'weekly' | 'monthly') => {
-    const doc = new jsPDF({ orientation: 'landscape' });
-    const data = reportPeriod === 'weekly' ? weeklySnapshots : [monthlyTotals];
-    const title = reportPeriod === 'weekly'
-      ? `Relatório Semanal - ${formatReferenceMonth(selectedMonth)}`
-      : `Relatório Mensal - ${formatReferenceMonth(selectedMonth)}`;
-    const pageW = doc.internal.pageSize.getWidth();
+  const fullTableRows = useMemo(() => buildLeadReportRows(monthlyLeads), [monthlyLeads]);
 
-    // Header
-    doc.setFillColor(30, 58, 95);
-    doc.rect(0, 0, pageW, 30, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(18);
-    doc.text('Azoup CRM', 15, 15);
-    doc.setFontSize(12);
-    doc.text(title, 15, 24);
-    doc.setFontSize(8);
-    doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 230, 24);
+  const weeklyTableGroups = useMemo(
+    () => groupLeadsByWeek(monthlyLeads, selectedMonth),
+    [monthlyLeads, selectedMonth],
+  );
 
-    // Summary box
-    let y = 38;
-    const vendasCount = monthlyLeads.filter(l => l.stage === 'venda').length;
-    const vendasValue = monthlyLeads.filter(l => l.stage === 'venda').reduce((s, l) => s + (l.implementation_value || 0), 0);
-    const reunioesRealizadas = monthlyLeads.filter(l => l.meeting_status === 'compareceu').length;
-    const totalPipeline = monthlyLeads.length;
-
-    // Row 1
-    doc.setFillColor(235, 240, 250);
-    doc.rect(10, y - 3, pageW - 20, 12, 'F');
-    doc.setTextColor(30, 58, 95);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`Total de Leads no Mês: ${totalPipeline}`, 15, y + 5);
-    doc.text(`Reuniões Realizadas: ${reunioesRealizadas}`, 110, y + 5);
-    doc.text(`Vendas (Ganhos): ${vendasCount}`, 200, y + 5);
-    y += 14;
-
-    // Row 2
-    doc.setFillColor(225, 235, 248);
-    doc.rect(10, y - 3, pageW - 20, 12, 'F');
-    doc.setFontSize(9);
-    doc.text(`Valor Total Ganhos: ${formatCurrency(vendasValue)}`, 15, y + 5);
-    const mrrValue = monthlyLeads.filter(l => l.stage === 'venda').reduce((s, l) => s + (l.monthly_value || 0), 0);
-    doc.text(`MRR Vendas: ${formatCurrency(mrrValue)}`, 130, y + 5);
-    const withMarketing = monthlyLeads.filter(leadHasMarketing).length;
-    doc.text(`Leads no Pipeline: Prosp. ${monthlyLeads.filter(l => l.stage === 'prospeccao').length} | Inter. ${monthlyLeads.filter(l => l.stage === 'interesse').length} | Reun. ${monthlyLeads.filter(l => l.stage === 'reuniao').length} | Prop. ${monthlyLeads.filter(l => l.stage === 'proposta').length}`, 200, y + 5);
-    y += 14;
-    doc.setFillColor(245, 235, 255);
-    doc.rect(10, y - 3, pageW - 20, 12, 'F');
-    doc.text(`Leads com Marketing/UTM (ActiveCampaign): ${withMarketing} de ${totalPipeline}`, 15, y + 5);
-    y += 18;
-
-    // Table header
-    doc.setFillColor(240, 240, 245);
-    doc.rect(10, y - 5, pageW - 20, 10, 'F');
-    doc.setTextColor(50, 50, 50);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    const cols = ['Período', 'Agendados', 'Não Agendou', 'No Show', 'Reagendou', 'Congelados', 'Descartados', 'Vendas'];
-    const colX = [15, 65, 100, 140, 170, 205, 237, 267];
-    cols.forEach((col, i) => doc.text(col, colX[i], y + 2));
-
-    // Rows
-    doc.setFont('helvetica', 'normal');
-    data.forEach((row, idx) => {
-      y += 12;
-      if (idx % 2 === 0) {
-        doc.setFillColor(248, 248, 252);
-        doc.rect(10, y - 5, pageW - 20, 10, 'F');
+  const exportFullTableCsv = useCallback(
+    (reportPeriod: 'weekly' | 'monthly') => {
+      if (reportPeriod === 'monthly') {
+        downloadCsv(
+          `tabela_leads_mensal_${selectedMonth}.csv`,
+          leadReportRowsToCsv(fullTableRows),
+        );
+        return;
       }
-      doc.setTextColor(30, 30, 30);
-      const vals = [row.date, String(row.agendados), String(row.naoAgendados), String(row.noShow), String(row.reagendados), String(row.congelados), String(row.descartados), String(row.vendas)];
-      vals.forEach((v, i) => doc.text(v, colX[i], y + 2));
-    });
-
-    // Loss reasons section
-    y += 25;
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(30, 58, 95);
-    doc.text('Principais Motivos de Perda', 15, y);
-    y += 10;
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    lossReasons.slice(0, 8).forEach((r, i) => {
-      doc.setTextColor(50, 50, 50);
-      doc.text(`${i + 1}. ${r.reason}`, 15, y);
-      doc.text(`${r.count}x (${r.percent.toFixed(0)}%)`, 130, y);
-      doc.setFillColor(220, 53, 69);
-      doc.rect(160, y - 3, Math.max(1, r.percent * 0.8), 4, 'F');
-      y += 8;
-    });
-
-    // Freeze reasons
-    y += 10;
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(30, 58, 95);
-    doc.text('Motivos de Congelamento', 15, y);
-    y += 10;
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    freezeReasons.slice(0, 5).forEach((r, i) => {
-      doc.setTextColor(50, 50, 50);
-      doc.text(`${i + 1}. ${r.reason}`, 15, y);
-      doc.text(`${r.count}x (${r.percent.toFixed(0)}%)`, 130, y);
-      doc.setFillColor(59, 130, 246);
-      doc.rect(160, y - 3, Math.max(1, r.percent * 0.8), 4, 'F');
-      y += 8;
-    });
-
-    const renderMarketingPage = () => {
-      const marketingLeads = monthlyLeads.filter(leadHasMarketing);
-      if (marketingLeads.length === 0) return;
-
-      doc.addPage('landscape');
-      doc.setFillColor(88, 28, 135);
-      doc.rect(0, 0, pageW, 30, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(16);
-      doc.text(`Marketing / UTM (${marketingLeads.length} leads)`, 15, 15);
-      doc.setFontSize(10);
-      doc.text(title, 15, 24);
-
-      let my = 40;
-      const mCols = ['Lead', 'Empresa', 'utm-source', 'utm_campaign', 'utm_medium', 'utm_conjunto'];
-      const mX = [15, 52, 95, 125, 195, 235];
-      const mW = [34, 40, 27, 67, 37, 57];
-
-      const drawMarketingHeader = () => {
-        doc.setFillColor(240, 240, 245);
-        doc.rect(10, my - 5, pageW - 20, 10, 'F');
-        doc.setTextColor(50, 50, 50);
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'bold');
-        mCols.forEach((col, i) => doc.text(col, mX[i], my + 2));
-        doc.setFont('helvetica', 'normal');
-        my += 11;
-      };
-
-      drawMarketingHeader();
-      const pageH = doc.internal.pageSize.getHeight();
-
-      marketingLeads.forEach((lead, idx) => {
-        const texts = [
-          lead.name || '-',
-          lead.company || '-',
-          lead.utm_source || '-',
-          lead.utm_campaign || '-',
-          lead.utm_medium || '-',
-          lead.utm_conjunto || '-',
-        ];
-        doc.setFontSize(6);
-        const splitTexts = texts.map((t, i) => doc.splitTextToSize(truncateText(t, i >= 2 ? 120 : 80), mW[i]));
-        const rowLines = Math.max(...splitTexts.map((st) => st.length));
-        const rowHeight = Math.max(9, rowLines * 7);
-
-        if (my + rowHeight > pageH - 25) {
-          doc.addPage('landscape');
-          my = 20;
-          drawMarketingHeader();
-        }
-
-        if (idx % 2 === 0) {
-          doc.setFillColor(248, 248, 252);
-          doc.rect(10, my - 4, pageW - 20, rowHeight, 'F');
-        }
-
-        doc.setTextColor(30, 30, 30);
-        splitTexts.forEach((lines, i) => {
-          lines.forEach((line: string, li: number) => {
-            doc.text(line, mX[i], my + 2 + li * 7);
-          });
-        });
-        my += rowHeight;
+      const allRows: LeadReportRow[] = [];
+      weeklyTableGroups.forEach((g) => {
+        allRows.push(...buildLeadReportRows(g.leads));
       });
-    };
+      downloadCsv(`tabela_leads_semanal_${selectedMonth}.csv`, leadReportRowsToCsv(allRows));
+    },
+    [fullTableRows, weeklyTableGroups, selectedMonth],
+  );
 
-    // Helper to render a detail page with leads
-    const renderDetailPage = (pageTitle: string, detailLeads: Lead[], headerColor: [number, number, number]) => {
-      if (detailLeads.length === 0) return;
-      doc.addPage('landscape');
-      doc.setFillColor(headerColor[0], headerColor[1], headerColor[2]);
-      doc.rect(0, 0, pageW, 30, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(16);
-      doc.text(`${pageTitle} (${detailLeads.length})`, 15, 15);
-      doc.setFontSize(10);
-      doc.text(title, 15, 24);
-
-      let dy = 40;
-      doc.setFillColor(240, 240, 245);
-      doc.rect(10, dy - 5, pageW - 20, 10, 'F');
-      doc.setTextColor(50, 50, 50);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      const detCols = ['Lead', 'Empresa', 'Tipo Confecção', 'Etapa', 'Motivo / Status', 'Observação'];
-      const detX = [15, 60, 110, 155, 190, 245];
-      const colWidths = [40, 45, 40, 30, 50, 47];
-      detCols.forEach((col, i) => doc.text(col, detX[i], dy + 2));
-
-      doc.setFont('helvetica', 'normal');
-      const pageH = doc.internal.pageSize.getHeight();
-
-      detailLeads.forEach((lead, idx) => {
-        const meetingInfo = lead.meeting_status ? (MEETING_STATUS_LABELS[lead.meeting_status] || lead.meeting_status) : '';
-        const reasonOrStatus = lead.loss_reason || meetingInfo || '-';
-        const texts = [
-          lead.name || '-',
-          lead.company || '-',
-          lead.confection_type || '-',
-          STAGE_LABELS[lead.stage] || lead.stage,
-          reasonOrStatus,
-          lead.client_observations || lead.manager_notes || '-',
-        ];
-
-        doc.setFontSize(7);
-        const splitTexts = texts.map((t, i) => doc.splitTextToSize(t, colWidths[i]));
-        const rowLines = Math.max(...splitTexts.map(st => st.length));
-        const rowHeight = Math.max(10, rowLines * 8);
-
-        if (dy + rowHeight > pageH - 25) {
-          doc.addPage('landscape');
-          dy = 20;
-          doc.setFillColor(240, 240, 245);
-          doc.rect(10, dy - 5, pageW - 20, 10, 'F');
-          doc.setFontSize(8);
-          doc.setFont('helvetica', 'bold');
-          detCols.forEach((col, i) => doc.text(col, detX[i], dy + 2));
-          doc.setFont('helvetica', 'normal');
-          dy += 11;
-        }
-
-        if (idx % 2 === 0) {
-          doc.setFillColor(248, 248, 252);
-          doc.rect(10, dy - 4, pageW - 20, rowHeight, 'F');
-        }
-
-        doc.setTextColor(30, 30, 30);
-        doc.setFontSize(7);
-        splitTexts.forEach((lines, i) => {
-          lines.forEach((line: string, li: number) => {
-            doc.text(line, detX[i], dy + 2 + li * 8);
-          });
-        });
-
-        dy += rowHeight;
-
-        if (leadHasMarketing(lead)) {
-          const marketingParts = [
-            lead.utm_source ? `Source: ${lead.utm_source}` : '',
-            lead.utm_campaign ? `Campanha: ${truncateText(lead.utm_campaign, 55)}` : '',
-            lead.utm_medium ? `Medium: ${truncateText(lead.utm_medium, 40)}` : '',
-            lead.utm_conjunto ? `Conjunto: ${truncateText(lead.utm_conjunto, 40)}` : '',
-          ].filter(Boolean);
-          const marketingLine = doc.splitTextToSize(marketingParts.join('  |  '), pageW - 30);
-          const mktHeight = Math.max(8, marketingLine.length * 6);
-
-          if (dy + mktHeight > pageH - 25) {
-            doc.addPage('landscape');
-            dy = 20;
-          }
-
-          doc.setFontSize(6);
-          doc.setTextColor(88, 28, 135);
-          marketingLine.forEach((line: string, li: number) => {
-            doc.text(line, 18, dy + 2 + li * 6);
-          });
-          doc.setTextColor(30, 30, 30);
-          doc.setFontSize(7);
-          dy += mktHeight + 2;
-        }
-      });
-    };
-
-    renderMarketingPage();
-
-    // Detail pages
-    const vendasLeads = monthlyLeads.filter(l => l.stage === 'venda');
-    const noShowLeads = monthlyLeads.filter(l => l.meeting_status === 'no_show');
-    const reagendadosLeads = monthlyLeads.filter(l => l.meeting_status === 'reagendar');
-    const congeladosLeads = monthlyLeads.filter(l => l.stage === 'congelados');
-    const perdidosLeads = monthlyLeads.filter(l => l.stage === 'perdidos');
-
-    renderDetailPage('Detalhes - Vendas (Ganhos)', vendasLeads, [22, 120, 60]);
-    renderDetailPage('Detalhes - No Show', noShowLeads, [180, 40, 40]);
-    renderDetailPage('Detalhes - Reagendados', reagendadosLeads, [40, 80, 180]);
-    renderDetailPage('Detalhes - Congelados', congeladosLeads, [30, 100, 160]);
-    renderDetailPage('Detalhes - Perdidos', perdidosLeads, [140, 40, 50]);
-
-    // Footer on all pages
-    const totalPages = doc.getNumberOfPages();
-    for (let p = 1; p <= totalPages; p++) {
-      doc.setPage(p);
-      const pH = doc.internal.pageSize.getHeight();
-      doc.setFillColor(30, 58, 95);
-      doc.rect(0, pH - 12, pageW, 12, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(8);
-      doc.text(`Azoup CRM - Relatório gerado automaticamente | Página ${p}/${totalPages}`, 15, pH - 4);
+  const generatePDF = useCallback((reportPeriod: 'weekly' | 'monthly') => {
+    const monthLabel = formatReferenceMonth(selectedMonth);
+    if (reportPeriod === 'monthly') {
+      buildMonthlyFullTablePdf(leads, selectedMonth, monthLabel).save(
+        `relatorio_mensal_${selectedMonth}.pdf`,
+      );
+      return;
     }
+    buildWeeklyFullTablePdf(leads, selectedMonth, monthLabel).save(
+      `relatorio_semanal_${selectedMonth}.pdf`,
+    );
+  }, [leads, selectedMonth]);
 
-    doc.save(`relatorio_${reportPeriod}_${selectedMonth}.pdf`);
-  }, [weeklySnapshots, monthlyTotals, selectedMonth, lossReasons, freezeReasons, monthlyLeads]);
+  const filteredReportRows = useMemo(
+    () => buildLeadReportRows(filteredDetailLeads),
+    [filteredDetailLeads],
+  );
+
+  const weeklyReportGroups = useMemo(
+    () =>
+      groupLeadsByWeek(filteredDetailLeads, selectedMonth).map((g) => ({
+        ...g,
+        rows: buildLeadReportRows(g.leads),
+      })),
+    [filteredDetailLeads, selectedMonth],
+  );
+
+  const renderFullTableBody = (rows: LeadReportRow[]) => (
+    <>
+      {rows.length === 0 ? (
+        <TableRow>
+          <TableCell colSpan={LEAD_REPORT_COLUMNS.length} className="text-center text-muted-foreground py-8">
+            Nenhum lead encontrado para este filtro
+          </TableCell>
+        </TableRow>
+      ) : (
+        rows.map((row, idx) => (
+          <TableRow key={idx} className={idx % 2 === 0 ? 'bg-muted/20 hover:bg-muted/30' : 'hover:bg-muted/30'}>
+            {LEAD_REPORT_COLUMNS.map((col) => (
+              <TableCell
+                key={col.key}
+                className="text-xs py-2 max-w-[140px] truncate"
+                title={row[col.key]}
+              >
+                {row[col.key]}
+              </TableCell>
+            ))}
+          </TableRow>
+        ))
+      )}
+    </>
+  );
 
   // Summary cards
   const summaryCards = [
@@ -571,9 +342,17 @@ export function ReportView({ leads }: ReportViewProps) {
             <Download size={14} />
             PDF Semanal
           </Button>
+          <Button onClick={() => exportFullTableCsv('weekly')} size="sm" variant="outline" className="gap-1.5">
+            <Download size={14} />
+            CSV Semanal
+          </Button>
           <Button onClick={() => generatePDF('monthly')} size="sm" className="gap-1.5">
             <Download size={14} />
             PDF Mensal
+          </Button>
+          <Button onClick={() => exportFullTableCsv('monthly')} size="sm" variant="secondary" className="gap-1.5">
+            <Download size={14} />
+            CSV Mensal
           </Button>
         </div>
       </div>
@@ -732,21 +511,26 @@ export function ReportView({ leads }: ReportViewProps) {
         </Card>
       </div>
 
-      {/* Lead Details with Notes */}
+      {/* Tabela completa por lead */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users size={18} className="text-primary" />
-              Detalhes por Lead
-              <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                {filteredDetailLeads.length} {filteredDetailLeads.length === 1 ? 'lead' : 'leads'}
-              </span>
-            </CardTitle>
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Users size={18} className="text-primary" />
+                Tabela completa por lead
+                <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                  {filteredDetailLeads.length} {filteredDetailLeads.length === 1 ? 'lead' : 'leads'}
+                </span>
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                Modelo para cruzar cada lead com origem, campanha, conjunto, anúncio, status comercial e resultado final.
+              </p>
+            </div>
             <select
               value={stageFilter}
               onChange={(e) => setStageFilter(e.target.value)}
-              className="h-9 px-3 border border-border rounded-md text-sm bg-card outline-none font-medium text-foreground"
+              className="h-9 px-3 border border-border rounded-md text-sm bg-card outline-none font-medium text-foreground shrink-0"
             >
               <option value="todos">Todos os status</option>
               <option value="prospeccao">Prospecção</option>
@@ -762,75 +546,43 @@ export function ReportView({ leads }: ReportViewProps) {
             </select>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="rounded-lg border border-border overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="font-bold">Lead</TableHead>
-                  <TableHead className="font-bold">Empresa</TableHead>
-                  <TableHead className="font-bold"><span className="flex items-center gap-1"><Shirt size={12} /> Tipo Confecção</span></TableHead>
-                  <TableHead className="font-bold">Etapa</TableHead>
-                  <TableHead className="font-bold">Status Reunião</TableHead>
-                  <TableHead className="font-bold">utm-source</TableHead>
-                  <TableHead className="font-bold">utm_campaign</TableHead>
-                  <TableHead className="font-bold">utm_medium</TableHead>
-                  <TableHead className="font-bold">utm_conjunto</TableHead>
-                  <TableHead className="font-bold">Motivo</TableHead>
-                  <TableHead className="font-bold">Observação</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredDetailLeads.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
-                      Nenhum lead encontrado para este filtro
-                    </TableCell>
+        <CardContent className="space-y-6">
+          {period === 'weekly' && weeklyReportGroups.length > 0 ? (
+            weeklyReportGroups.map((group) => (
+              <div key={group.week} className="space-y-2">
+                <h4 className="text-sm font-semibold text-foreground">{group.label}</h4>
+                <div className="rounded-lg border border-border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-black hover:bg-black">
+                        {LEAD_REPORT_COLUMNS.map((col) => (
+                          <TableHead key={col.key} className="text-white font-bold text-xs whitespace-nowrap">
+                            {col.label}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>{renderFullTableBody(group.rows)}</TableBody>
+                  </Table>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="rounded-lg border border-border overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-black hover:bg-black">
+                    {LEAD_REPORT_COLUMNS.map((col) => (
+                      <TableHead key={col.key} className="text-white font-bold text-xs whitespace-nowrap">
+                        {col.label}
+                      </TableHead>
+                    ))}
                   </TableRow>
-                ) : (
-                  filteredDetailLeads.map(lead => (
-                    <TableRow key={lead.id} className="hover:bg-muted/30">
-                      <TableCell className="font-medium">{lead.name}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{lead.company || '-'}</TableCell>
-                      <TableCell className="text-sm">
-                        {lead.confection_type ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs">
-                            <Shirt size={10} /> {lead.confection_type}
-                          </span>
-                        ) : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs px-2 py-0.5 bg-muted rounded-full font-medium">
-                          {STAGE_LABELS[lead.stage] || lead.stage}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {lead.meeting_status ? MEETING_STATUS_LABELS[lead.meeting_status] || lead.meeting_status : '-'}
-                      </TableCell>
-                      <TableCell className="text-xs max-w-[90px] truncate" title={lead.utm_source || ''}>
-                        {lead.utm_source || '-'}
-                      </TableCell>
-                      <TableCell className="text-xs max-w-[120px] truncate" title={lead.utm_campaign || ''}>
-                        {lead.utm_campaign || '-'}
-                      </TableCell>
-                      <TableCell className="text-xs max-w-[100px] truncate" title={lead.utm_medium || ''}>
-                        {lead.utm_medium || '-'}
-                      </TableCell>
-                      <TableCell className="text-xs max-w-[100px] truncate" title={lead.utm_conjunto || ''}>
-                        {lead.utm_conjunto || '-'}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">
-                        {lead.loss_reason || '-'}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">
-                        {lead.client_observations || lead.manager_notes || '-'}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>{renderFullTableBody(filteredReportRows)}</TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
