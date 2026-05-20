@@ -247,3 +247,19 @@ export function downloadCsv(filename: string, content: string): void {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+/** Objetos com chaves = rótulos das colunas (para Excel/JSON). */
+export function leadReportRowsToRecords(rows: LeadReportRow[]): Record<string, string>[] {
+  return rows.map((row) => {
+    const record: Record<string, string> = {};
+    LEAD_REPORT_COLUMNS.forEach((col) => {
+      record[col.label] = row[col.key];
+    });
+    return record;
+  });
+}
+
+export type WeeklyReportSection = {
+  label: string;
+  rows: LeadReportRow[];
+};

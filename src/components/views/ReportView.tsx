@@ -25,11 +25,14 @@ import {
   filterLeadsForMonthlyReport,
   groupLeadsByWeek,
   LEAD_REPORT_COLUMNS,
-  leadReportRowsToCsv,
-  downloadCsv,
   type LeadReportRow,
+  type WeeklyReportSection,
 } from '@/lib/leadReportTable';
 import { buildMonthlyFullTablePdf, buildWeeklyFullTablePdf } from '@/lib/leadReportTablePdf';
+import {
+  downloadMonthlyLeadReportXlsx,
+  downloadWeeklyLeadReportXlsx,
+} from '@/lib/leadReportSpreadsheet';
 
 interface ReportViewProps {
   leads: Lead[];
@@ -211,37 +214,50 @@ export function ReportView({ leads }: ReportViewProps) {
     [monthlyLeads, selectedMonth],
   );
 
-  const exportFullTableCsv = useCallback(
+  const weeklyExportSections = useMemo<WeeklyReportSection[]>(
+    () =>
+      weeklyTableGroups.map((g) => ({
+        label: g.label,
+        rows: buildLeadReportRows(g.leads),
+      })),
+    [weeklyTableGroups],
+  );
+
+  const exportSpreadsheet = useCallback(
     (reportPeriod: 'weekly' | 'monthly') => {
+      const monthLabel = formatReferenceMonth(selectedMonth);
       if (reportPeriod === 'monthly') {
-        downloadCsv(
-          `tabela_leads_mensal_${selectedMonth}.csv`,
-          leadReportRowsToCsv(fullTableRows),
+        downloadMonthlyLeadReportXlsx(
+          `relatorio_mensal_${selectedMonth}.xlsx`,
+          fullTableRows,
+          monthLabel,
         );
         return;
       }
-      const allRows: LeadReportRow[] = [];
-      weeklyTableGroups.forEach((g) => {
-        allRows.push(...buildLeadReportRows(g.leads));
-      });
-      downloadCsv(`tabela_leads_semanal_${selectedMonth}.csv`, leadReportRowsToCsv(allRows));
+      downloadWeeklyLeadReportXlsx(
+        `relatorio_semanal_${selectedMonth}.xlsx`,
+        weeklyExportSections,
+        monthLabel,
+      );
     },
-    [fullTableRows, weeklyTableGroups, selectedMonth],
+    [fullTableRows, weeklyExportSections, selectedMonth],
   );
 
-  const generatePDF = useCallback((reportPeriod: 'weekly' | 'monthly') => {
-    const monthLabel = formatReferenceMonth(selectedMonth);
-    const userId = isManager ? null : user?.id;
-    if (reportPeriod === 'monthly') {
-      buildMonthlyFullTablePdf(leads, selectedMonth, monthLabel, userId).save(
-        `relatorio_mensal_${selectedMonth}.pdf`,
+  const generatePDF = useCallback(
+    (reportPeriod: 'weekly' | 'monthly') => {
+      const monthLabel = formatReferenceMonth(selectedMonth);
+      if (reportPeriod === 'monthly') {
+        buildMonthlyFullTablePdf(fullTableRows, monthLabel).save(
+          `relatorio_mensal_${selectedMonth}.pdf`,
+        );
+        return;
+      }
+      buildWeeklyFullTablePdf(weeklyExportSections, monthLabel).save(
+        `relatorio_semanal_${selectedMonth}.pdf`,
       );
-      return;
-    }
-    buildWeeklyFullTablePdf(leads, selectedMonth, monthLabel, userId).save(
-      `relatorio_semanal_${selectedMonth}.pdf`,
-    );
-  }, [leads, selectedMonth, user?.id, isManager]);
+    },
+    [fullTableRows, weeklyExportSections, selectedMonth],
+  );
 
   const filteredReportRows = useMemo(
     () => buildLeadReportRows(filteredDetailLeads),
@@ -340,17 +356,17 @@ export function ReportView({ leads }: ReportViewProps) {
             <Download size={14} />
             PDF Semanal
           </Button>
-          <Button onClick={() => exportFullTableCsv('weekly')} size="sm" variant="outline" className="gap-1.5">
+          <Button onClick={() => exportSpreadsheet('weekly')} size="sm" variant="outline" className="gap-1.5">
             <Download size={14} />
-            CSV Semanal
+            Planilha Semanal
           </Button>
           <Button onClick={() => generatePDF('monthly')} size="sm" className="gap-1.5">
             <Download size={14} />
             PDF Mensal
           </Button>
-          <Button onClick={() => exportFullTableCsv('monthly')} size="sm" variant="secondary" className="gap-1.5">
+          <Button onClick={() => exportSpreadsheet('monthly')} size="sm" variant="secondary" className="gap-1.5">
             <Download size={14} />
-            CSV Mensal
+            Planilha Mensal
           </Button>
         </div>
       </div>

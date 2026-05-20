@@ -1,12 +1,5 @@
 import jsPDF from 'jspdf';
-import {
-  LEAD_REPORT_COLUMNS,
-  LeadReportRow,
-  buildLeadReportRows,
-  groupLeadsByWeek,
-  filterLeadsByReferenceMonth,
-} from '@/lib/leadReportTable';
-import { Lead } from '@/types/lead';
+import { LEAD_REPORT_COLUMNS, LeadReportRow, WeeklyReportSection } from '@/lib/leadReportTable';
 
 /** Larguras (mm) para landscape A4 — soma ~285 */
 const COL_WIDTHS = [20, 22, 13, 16, 14, 18, 12, 36, 20, 28, 16, 22];
@@ -94,6 +87,7 @@ export function renderReportBanner(
   title: string,
   subtitle: string,
   generatedAt: string,
+  totalLeads: number,
 ): void {
   const pageW = doc.internal.pageSize.getWidth();
   doc.setFillColor(30, 58, 95);
@@ -106,7 +100,7 @@ export function renderReportBanner(
   doc.text(title, 8, 14);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.text(subtitle, 8, 19);
+  doc.text(`${subtitle} · ${totalLeads} leads`, 8, 19);
   doc.text(`Gerado em: ${generatedAt}`, pageW - 8, 19, { align: 'right' });
 }
 
@@ -136,7 +130,7 @@ export function renderFullLeadTableSection(
   y += hintLines.length * 4 + 6;
 
   doc.setFontSize(7);
-  doc.text(`Total de leads: ${rows.length}`, 8, y);
+  doc.text(`Total de leads nesta seção: ${rows.length}`, 8, y);
   y += 8;
 
   y = drawTableHeader(doc, y, pageW);
@@ -157,66 +151,64 @@ export function appendPdfFooters(doc: jsPDF): void {
   }
 }
 
+const TABLE_HINT =
+  'Leads de marketing com mês de referência do período. Modelo para cruzar origem, campanha, conjunto, anúncio, status comercial e resultado final.';
+
+/**
+ * PDF mensal — usa as mesmas linhas já filtradas na tela (evita divergência com o CRM).
+ */
 export function buildMonthlyFullTablePdf(
-  leads: Lead[],
-  selectedMonth: string,
+  rows: LeadReportRow[],
   monthLabel: string,
-  userId?: string | null,
 ): jsPDF {
   const doc = new jsPDF({ orientation: 'landscape' });
-  const monthLeads = filterLeadsByReferenceMonth(leads, selectedMonth, userId);
-  const rows = buildLeadReportRows(monthLeads);
 
   renderReportBanner(
     doc,
     `Relatório Mensal — ${monthLabel}`,
     'Tabela completa por lead',
     new Date().toLocaleString('pt-BR'),
+    rows.length,
   );
 
-  renderFullLeadTableSection(
-    doc,
-    'Tabela completa por lead',
-    'Modelo para cruzar cada lead com origem, campanha, conjunto, anúncio, status comercial e resultado final.',
-    rows,
-  );
+  renderFullLeadTableSection(doc, 'Tabela completa por lead', TABLE_HINT, rows);
 
   appendPdfFooters(doc);
   return doc;
 }
 
+/**
+ * PDF semanal — seções já agrupadas na UI.
+ */
 export function buildWeeklyFullTablePdf(
-  leads: Lead[],
-  selectedMonth: string,
+  sections: WeeklyReportSection[],
   monthLabel: string,
-  userId?: string | null,
 ): jsPDF {
   const doc = new jsPDF({ orientation: 'landscape' });
-  const monthLeads = filterLeadsByReferenceMonth(leads, selectedMonth, userId);
-  const weeks = groupLeadsByWeek(monthLeads, selectedMonth);
+  const totalLeads = sections.reduce((sum, s) => sum + s.rows.length, 0);
 
   renderReportBanner(
     doc,
     `Relatório Semanal — ${monthLabel}`,
     'Tabela completa por lead (por semana)',
     new Date().toLocaleString('pt-BR'),
+    totalLeads,
   );
 
-  if (weeks.length === 0) {
+  if (sections.length === 0 || totalLeads === 0) {
     renderFullLeadTableSection(
       doc,
       'Tabela completa por lead',
-      'Nenhum lead com atividade registrada neste mês.',
+      'Nenhum lead de marketing neste mês de referência.',
       [],
     );
   } else {
-    weeks.forEach((w) => {
-      const rows = buildLeadReportRows(w.leads);
+    sections.forEach((section) => {
       renderFullLeadTableSection(
         doc,
-        `${w.label} — Tabela completa por lead`,
-        'Modelo para cruzar cada lead com origem, campanha, conjunto, anúncio, status comercial e resultado final.',
-        rows,
+        `${section.label} — Tabela completa por lead`,
+        TABLE_HINT,
+        section.rows,
       );
     });
   }
