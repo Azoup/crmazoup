@@ -102,6 +102,8 @@ export function Dashboard() {
     shortSnoozeCount,
   } = useReturnReminder(isManager ? [] : leads);
 
+  useNewSystemReminder(isManager ? [] : leads);
+
   const handleScheduleReturn = async (
     leadId: string,
     nextContact: string,
