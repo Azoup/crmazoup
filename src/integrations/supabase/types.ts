@@ -45,7 +45,6 @@ export type Database = {
           monthly_value: number | null
           name: string
           next_contact: string | null
-          next_contact_type: string | null
           pieces_per_month: number | null
           reference_month: string | null
           responsible_user_id: string | null
@@ -58,10 +57,6 @@ export type Database = {
           temperature: string
           updated_at: string
           user_id: string
-          utm_campaign: string | null
-          utm_conjunto: string | null
-          utm_medium: string | null
-          utm_source: string | null
           value: number | null
           website: string | null
           whatsapp: string | null
@@ -96,7 +91,6 @@ export type Database = {
           monthly_value?: number | null
           name: string
           next_contact?: string | null
-          next_contact_type?: string | null
           pieces_per_month?: number | null
           reference_month?: string | null
           responsible_user_id?: string | null
@@ -109,10 +103,6 @@ export type Database = {
           temperature?: string
           updated_at?: string
           user_id: string
-          utm_campaign?: string | null
-          utm_conjunto?: string | null
-          utm_medium?: string | null
-          utm_source?: string | null
           value?: number | null
           website?: string | null
           whatsapp?: string | null
@@ -147,7 +137,6 @@ export type Database = {
           monthly_value?: number | null
           name?: string
           next_contact?: string | null
-          next_contact_type?: string | null
           pieces_per_month?: number | null
           reference_month?: string | null
           responsible_user_id?: string | null
@@ -160,10 +149,6 @@ export type Database = {
           temperature?: string
           updated_at?: string
           user_id?: string
-          utm_campaign?: string | null
-          utm_conjunto?: string | null
-          utm_medium?: string | null
-          utm_source?: string | null
           value?: number | null
           website?: string | null
           whatsapp?: string | null
