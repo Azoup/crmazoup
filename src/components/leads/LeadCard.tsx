@@ -83,13 +83,18 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp, enableNativeD
     if (!isNaN(m) && m >= 1 && m <= 12) leadMonthLabel = monthNames[m - 1];
   }
 
-  const borderColor = isNew
-    ? 'border-l-purple-500'
-    : status === 'late' 
-      ? 'border-l-destructive' 
-      : status === 'neutral'
-        ? 'border-l-muted-foreground/30'
-        : 'border-l-success';
+  const showNeonNewSystem =
+    lead.new_system_link_sent === true && !['perdidos', 'venda'].includes(lead.stage);
+
+  const borderColor = showNeonNewSystem
+    ? 'border-l-[hsl(200_100%_50%)]'
+    : isNew
+      ? 'border-l-purple-500'
+      : status === 'late'
+        ? 'border-l-destructive'
+        : status === 'neutral'
+          ? 'border-l-muted-foreground/30'
+          : 'border-l-success';
 
   return (
     <div
@@ -99,7 +104,9 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp, enableNativeD
       className={`relative p-4 bg-card rounded-xl border border-border/50 ${
         enableNativeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
       } hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 group border-l-4 ${borderColor} ${
-        isNew ? 'ring-1 ring-purple-400/20 bg-purple-50/50 dark:bg-purple-950/20' : ''
+        showNeonNewSystem
+          ? 'ring-2 ring-[hsl(200_100%_50%)]/60 bg-[hsl(200_100%_50%)]/5 shadow-[0_0_16px_hsl(200_100%_50%/0.35)]'
+          : isNew ? 'ring-1 ring-purple-400/20 bg-purple-50/50 dark:bg-purple-950/20' : ''
       } shadow-sm`}
     >
       {/* New lead badge */}
