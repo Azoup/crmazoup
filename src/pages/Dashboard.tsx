@@ -6,6 +6,7 @@ import { useMeetingReminder } from '@/hooks/useMeetingReminder';
 import { useProposalReminder } from '@/hooks/useProposalReminder';
 import { useMeetingAlert } from '@/hooks/useMeetingAlert';
 import { useReturnReminder } from '@/hooks/useReturnReminder';
+import { useNewSystemReminder } from '@/hooks/useNewSystemReminder';
 import { Header } from '@/components/layout/Header';
 import { FilterBar } from '@/components/layout/FilterBar';
 import { PipelineView } from '@/components/views/PipelineView';
