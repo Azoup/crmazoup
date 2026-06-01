@@ -1076,6 +1076,43 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
                       ))}
                     </div>
                   </div>
+                  <div className="md:col-span-2 rounded-lg border border-border bg-muted/30 p-3">
+                    <Label className="mb-2 block font-semibold flex items-center gap-2">
+                      🔗 Link do sistema novo enviado?
+                    </Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={formData.new_system_link_sent ? 'default' : 'outline'}
+                        className={formData.new_system_link_sent ? 'bg-[hsl(200_100%_50%)] hover:bg-[hsl(200_100%_45%)] text-white shadow-[0_0_12px_hsl(200_100%_50%/0.6)]' : ''}
+                        onClick={() => setFormData(prev => ({
+                          ...prev,
+                          new_system_link_sent: true,
+                          new_system_link_sent_at: prev.new_system_link_sent_at || new Date().toISOString(),
+                        }))}
+                      >
+                        Sim
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={!formData.new_system_link_sent ? 'default' : 'outline'}
+                        onClick={() => setFormData(prev => ({
+                          ...prev,
+                          new_system_link_sent: false,
+                          new_system_link_sent_at: null,
+                        }))}
+                      >
+                        Não
+                      </Button>
+                    </div>
+                    {formData.new_system_link_sent && formData.new_system_link_sent_at && (
+                      <p className="text-[11px] text-muted-foreground mt-2">
+                        Enviado em {new Date(formData.new_system_link_sent_at).toLocaleString('pt-BR')} · lembrete a cada 5 dias até marcar como Venda ou Perdido.
+                      </p>
+                    )}
+                  </div>
                   {/* Responsible Person Selector - visible to SDRs */}
                   {lead && (managerProfile || profile?.role === 'Gestor') && (
                     <div className="md:col-span-2 bg-muted/50 p-3 rounded-lg border border-border">

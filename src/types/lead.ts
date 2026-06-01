@@ -69,6 +69,8 @@ export interface Lead {
   birthdate?: string | null;
   address?: string | null;
   client_observations?: string | null;
+  new_system_link_sent?: boolean | null;
+  new_system_link_sent_at?: string | null;
 }
 
 export interface LeadFilters {

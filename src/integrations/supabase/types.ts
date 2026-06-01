@@ -44,6 +44,8 @@ export type Database = {
           meeting_status: string | null
           monthly_value: number | null
           name: string
+          new_system_link_sent: boolean
+          new_system_link_sent_at: string | null
           next_contact: string | null
           pieces_per_month: number | null
           reference_month: string | null
@@ -90,6 +92,8 @@ export type Database = {
           meeting_status?: string | null
           monthly_value?: number | null
           name: string
+          new_system_link_sent?: boolean
+          new_system_link_sent_at?: string | null
           next_contact?: string | null
           pieces_per_month?: number | null
           reference_month?: string | null
@@ -136,6 +140,8 @@ export type Database = {
           meeting_status?: string | null
           monthly_value?: number | null
           name?: string
+          new_system_link_sent?: boolean
+          new_system_link_sent_at?: string | null
           next_contact?: string | null
           pieces_per_month?: number | null
           reference_month?: string | null
