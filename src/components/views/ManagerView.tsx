@@ -220,7 +220,7 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
           )}
 
           <Button 
-            onClick={syncActiveCampaign} 
+            onClick={() => syncActiveCampaign()} 
             disabled={syncing}
             className="gap-2"
             variant="outline"
