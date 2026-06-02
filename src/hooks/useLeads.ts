@@ -85,6 +85,8 @@ function transformDbLead(dbLead: any): Lead {
       birthdate: dbLead.birthdate ?? null,
       address: dbLead.address ?? null,
       client_observations: dbLead.client_observations ?? null,
+      new_system_link_sent: dbLead.new_system_link_sent ?? false,
+      new_system_link_sent_at: dbLead.new_system_link_sent_at ?? null,
     utm_source: dbLead.utm_source ?? null,
     utm_campaign: dbLead.utm_campaign ?? null,
     utm_medium: dbLead.utm_medium ?? null,
@@ -303,6 +305,8 @@ export function useLeads() {
         last_contact: new Date().toISOString(),
         entry_date: new Date().toISOString(),
         pieces_per_month: leadData.pieces_per_month != null ? Number(leadData.pieces_per_month) : null,
+        new_system_link_sent: leadData.new_system_link_sent ?? false,
+        new_system_link_sent_at: leadData.new_system_link_sent_at ?? null,
         utm_source: leadData.utm_source?.trim() || null,
         utm_campaign: leadData.utm_campaign?.trim() || null,
         utm_medium: leadData.utm_medium?.trim() || null,
@@ -430,6 +434,8 @@ export function useLeads() {
       if (updates.birthdate !== undefined) updatePayload.birthdate = updates.birthdate ?? null;
       if (updates.address !== undefined) updatePayload.address = updates.address ?? null;
       if (updates.client_observations !== undefined) updatePayload.client_observations = updates.client_observations ?? null;
+      if (updates.new_system_link_sent !== undefined) updatePayload.new_system_link_sent = updates.new_system_link_sent ?? false;
+      if (updates.new_system_link_sent_at !== undefined) updatePayload.new_system_link_sent_at = updates.new_system_link_sent_at ?? null;
       if (updates.manager_notes !== undefined) updatePayload.manager_notes = updates.manager_notes ?? null;
       if (updates.utm_source !== undefined) {
         updatePayload.utm_source =
