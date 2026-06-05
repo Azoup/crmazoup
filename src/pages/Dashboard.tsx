@@ -464,7 +464,13 @@ export function Dashboard() {
               reuniao: '📅 Reunião agendada via retorno',
             };
             if (moveToStage) {
-              await addHistory(leadId, 'retorno', stageLabels[moveToStage] || '✅ Retorno realizado');
+              const base = stageLabels[moveToStage] || '✅ Retorno realizado';
+              const withReason = lossReason ? `${base} · Motivo: ${lossReason}` : base;
+              const withNext =
+                nextContact && lead && nextContactType
+                  ? `${withReason} · Próximo: ${formatScheduledReturnNote(nextContact, nextContactType, lead).replace('📅 Retorno agendado ', '')}`
+                  : withReason;
+              await addHistory(leadId, 'retorno', withNext);
             } else if (nextContact && lead && nextContactType) {
               await addHistory(
                 leadId,

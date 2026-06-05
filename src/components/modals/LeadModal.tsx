@@ -543,12 +543,25 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
         monthly_value: Number(formData.monthly_value) || 0,
       };
 
+      const prevLinkSent = Boolean(lead?.new_system_link_sent);
+      const newLinkSent = Boolean(dataToSave.new_system_link_sent);
+      const linkChanged = lead && prevLinkSent !== newLinkSent;
+
       const success = await onSave(dataToSave);
       if (success) {
         // Clear drafts from localStorage on successful save
         if (draftKey) localStorage.removeItem(draftKey);
         if (noteDraftKey) localStorage.removeItem(noteDraftKey);
         if (tabKey) localStorage.removeItem(tabKey);
+
+        // Registro automático no histórico quando o toggle de link do sistema novo muda
+        if (linkChanged && lead) {
+          const author = profile?.name || 'Usuário';
+          const note = newLinkSent
+            ? `🔗 Link do sistema novo marcado como ENVIADO por ${author}`
+            : `🔗 Link do sistema novo desmarcado por ${author}`;
+          await addHistory(lead.id, 'sistema_novo', note);
+        }
       }
       // Em caso de falha, o hook (onSave) já exibe o toast com o motivo real — não mostrar "sem internet" aqui.
     } catch (err) {
