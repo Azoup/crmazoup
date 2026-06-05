@@ -556,7 +556,7 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
 
         // Registro automático no histórico quando o toggle de link do sistema novo muda
         if (linkChanged && lead) {
-          const author = profile?.name || profile?.email || 'Usuário';
+          const author = profile?.name || 'Usuário';
           const note = newLinkSent
             ? `🔗 Link do sistema novo marcado como ENVIADO por ${author}`
             : `🔗 Link do sistema novo desmarcado por ${author}`;
