@@ -87,6 +87,8 @@ function transformDbLead(dbLead: any): Lead {
       client_observations: dbLead.client_observations ?? null,
       new_system_link_sent: dbLead.new_system_link_sent ?? false,
       new_system_link_sent_at: dbLead.new_system_link_sent_at ?? null,
+      is_live_launch: (dbLead as any).is_live_launch ?? false,
+      live_launch_contacted: (dbLead as any).live_launch_contacted ?? false,
     utm_source: dbLead.utm_source ?? null,
     utm_campaign: dbLead.utm_campaign ?? null,
     utm_medium: dbLead.utm_medium ?? null,
@@ -307,6 +309,8 @@ export function useLeads() {
         pieces_per_month: leadData.pieces_per_month != null ? Number(leadData.pieces_per_month) : null,
         new_system_link_sent: leadData.new_system_link_sent ?? false,
         new_system_link_sent_at: leadData.new_system_link_sent_at ?? null,
+        is_live_launch: leadData.is_live_launch ?? false,
+        live_launch_contacted: leadData.live_launch_contacted ?? false,
         utm_source: leadData.utm_source?.trim() || null,
         utm_campaign: leadData.utm_campaign?.trim() || null,
         utm_medium: leadData.utm_medium?.trim() || null,
@@ -436,6 +440,8 @@ export function useLeads() {
       if (updates.client_observations !== undefined) updatePayload.client_observations = updates.client_observations ?? null;
       if (updates.new_system_link_sent !== undefined) updatePayload.new_system_link_sent = updates.new_system_link_sent ?? false;
       if (updates.new_system_link_sent_at !== undefined) updatePayload.new_system_link_sent_at = updates.new_system_link_sent_at ?? null;
+      if (updates.is_live_launch !== undefined) updatePayload.is_live_launch = updates.is_live_launch ?? false;
+      if (updates.live_launch_contacted !== undefined) updatePayload.live_launch_contacted = updates.live_launch_contacted ?? false;
       if (updates.manager_notes !== undefined) updatePayload.manager_notes = updates.manager_notes ?? null;
       if (updates.utm_source !== undefined) {
         updatePayload.utm_source =

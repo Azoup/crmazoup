@@ -1,6 +1,6 @@
 import { Lead, LeadTemperature } from '@/types/lead';
 import { getDaysSince, formatCurrencyCompact } from '@/lib/utils';
-import { AlertTriangle, DollarSign, MessageCircle, Phone, Sparkles, UserCheck, UserX, Calendar, Clock } from 'lucide-react';
+import { AlertTriangle, DollarSign, MessageCircle, Phone, Sparkles, UserCheck, UserX, Calendar, Clock, Video } from 'lucide-react';
 
 interface LeadCardProps {
   lead: Lead;
@@ -118,8 +118,15 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp, enableNativeD
 
       {/* Top row: name + days badge */}
       <div className="flex justify-between items-start gap-2 mb-1.5">
-        <h4 className={`font-bold text-sm leading-tight truncate ${isNew ? 'text-purple-700 dark:text-purple-300' : 'text-foreground'}`}>
-          {lead.name || 'Sem nome'}
+        <h4 className={`font-bold text-sm leading-tight truncate flex items-center gap-1 ${isNew ? 'text-purple-700 dark:text-purple-300' : 'text-foreground'}`}>
+          {lead.is_live_launch && (
+            <Video
+              size={14}
+              className={`flex-shrink-0 ${lead.live_launch_contacted ? 'text-success' : 'text-destructive animate-pulse'}`}
+              aria-label={lead.live_launch_contacted ? 'Lead live - contatado' : 'Lead live - não contatado'}
+            />
+          )}
+          <span className="truncate">{lead.name || 'Sem nome'}</span>
           {leadMonthLabel && (
             <span className="ml-1.5 text-[10px] font-bold text-primary">· {leadMonthLabel}</span>
           )}
