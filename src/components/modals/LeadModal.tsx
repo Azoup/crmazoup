@@ -1126,6 +1126,58 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
                       </p>
                     )}
                   </div>
+                  <div className="md:col-span-2 rounded-lg border border-border bg-muted/30 p-3">
+                    <Label className="mb-2 block font-semibold flex items-center gap-2">
+                      🎥 Lead Lançamento Live?
+                    </Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={formData.is_live_launch ? 'default' : 'outline'}
+                        className={formData.is_live_launch ? 'bg-destructive hover:bg-destructive/90 text-white' : ''}
+                        onClick={() => setFormData(prev => ({ ...prev, is_live_launch: true }))}
+                      >
+                        Sim
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={!formData.is_live_launch ? 'default' : 'outline'}
+                        onClick={() => setFormData(prev => ({ ...prev, is_live_launch: false, live_launch_contacted: false }))}
+                      >
+                        Não
+                      </Button>
+                    </div>
+                    {formData.is_live_launch && (
+                      <div className="mt-3">
+                        <Label className="mb-2 block text-xs">Lead já foi contatado?</Label>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={formData.live_launch_contacted ? 'default' : 'outline'}
+                            className={formData.live_launch_contacted ? 'bg-success hover:bg-success/90 text-white' : ''}
+                            onClick={() => setFormData(prev => ({ ...prev, live_launch_contacted: true }))}
+                          >
+                            Sim (verde)
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={!formData.live_launch_contacted ? 'default' : 'outline'}
+                            className={!formData.live_launch_contacted ? 'bg-destructive hover:bg-destructive/90 text-white' : ''}
+                            onClick={() => setFormData(prev => ({ ...prev, live_launch_contacted: false }))}
+                          >
+                            Não (vermelho)
+                          </Button>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-2">
+                          Um ícone 🎥 aparecerá ao lado do nome no pipeline.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                   {/* Responsible Person Selector - visible to SDRs */}
                   {lead && (managerProfile || profile?.role === 'Gestor') && (
                     <div className="md:col-span-2 bg-muted/50 p-3 rounded-lg border border-border">

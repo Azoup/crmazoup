@@ -32,9 +32,11 @@ export type Database = {
           implementation_responsible: string | null
           implementation_responsible_phone: string | null
           implementation_value: number | null
+          is_live_launch: boolean
           is_new: boolean | null
           last_contact: string | null
           lead_source: string
+          live_launch_contacted: boolean
           loss_reason: string | null
           manager_notes: string | null
           meeting_date: string | null
@@ -85,9 +87,11 @@ export type Database = {
           implementation_responsible?: string | null
           implementation_responsible_phone?: string | null
           implementation_value?: number | null
+          is_live_launch?: boolean
           is_new?: boolean | null
           last_contact?: string | null
           lead_source?: string
+          live_launch_contacted?: boolean
           loss_reason?: string | null
           manager_notes?: string | null
           meeting_date?: string | null
@@ -138,9 +142,11 @@ export type Database = {
           implementation_responsible?: string | null
           implementation_responsible_phone?: string | null
           implementation_value?: number | null
+          is_live_launch?: boolean
           is_new?: boolean | null
           last_contact?: string | null
           lead_source?: string
+          live_launch_contacted?: boolean
           loss_reason?: string | null
           manager_notes?: string | null
           meeting_date?: string | null

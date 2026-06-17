@@ -71,6 +71,8 @@ export interface Lead {
   client_observations?: string | null;
   new_system_link_sent?: boolean | null;
   new_system_link_sent_at?: string | null;
+  is_live_launch?: boolean | null;
+  live_launch_contacted?: boolean | null;
 }
 
 export interface LeadFilters {
