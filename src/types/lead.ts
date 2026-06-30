@@ -79,6 +79,7 @@ export interface LeadFilters {
   search: string;
   temperature: LeadTemperature | 'todos';
   confectionType: string;
+  email: string;
 }
 
 export interface UserSettings {

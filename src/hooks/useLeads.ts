@@ -111,6 +111,7 @@ export function useLeads() {
     search: '',
     temperature: 'todos',
     confectionType: '',
+    email: '',
   });
 
   const isManager = profile?.role === 'Gestor';
@@ -260,7 +261,10 @@ export function useLeads() {
       const matchType = !filters.confectionType || 
         lead.confection_type?.toLowerCase()?.includes(filters.confectionType.toLowerCase()) ||
         false;
-      return matchSearch && matchTemp && matchType;
+      const matchEmail = !filters.email ||
+        lead.email?.toLowerCase()?.includes(filters.email.toLowerCase()) ||
+        false;
+      return matchSearch && matchTemp && matchType && matchEmail;
     });
   }, [leads, filters]);
 

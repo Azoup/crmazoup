@@ -44,6 +44,14 @@ export function FilterBar({ filters, setFilters }: FilterBarProps) {
         value={filters.confectionType}
         onChange={(e) => setFilters({ ...filters, confectionType: e.target.value })}
       />
+      
+      <Input
+        type="email"
+        placeholder="E-mail do lead"
+        className="w-full md:w-44 h-9 bg-muted/50 border-border/50 text-sm"
+        value={filters.email}
+        onChange={(e) => setFilters({ ...filters, email: e.target.value })}
+      />
     </div>
   );
 }
