@@ -547,6 +547,10 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
       const newLinkSent = Boolean(dataToSave.new_system_link_sent);
       const linkChanged = lead && prevLinkSent !== newLinkSent;
 
+      const prevNextContact = lead?.next_contact || '';
+      const newNextContact = dataToSave.next_contact || '';
+      const nextContactChanged = lead && newNextContact && prevNextContact !== newNextContact;
+
       const success = await onSave(dataToSave);
       if (success) {
         // Clear drafts from localStorage on successful save
@@ -561,6 +565,26 @@ export function LeadModal({ lead, draftScope = 'marketing', onClose, onSave, onD
             ? `🔗 Link do sistema novo marcado como ENVIADO por ${author}`
             : `🔗 Link do sistema novo desmarcado por ${author}`;
           await addHistory(lead.id, 'sistema_novo', note);
+        }
+
+        // Registro automático quando data/hora do próximo contato é alterada
+        if (nextContactChanged && lead) {
+          const author = profile?.name || 'Usuário';
+          const formatted = (() => {
+            try {
+              const raw = newNextContact.includes('T') ? newNextContact : `${newNextContact}T00:00`;
+              const d = new Date(raw);
+              return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+            } catch {
+              return newNextContact;
+            }
+          })();
+          const updated = await addHistory(
+            lead.id,
+            'retorno',
+            `🔁 Nova tentativa de contato agendada para ${formatted} por ${author}`,
+          );
+          if (updated) setFormData(prev => ({ ...prev, history: updated }));
         }
       }
       // Em caso de falha, o hook (onSave) já exibe o toast com o motivo real — não mostrar "sem internet" aqui.
