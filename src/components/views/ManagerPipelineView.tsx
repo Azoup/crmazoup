@@ -78,7 +78,7 @@ export function ManagerPipelineView({
     }
 
     if (targetStage === 'perdidos') {
-      const options = ['Preço', 'Sem Interesse', 'Já possui sistema', 'Não Responde', 'Pequeno', 'Fechou com outra empresa', 'Deixou pro futuro', 'Private Label', 'Outro'];
+      const options = ['Preço', 'Sem Interesse', 'Já possui sistema', 'Não Responde', 'Pequeno', 'Fechou com outra empresa', 'Deixou pro futuro', 'Private Label', 'Número inexistente', 'Teste do Marketing', 'Tentativas excedidas', 'Só visualiza (não interage)', 'Outro'];
       const reason = prompt(`Motivo da perda?\n\nOpções:\n${options.map((o, i) => `${i + 1}. ${o}`).join('\n')}\n\nDigite o número ou o motivo:`) || 'Não Informado';
       const numChoice = parseInt(reason);
       updates.loss_reason = (numChoice >= 1 && numChoice <= options.length) ? options[numChoice - 1] : reason;

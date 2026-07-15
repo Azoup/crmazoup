@@ -83,6 +83,36 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp, enableNativeD
     if (!isNaN(m) && m >= 1 && m <= 12) leadMonthLabel = monthNames[m - 1];
   }
 
+  // "Entrou no CRM há X dias"
+  const entryRaw = lead.entry_date || lead.created_at;
+  let entryAgoLabel: string | null = null;
+  if (entryRaw) {
+    let entryDate: Date | null = null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(entryRaw)) {
+      const [y, m, d] = entryRaw.split('-').map(Number);
+      entryDate = new Date(y, m - 1, d);
+    } else {
+      const parsed = new Date(entryRaw);
+      if (!isNaN(parsed.getTime())) entryDate = parsed;
+    }
+    if (entryDate) {
+      const today = new Date();
+      const a = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+      const b = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate()).getTime();
+      const diffDays = Math.max(0, Math.round((a - b) / 86400000));
+      if (diffDays === 0) entryAgoLabel = 'hoje';
+      else if (diffDays === 1) entryAgoLabel = 'ontem';
+      else if (diffDays < 30) entryAgoLabel = `há ${diffDays} dias`;
+      else if (diffDays < 365) {
+        const months = Math.floor(diffDays / 30);
+        entryAgoLabel = `há ${months} ${months === 1 ? 'mês' : 'meses'}`;
+      } else {
+        const years = Math.floor(diffDays / 365);
+        entryAgoLabel = `há ${years} ${years === 1 ? 'ano' : 'anos'}`;
+      }
+    }
+  }
+
   const showNeonNewSystem =
     lead.new_system_link_sent === true && !['perdidos', 'venda'].includes(lead.stage);
 
@@ -143,7 +173,14 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp, enableNativeD
         )}
       </div>
       
-      <p className="text-xs text-muted-foreground mb-2.5 truncate">{lead.company || 'Sem empresa'}</p>
+      <p className="text-xs text-muted-foreground mb-2 truncate">{lead.company || 'Sem empresa'}</p>
+
+      {entryAgoLabel && (
+        <div className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground/80 mb-2">
+          <Calendar size={10} className="text-primary/70" />
+          <span>No CRM {entryAgoLabel}</span>
+        </div>
+      )}
       
       {/* Tags */}
       <div className="flex flex-wrap gap-1.5 mb-2.5">
