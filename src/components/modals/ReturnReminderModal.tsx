@@ -45,6 +45,10 @@ const LOSS_REASONS = [
   'Fechou com outra empresa',
   'Deixou pro futuro',
   'Private Label',
+  'Número inexistente',
+  'Teste do Marketing',
+  'Tentativas excedidas',
+  'Só visualiza (não interage)',
 ];
 
 const FREEZE_REASONS = [
