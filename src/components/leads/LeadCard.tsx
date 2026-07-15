@@ -173,7 +173,14 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp, enableNativeD
         )}
       </div>
       
-      <p className="text-xs text-muted-foreground mb-2.5 truncate">{lead.company || 'Sem empresa'}</p>
+      <p className="text-xs text-muted-foreground mb-2 truncate">{lead.company || 'Sem empresa'}</p>
+
+      {entryAgoLabel && (
+        <div className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground/80 mb-2">
+          <Calendar size={10} className="text-primary/70" />
+          <span>No CRM {entryAgoLabel}</span>
+        </div>
+      )}
       
       {/* Tags */}
       <div className="flex flex-wrap gap-1.5 mb-2.5">
