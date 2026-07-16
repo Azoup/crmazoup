@@ -220,6 +220,12 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <CommandPalette
+        leads={leads}
+        onOpenLead={handleOpenLead}
+        onCreateLead={() => handleOpenNewLead('marketing')}
+        onGoToReports={() => setView('relatorios')}
+      />
       <Header
         view={view}
         setView={setView}
@@ -229,6 +235,7 @@ export function Dashboard() {
         onSyncActiveCampaign={handleSyncAC}
         syncing={syncing}
       />
+
 
       <main className="p-4 md:p-6">
         {(view === 'pipeline' || view === 'agenda') && (
