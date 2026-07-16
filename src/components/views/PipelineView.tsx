@@ -8,6 +8,9 @@ import { useCelebration } from '@/hooks/useCelebration';
 import { useBulkDelete } from '@/hooks/useBulkDelete';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { PipelineSortMenu, sortLeads, PipelineSortKey } from '@/components/leads/PipelineSortMenu';
+import { calculateLeadScore } from '@/lib/leadScore';
+
 
 interface PipelineViewProps {
   leads: Lead[];
@@ -25,8 +28,27 @@ const COLUMNS: { id: LeadStage; title: string }[] = [
   { id: 'proposta', title: 'Proposta' },
   { id: 'venda', title: 'Venda' },
   { id: 'congelados', title: 'Congelados' },
+
+  { id: 'prospeccao', title: 'Prospecção' },
+  { id: 'interesse', title: 'Interesse' },
+  { id: 'reuniao', title: 'Reunião' },
+  { id: 'proposta', title: 'Proposta' },
+  { id: 'venda', title: 'Venda' },
+  { id: 'congelados', title: 'Congelados' },
   { id: 'perdidos', title: 'Perdidos' },
 ];
+
+const STAGE_STRIP: Record<LeadStage, string> = {
+  prospeccao: 'bg-stage-prospeccao',
+  interesse: 'bg-stage-interesse',
+  reuniao: 'bg-stage-reuniao',
+  proposta: 'bg-stage-proposta',
+  venda: 'bg-stage-venda',
+  congelados: 'bg-stage-congelados',
+  perdidos: 'bg-stage-perdidos',
+};
+
+
 
 
 export function PipelineView({ 
@@ -40,7 +62,9 @@ export function PipelineView({
   const { profile } = useAuth();
   const { celebrateMeeting, celebrateSale } = useCelebration();
   const [selectMode, setSelectMode] = useState(false);
+  const [sortKey, setSortKey] = useState<PipelineSortKey>('recent');
   const { selectedIds, toggleSelect, clearSelection, deleteSelected, deleting, hasSelection, selectionCount } = useBulkDelete();
+
   
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
   
@@ -140,6 +164,7 @@ export function PipelineView({
               Excluir {selectionCount}
             </Button>
           )}
+          <PipelineSortMenu value={sortKey} onChange={setSortKey} />
         </div>
         <div className="bg-card px-3 py-1.5 rounded-lg border border-border/50 shadow-sm text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
           <DollarSign size={12} className="text-success" /> 
@@ -151,21 +176,23 @@ export function PipelineView({
       {/* Pipeline columns */}
       <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-200px)] scrollbar-thin">
         {COLUMNS.map(col => {
-          const colLeads = leads
-            .filter(l => l.stage === col.id)
-            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          const rawColLeads = leads.filter(l => l.stage === col.id);
+          const colLeads = sortLeads(rawColLeads, sortKey, calculateLeadScore);
           const colValue = colLeads.reduce((acc, curr) => acc + (curr.value || 0), 0);
           const allColSelected = colLeads.length > 0 && colLeads.every(l => selectedIds.has(l.id));
+          const stageStripClass = STAGE_STRIP[col.id];
           
           return (
             <div
               key={col.id}
-              className="min-w-[300px] w-[300px] bg-card/80 glass rounded-2xl border border-border/30 flex flex-col flex-shrink-0 overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300"
+              className="min-w-[300px] w-[300px] bg-card/80 glass rounded-2xl border border-border/30 flex flex-col flex-shrink-0 overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 animate-fade-in"
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, col.id)}
             >
+              {/* Colored top strip */}
+              <div className={`h-1.5 w-full ${stageStripClass}`} />
               {/* Column header */}
-              <div className={`px-4 py-3 border-b-2 ${STAGE_COLORS[col.id]} bg-card`}>
+              <div className={`px-4 py-3 border-b ${STAGE_COLORS[col.id]} bg-card`}>
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     {selectMode && colLeads.length > 0 && (
@@ -176,7 +203,7 @@ export function PipelineView({
                     )}
                     <span className="font-bold text-foreground text-sm">{col.title}</span>
                   </div>
-                  <span className="bg-foreground/10 text-foreground/70 w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center">
+                  <span className="bg-foreground/10 text-foreground/70 min-w-[24px] h-6 px-1.5 rounded-full text-xs font-bold flex items-center justify-center">
                     {colLeads.length}
                   </span>
                 </div>
@@ -186,6 +213,7 @@ export function PipelineView({
                   </div>
                 )}
               </div>
+
               
               {/* Cards */}
               <div className="p-3 flex-1 overflow-y-auto space-y-3 min-h-[200px] scrollbar-thin">

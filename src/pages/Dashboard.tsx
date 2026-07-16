@@ -29,6 +29,9 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DailyNewLeadsCarousel } from '@/components/leads/DailyNewLeadsCarousel';
+import { CommandPalette } from '@/components/leads/CommandPalette';
+import { AlertsWidget } from '@/components/leads/AlertsWidget';
+
 
 type ViewType = 'pipeline' | 'prospeccao_ativa' | 'indicacao' | 'agenda' | 'vendas' | 'qualificacao' | 'relatorios' | 'whatsapp' | 'gestor';
 
@@ -217,6 +220,12 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <CommandPalette
+        leads={leads}
+        onOpenLead={handleOpenLead}
+        onCreateLead={() => handleOpenNewLead('marketing')}
+        onGoToReports={() => setView('relatorios')}
+      />
       <Header
         view={view}
         setView={setView}
@@ -227,10 +236,19 @@ export function Dashboard() {
         syncing={syncing}
       />
 
+
       <main className="p-4 md:p-6">
         {(view === 'pipeline' || view === 'agenda') && (
           <FilterBar filters={filters} setFilters={setFilters} />
         )}
+
+        {view === 'pipeline' && !isManager && (
+          <AlertsWidget
+            leads={leads.filter((l) => l.user_id === user?.id)}
+            onOpenLead={handleOpenLead}
+          />
+        )}
+
 
         {!isManager && view === 'pipeline' && (
           <DailyNewLeadsCarousel
