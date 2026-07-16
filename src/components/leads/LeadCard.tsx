@@ -128,14 +128,30 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp, enableNativeD
           ? 'border-l-muted-foreground/30'
           : 'border-l-success';
 
+  const initials = (lead.name || '?')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join('');
+  const avatarClass =
+    safeTemperature === 'quente'
+      ? 'bg-temp-hot/15 text-temp-hot'
+      : safeTemperature === 'morno'
+        ? 'bg-temp-warm/15 text-temp-warm'
+        : 'bg-temp-cold/15 text-temp-cold';
+
+  const score = calculateLeadScore(lead);
+  const scoreBarColor = leadScoreColor(score);
+
   return (
     <div
       draggable={enableNativeDrag}
       onDragStart={enableNativeDrag ? handleDragStart : undefined}
       onClick={onClick}
-      className={`relative p-4 bg-card rounded-xl border border-border/50 ${
+      className={`relative p-4 bg-card rounded-xl border border-border/50 animate-fade-in ${
         enableNativeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
-      } hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 group border-l-4 ${borderColor} ${
+      } hover:shadow-xl hover:border-primary/40 hover:-translate-y-1 transition-all duration-300 group border-l-4 ${borderColor} ${
         showNeonNewSystem
           ? 'ring-2 ring-[hsl(200_100%_50%)]/60 bg-[hsl(200_100%_50%)]/5 shadow-[0_0_16px_hsl(200_100%_50%/0.35)]'
           : isNew ? 'ring-1 ring-purple-400/20 bg-purple-50/50 dark:bg-purple-950/20' : ''
@@ -148,34 +164,57 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp, enableNativeD
         </div>
       )}
 
-      {/* Top row: name + days badge */}
-      <div className="flex justify-between items-start gap-2 mb-1.5">
-        <h4 className={`font-bold text-sm leading-tight truncate flex items-center gap-1 ${isNew ? 'text-purple-700 dark:text-purple-300' : 'text-foreground'}`}>
-          {lead.is_live_launch && (
-            <Video
-              size={14}
-              className={`flex-shrink-0 ${lead.live_launch_contacted ? 'text-success' : 'text-destructive animate-pulse'}`}
-              aria-label={lead.live_launch_contacted ? 'Lead live - contatado' : 'Lead live - não contatado'}
-            />
-          )}
-          <span className="truncate">{lead.name || 'Sem nome'}</span>
-          {leadMonthLabel && (
-            <span className="ml-1.5 text-[10px] font-bold text-primary">· {leadMonthLabel}</span>
-          )}
-        </h4>
-        {!isNew && (
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex-shrink-0 flex items-center gap-0.5 ${
-            status === 'late' 
-              ? 'bg-destructive/10 text-destructive' 
-              : 'text-muted-foreground'
-          }`}>
-            {status === 'late' && <AlertTriangle size={10} />}
-            {daysSinceContact > 0 ? `${daysSinceContact}d` : 'hoje'}
-          </span>
-        )}
+      {/* Header: avatar + name + days */}
+      <div className="flex items-start gap-2.5 mb-2">
+        <div
+          className={`flex-shrink-0 w-9 h-9 rounded-full ${avatarClass} flex items-center justify-center text-[11px] font-bold ring-1 ring-border/40`}
+          aria-hidden
+        >
+          {initials || '?'}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex justify-between items-start gap-2">
+            <h4 className={`font-bold text-sm leading-tight truncate flex items-center gap-1 ${isNew ? 'text-purple-700 dark:text-purple-300' : 'text-foreground'}`}>
+              {lead.is_live_launch && (
+                <Video
+                  size={14}
+                  className={`flex-shrink-0 ${lead.live_launch_contacted ? 'text-success' : 'text-destructive animate-pulse'}`}
+                  aria-label={lead.live_launch_contacted ? 'Lead live - contatado' : 'Lead live - não contatado'}
+                />
+              )}
+              <span className="truncate">{lead.name || 'Sem nome'}</span>
+              {leadMonthLabel && (
+                <span className="ml-1.5 text-[10px] font-bold text-primary">· {leadMonthLabel}</span>
+              )}
+            </h4>
+            {!isNew && (
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex-shrink-0 flex items-center gap-0.5 ${
+                status === 'late'
+                  ? 'bg-destructive/10 text-destructive'
+                  : 'text-muted-foreground'
+              }`}>
+                {status === 'late' && <AlertTriangle size={10} />}
+                {daysSinceContact > 0 ? `${daysSinceContact}d` : 'hoje'}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground truncate">{lead.company || 'Sem empresa'}</p>
+        </div>
       </div>
-      
-      <p className="text-xs text-muted-foreground mb-2 truncate">{lead.company || 'Sem empresa'}</p>
+
+      {/* Lead score bar */}
+      <div className="mb-2" title={`Score do lead: ${score}/100 · ${leadScoreLabel(score)}`}>
+        <div className="flex items-center justify-between text-[9px] font-semibold text-muted-foreground mb-0.5">
+          <span>Score</span>
+          <span className="tabular-nums">{score}/100</span>
+        </div>
+        <div className="h-1 w-full rounded-full bg-muted/50 overflow-hidden">
+          <div
+            className={`h-full ${scoreBarColor} transition-[width] duration-500 ease-out`}
+            style={{ width: `${score}%` }}
+          />
+        </div>
+      </div>
 
       {entryAgoLabel && (
         <div className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground/80 mb-2">
@@ -183,6 +222,7 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp, enableNativeD
           <span>No CRM {entryAgoLabel}</span>
         </div>
       )}
+
       
       {/* Tags */}
       <div className="flex flex-wrap gap-1.5 mb-2.5">
