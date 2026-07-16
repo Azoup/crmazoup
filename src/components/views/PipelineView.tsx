@@ -8,6 +8,9 @@ import { useCelebration } from '@/hooks/useCelebration';
 import { useBulkDelete } from '@/hooks/useBulkDelete';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { PipelineSortMenu, sortLeads, PipelineSortKey } from '@/components/leads/PipelineSortMenu';
+import { calculateLeadScore } from '@/lib/leadScore';
+
 
 interface PipelineViewProps {
   leads: Lead[];
