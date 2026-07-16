@@ -180,7 +180,7 @@ export function PipelineView({
           const colLeads = sortLeads(rawColLeads, sortKey, calculateLeadScore);
           const colValue = colLeads.reduce((acc, curr) => acc + (curr.value || 0), 0);
           const allColSelected = colLeads.length > 0 && colLeads.every(l => selectedIds.has(l.id));
-          const stageStripClass = STAGE_COLORS[col.id].replace('border-', 'bg-');
+          const stageStripClass = STAGE_STRIP[col.id];
           
           return (
             <div
