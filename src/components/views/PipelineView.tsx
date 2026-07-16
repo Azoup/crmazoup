@@ -28,8 +28,27 @@ const COLUMNS: { id: LeadStage; title: string }[] = [
   { id: 'proposta', title: 'Proposta' },
   { id: 'venda', title: 'Venda' },
   { id: 'congelados', title: 'Congelados' },
+const COLUMNS: { id: LeadStage; title: string }[] = [
+  { id: 'prospeccao', title: 'Prospecção' },
+  { id: 'interesse', title: 'Interesse' },
+  { id: 'reuniao', title: 'Reunião' },
+  { id: 'proposta', title: 'Proposta' },
+  { id: 'venda', title: 'Venda' },
+  { id: 'congelados', title: 'Congelados' },
   { id: 'perdidos', title: 'Perdidos' },
 ];
+
+const STAGE_STRIP: Record<LeadStage, string> = {
+  prospeccao: 'bg-stage-prospeccao',
+  interesse: 'bg-stage-interesse',
+  reuniao: 'bg-stage-reuniao',
+  proposta: 'bg-stage-proposta',
+  venda: 'bg-stage-venda',
+  congelados: 'bg-stage-congelados',
+  perdidos: 'bg-stage-perdidos',
+};
+
+
 
 
 export function PipelineView({ 
