@@ -1,6 +1,8 @@
 import { Lead, LeadTemperature } from '@/types/lead';
 import { getDaysSince, formatCurrencyCompact } from '@/lib/utils';
+import { calculateLeadScore, leadScoreColor, leadScoreLabel } from '@/lib/leadScore';
 import { AlertTriangle, DollarSign, MessageCircle, Phone, Sparkles, UserCheck, UserX, Calendar, Clock, Video } from 'lucide-react';
+
 
 interface LeadCardProps {
   lead: Lead;
