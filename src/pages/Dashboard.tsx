@@ -235,6 +235,14 @@ export function Dashboard() {
           <FilterBar filters={filters} setFilters={setFilters} />
         )}
 
+        {view === 'pipeline' && !isManager && (
+          <AlertsWidget
+            leads={leads.filter((l) => l.user_id === user?.id)}
+            onOpenLead={handleOpenLead}
+          />
+        )}
+
+
         {!isManager && view === 'pipeline' && (
           <DailyNewLeadsCarousel
             leads={pipelineCarouselLeads}
