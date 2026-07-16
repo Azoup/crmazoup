@@ -262,14 +262,27 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp, enableNativeD
         <span className="text-[11px] text-muted-foreground/70 truncate max-w-[120px]">
           {lead.confection_type || '-'}
         </span>
-        <button
-          onClick={onQuickWhatsApp}
-          className="text-success hover:bg-success/10 p-1.5 rounded-lg transition-all hover:scale-110"
-          title="WhatsApp"
-        >
-          <MessageCircle size={16} />
-        </button>
+        <div className="flex items-center gap-1">
+          {lead.whatsapp && (
+            <a
+              href={`tel:${lead.whatsapp}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-all hover:scale-110"
+              title="Ligar"
+            >
+              <Phone size={16} />
+            </a>
+          )}
+          <button
+            onClick={onQuickWhatsApp}
+            className="text-success hover:bg-success/10 p-1.5 rounded-lg transition-all hover:scale-110"
+            title="WhatsApp"
+          >
+            <MessageCircle size={16} />
+          </button>
+        </div>
       </div>
+
     </div>
   );
 }
