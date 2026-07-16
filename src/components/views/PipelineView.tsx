@@ -43,7 +43,9 @@ export function PipelineView({
   const { profile } = useAuth();
   const { celebrateMeeting, celebrateSale } = useCelebration();
   const [selectMode, setSelectMode] = useState(false);
+  const [sortKey, setSortKey] = useState<PipelineSortKey>('recent');
   const { selectedIds, toggleSelect, clearSelection, deleteSelected, deleting, hasSelection, selectionCount } = useBulkDelete();
+
   
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
   
