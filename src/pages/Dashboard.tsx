@@ -29,6 +29,9 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DailyNewLeadsCarousel } from '@/components/leads/DailyNewLeadsCarousel';
+import { CommandPalette } from '@/components/leads/CommandPalette';
+import { AlertsWidget } from '@/components/leads/AlertsWidget';
+
 
 type ViewType = 'pipeline' | 'prospeccao_ativa' | 'indicacao' | 'agenda' | 'vendas' | 'qualificacao' | 'relatorios' | 'whatsapp' | 'gestor';
 
