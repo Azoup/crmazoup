@@ -16,7 +16,7 @@ import {
   Legend,
   CartesianGrid,
 } from 'recharts';
-import { TrendingUp, Map, Filter, PieChart as PieIcon } from 'lucide-react';
+import { TrendingUp, MapPin, Filter, PieChart as PieIcon } from 'lucide-react';
 
 interface Props {
   /** All leads (for multi-month evolution). */
@@ -104,12 +104,13 @@ export function ReportCharts({ allLeads, monthlyLeads, selectedMonth }: Props) {
         perdidos: 0,
       });
     }
-    const byKey = new Map(buckets.map((b) => [b.key, b]));
+    const byKey: Record<string, typeof buckets[number]> = {};
+    buckets.forEach((b) => { byKey[b.key] = b; });
 
     allLeads.forEach((l) => {
       if (l.lead_source && l.lead_source !== 'marketing') return;
       const ref = l.reference_month;
-      const bucket = ref ? byKey.get(ref) : undefined;
+      const bucket = ref ? byKey[ref] : undefined;
       if (!bucket) return;
       bucket.recebidos += 1;
       if (l.stage === 'venda') bucket.ganhos += 1;
