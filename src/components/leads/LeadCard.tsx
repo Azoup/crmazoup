@@ -1,7 +1,7 @@
 import { Lead, LeadTemperature } from '@/types/lead';
 import { getDaysSince, formatCurrencyCompact } from '@/lib/utils';
 import { calculateLeadScore, leadScoreColor, leadScoreLabel } from '@/lib/leadScore';
-import { AlertTriangle, DollarSign, MessageCircle, Phone, Sparkles, UserCheck, UserX, Calendar, Clock, Video } from 'lucide-react';
+import { AlertTriangle, DollarSign, MessageCircle, Phone, Sparkles, UserCheck, UserX, Calendar, Clock, Video, FileText } from 'lucide-react';
 
 
 interface LeadCardProps {
@@ -9,6 +9,7 @@ interface LeadCardProps {
   onClick: () => void;
   status: 'late' | 'today' | 'ontime' | 'neutral';
   onQuickWhatsApp: (e: React.MouseEvent) => void;
+  onOpenTemplates?: (lead: Lead) => void;
   /** Quando false, desativa drag nativo (ex.: dentro de carrossel com scroll por arraste). */
   enableNativeDrag?: boolean;
 }
@@ -54,7 +55,7 @@ function formatContactDateTime(date: Date): string {
   return `${pad(date.getDate())}/${pad(date.getMonth() + 1)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export function LeadCard({ lead, onClick, status, onQuickWhatsApp, enableNativeDrag = true }: LeadCardProps) {
+export function LeadCard({ lead, onClick, status, onQuickWhatsApp, onOpenTemplates, enableNativeDrag = true }: LeadCardProps) {
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData("leadId", lead.id);
   };
@@ -272,6 +273,15 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp, enableNativeD
             >
               <Phone size={16} />
             </a>
+          )}
+          {onOpenTemplates && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onOpenTemplates(lead); }}
+              className="text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-all hover:scale-110"
+              title="Templates de mensagem"
+            >
+              <FileText size={16} />
+            </button>
           )}
           <button
             onClick={onQuickWhatsApp}
