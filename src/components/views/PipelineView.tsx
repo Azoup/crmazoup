@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Lead, LeadStage, LeadHistory, MeetingStatus, STAGE_COLORS } from '@/types/lead';
 import { LeadCard } from '@/components/leads/LeadCard';
 import { formatCurrency, cleanPhoneNumber } from '@/lib/utils';
-import { DollarSign, Trash2, CheckSquare, XCircle } from 'lucide-react';
+import { DollarSign, Trash2, CheckSquare, XCircle, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCelebration } from '@/hooks/useCelebration';
 import { useBulkDelete } from '@/hooks/useBulkDelete';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { PipelineSortMenu, sortLeads, PipelineSortKey } from '@/components/leads/PipelineSortMenu';
 import { calculateLeadScore } from '@/lib/leadScore';
+import { MessageTemplatesModal } from '@/components/modals/MessageTemplatesModal';
 
 
 interface PipelineViewProps {
@@ -22,13 +23,6 @@ interface PipelineViewProps {
 }
 
 const COLUMNS: { id: LeadStage; title: string }[] = [
-  { id: 'prospeccao', title: 'Prospecção' },
-  { id: 'interesse', title: 'Interesse' },
-  { id: 'reuniao', title: 'Reunião' },
-  { id: 'proposta', title: 'Proposta' },
-  { id: 'venda', title: 'Venda' },
-  { id: 'congelados', title: 'Congelados' },
-
   { id: 'prospeccao', title: 'Prospecção' },
   { id: 'interesse', title: 'Interesse' },
   { id: 'reuniao', title: 'Reunião' },
@@ -63,6 +57,8 @@ export function PipelineView({
   const { celebrateMeeting, celebrateSale } = useCelebration();
   const [selectMode, setSelectMode] = useState(false);
   const [sortKey, setSortKey] = useState<PipelineSortKey>('recent');
+  const [templatesLead, setTemplatesLead] = useState<Lead | null>(null);
+  const [manageTemplates, setManageTemplates] = useState(false);
   const { selectedIds, toggleSelect, clearSelection, deleteSelected, deleting, hasSelection, selectionCount } = useBulkDelete();
 
   
@@ -165,6 +161,16 @@ export function PipelineView({
             </Button>
           )}
           <PipelineSortMenu value={sortKey} onChange={setSortKey} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setManageTemplates(true)}
+            className="gap-1.5 h-8 text-xs hover-scale"
+            title="Gerenciar templates de WhatsApp"
+          >
+            <Sparkles size={13} className="text-primary" />
+            Templates
+          </Button>
         </div>
         <div className="bg-card px-3 py-1.5 rounded-lg border border-border/50 shadow-sm text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
           <DollarSign size={12} className="text-success" /> 
@@ -236,6 +242,7 @@ export function PipelineView({
                           e.stopPropagation();
                           if (!selectMode) sendWhatsApp(lead);
                         }}
+                        onOpenTemplates={(l) => !selectMode && setTemplatesLead(l)}
                       />
                     </div>
                   </div>
@@ -245,6 +252,21 @@ export function PipelineView({
           );
         })}
       </div>
+
+      {templatesLead && (
+        <MessageTemplatesModal
+          mode="pick"
+          lead={templatesLead}
+          addHistory={addHistory}
+          onClose={() => setTemplatesLead(null)}
+        />
+      )}
+      {manageTemplates && (
+        <MessageTemplatesModal
+          mode="manage"
+          onClose={() => setManageTemplates(false)}
+        />
+      )}
     </div>
   );
 }
