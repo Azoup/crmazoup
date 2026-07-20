@@ -168,6 +168,16 @@ export function PipelineView({
             </Button>
           )}
           <PipelineSortMenu value={sortKey} onChange={setSortKey} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setManageTemplates(true)}
+            className="gap-1.5 h-8 text-xs hover-scale"
+            title="Gerenciar templates de WhatsApp"
+          >
+            <Sparkles size={13} className="text-primary" />
+            Templates
+          </Button>
         </div>
         <div className="bg-card px-3 py-1.5 rounded-lg border border-border/50 shadow-sm text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
           <DollarSign size={12} className="text-success" /> 
@@ -238,6 +248,35 @@ export function PipelineView({
                         onQuickWhatsApp={(e) => {
                           e.stopPropagation();
                           if (!selectMode) sendWhatsApp(lead);
+                        }}
+                        onOpenTemplates={(l) => !selectMode && setTemplatesLead(l)}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {templatesLead && (
+        <MessageTemplatesModal
+          mode="pick"
+          lead={templatesLead}
+          addHistory={addHistory}
+          onClose={() => setTemplatesLead(null)}
+        />
+      )}
+      {manageTemplates && (
+        <MessageTemplatesModal
+          mode="manage"
+          onClose={() => setManageTemplates(false)}
+        />
+      )}
+    </div>
+  );
+}
                         }}
                       />
                     </div>
