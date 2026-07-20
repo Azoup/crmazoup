@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Lead, LeadStage, LeadHistory, MeetingStatus, STAGE_COLORS } from '@/types/lead';
 import { LeadCard } from '@/components/leads/LeadCard';
 import { formatCurrency, cleanPhoneNumber } from '@/lib/utils';
-import { DollarSign, Trash2, CheckSquare, XCircle } from 'lucide-react';
+import { DollarSign, Trash2, CheckSquare, XCircle, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCelebration } from '@/hooks/useCelebration';
 import { useBulkDelete } from '@/hooks/useBulkDelete';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { PipelineSortMenu, sortLeads, PipelineSortKey } from '@/components/leads/PipelineSortMenu';
 import { calculateLeadScore } from '@/lib/leadScore';
+import { MessageTemplatesModal } from '@/components/modals/MessageTemplatesModal';
 
 
 interface PipelineViewProps {
@@ -63,6 +64,8 @@ export function PipelineView({
   const { celebrateMeeting, celebrateSale } = useCelebration();
   const [selectMode, setSelectMode] = useState(false);
   const [sortKey, setSortKey] = useState<PipelineSortKey>('recent');
+  const [templatesLead, setTemplatesLead] = useState<Lead | null>(null);
+  const [manageTemplates, setManageTemplates] = useState(false);
   const { selectedIds, toggleSelect, clearSelection, deleteSelected, deleting, hasSelection, selectionCount } = useBulkDelete();
 
   
