@@ -277,16 +277,3 @@ export function PipelineView({
     </div>
   );
 }
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
