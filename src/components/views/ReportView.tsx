@@ -33,6 +33,7 @@ import {
   downloadMonthlyLeadReportXlsx,
   downloadWeeklyLeadReportXlsx,
 } from '@/lib/leadReportSpreadsheet';
+import { ReportCharts } from '@/components/views/ReportCharts';
 
 interface ReportViewProps {
   leads: Lead[];
@@ -387,6 +388,10 @@ export function ReportView({ leads }: ReportViewProps) {
           </Card>
         ))}
       </div>
+
+      {/* Analytics charts */}
+      <ReportCharts allLeads={leads} monthlyLeads={monthlyLeads} selectedMonth={selectedMonth} />
+
 
       {/* Data Table */}
       <Card>
