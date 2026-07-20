@@ -201,7 +201,7 @@ export function ReportCharts({ allLeads, monthlyLeads, selectedMonth }: Props) {
       <Card className="border-border/50 hover:shadow-lg transition-shadow">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
-            <Map size={16} className="text-amber-500" />
+            <MapPin size={16} className="text-amber-500" />
             Top DDDs com mais perdas
           </CardTitle>
         </CardHeader>
