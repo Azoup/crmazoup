@@ -37,12 +37,15 @@ serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Método não permitido" }, 405);
 
   try {
-    const apiKey = Deno.env.get("N8N_API_KEY");
-    if (!apiKey) return json({ error: "Serviço não configurado" }, 503);
+    const keys = [Deno.env.get("LEADS_WEBHOOK_KEY"), Deno.env.get("N8N_API_KEY")].filter(
+      (k): k is string => !!k,
+    );
+    if (keys.length === 0) return json({ error: "Serviço não configurado" }, 503);
 
     const auth = req.headers.get("Authorization") || "";
     const xKey = req.headers.get("x-api-key") || "";
-    if (auth !== `Bearer ${apiKey}` && xKey !== apiKey) {
+    const ok = keys.some((k) => auth === `Bearer ${k}` || xKey === k);
+    if (!ok) {
       return json({ error: "Não autorizado" }, 401);
     }
 
