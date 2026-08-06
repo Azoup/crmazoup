@@ -248,20 +248,21 @@ export function useLeads() {
                 description: `${transformedLead.name} acabou de chegar!`,
               });
             }
-            return [transformedLead, ...prev];
+            return sortByNewest([transformedLead, ...prev]);
           });
           return;
         }
 
         if (payload.eventType === 'UPDATE' && newLead?.id) {
           setLeads(prev => {
-            const transformedLead = transformDbLead(newLead);
+            const transformedLead = applyLocalGuard(transformDbLead(newLead));
             const exists = prev.some(l => l.id === transformedLead.id);
-            if (!exists) return [transformedLead, ...prev];
+            if (!exists) return sortByNewest([transformedLead, ...prev]);
             return prev.map(l => l.id === transformedLead.id ? transformedLead : l);
           });
           return;
         }
+
 
         if (payload.eventType === 'DELETE' && oldLead?.id) {
           setLeads(prev => prev.filter(l => l.id !== oldLead.id));
