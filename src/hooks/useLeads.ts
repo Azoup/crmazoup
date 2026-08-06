@@ -116,6 +116,34 @@ export function useLeads() {
 
   const isManager = profile?.role === 'Gestor';
 
+  // Guarda alterações locais recentes (ex.: arrastar de etapa) para que um evento
+  // realtime/refetch atrasado não "desfaça" o movimento na tela.
+  const localEditsRef = useRef<Map<string, { ts: number; stage: Lead['stage'] }>>(new Map());
+  const LOCAL_EDIT_TTL_MS = 90 * 1000;
+
+  const applyLocalGuard = useCallback((incoming: Lead): Lead => {
+    const pending = localEditsRef.current.get(incoming.id);
+    if (!pending) return incoming;
+    if (Date.now() - pending.ts > LOCAL_EDIT_TTL_MS) {
+      localEditsRef.current.delete(incoming.id);
+      return incoming;
+    }
+    if (incoming.stage !== pending.stage) {
+      return { ...incoming, stage: pending.stage };
+    }
+    localEditsRef.current.delete(incoming.id);
+    return incoming;
+  }, []);
+
+  // Ordena sempre do mais novo para o mais antigo
+  const sortByNewest = useCallback((list: Lead[]) => {
+    return [...list].sort((a, b) => {
+      const at = new Date(a.created_at).getTime();
+      const bt = new Date(b.created_at).getTime();
+      return bt - at;
+    });
+  }, []);
+
   const refetchLeads = useCallback(async () => {
     if (!user) return;
 
@@ -130,8 +158,18 @@ export function useLeads() {
       return;
     }
 
-    setLeads((leadsData || []).map(transformDbLead));
-  }, [user?.id]);
+    setLeads(sortByNewest((leadsData || []).map(transformDbLead).map(applyLocalGuard)));
+  }, [user?.id, applyLocalGuard, sortByNewest]);
+
+  // Busca novos leads automaticamente a cada 2 minutos
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(() => {
+      refetchLeads();
+    }, 2 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user?.id, refetchLeads]);
+
 
   useEffect(() => {
     if (!user) {
@@ -210,20 +248,21 @@ export function useLeads() {
                 description: `${transformedLead.name} acabou de chegar!`,
               });
             }
-            return [transformedLead, ...prev];
+            return sortByNewest([transformedLead, ...prev]);
           });
           return;
         }
 
         if (payload.eventType === 'UPDATE' && newLead?.id) {
           setLeads(prev => {
-            const transformedLead = transformDbLead(newLead);
+            const transformedLead = applyLocalGuard(transformDbLead(newLead));
             const exists = prev.some(l => l.id === transformedLead.id);
-            if (!exists) return [transformedLead, ...prev];
+            if (!exists) return sortByNewest([transformedLead, ...prev]);
             return prev.map(l => l.id === transformedLead.id ? transformedLead : l);
           });
           return;
         }
+
 
         if (payload.eventType === 'DELETE' && oldLead?.id) {
           setLeads(prev => prev.filter(l => l.id !== oldLead.id));
@@ -395,7 +434,10 @@ export function useLeads() {
           date: new Date().toISOString(),
           user: profile.name?.split(' ')[0] ?? 'Sistema',
         }, ...newHistory];
+        // Protege a etapa recém-definida contra sobrescrita por eventos atrasados
+        localEditsRef.current.set(leadId, { ts: Date.now(), stage: updates.stage });
       }
+
 
       // Build a MINIMAL update payload — only send fields that are explicitly provided
       // This prevents race conditions where concurrent updates overwrite each other
