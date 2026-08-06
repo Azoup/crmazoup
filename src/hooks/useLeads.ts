@@ -434,7 +434,10 @@ export function useLeads() {
           date: new Date().toISOString(),
           user: profile.name?.split(' ')[0] ?? 'Sistema',
         }, ...newHistory];
+        // Protege a etapa recém-definida contra sobrescrita por eventos atrasados
+        localEditsRef.current.set(leadId, { ts: Date.now(), stage: updates.stage });
       }
+
 
       // Build a MINIMAL update payload — only send fields that are explicitly provided
       // This prevents race conditions where concurrent updates overwrite each other
