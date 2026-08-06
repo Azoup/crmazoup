@@ -129,7 +129,10 @@ export function ManagerPipelineView({
       
       <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-320px)] scrollbar-thin">
         {COLUMNS.map(col => {
-          const colLeads = filteredLeads.filter(l => l.stage === col.id);
+          const colLeads = filteredLeads
+            .filter(l => l.stage === col.id)
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
           const colValue = colLeads.reduce((acc, curr) => 
             acc + (curr.implementation_value || 0) + (curr.monthly_value || 0), 0);
           
