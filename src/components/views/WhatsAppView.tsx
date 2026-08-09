@@ -295,11 +295,21 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           {(gatewayBlock || status?.error) && (
-            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive space-y-1">
-              <p className="font-semibold">Não foi possível conectar ao gateway</p>
+            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive space-y-2">
+              <p className="font-semibold">
+                {offline ? 'Servidor do WhatsApp offline' : 'Não foi possível conectar ao gateway'}
+              </p>
               <p>{gatewayBlock || status?.error}</p>
+              <Button size="sm" variant="outline" onClick={handleRetry} disabled={loading}>
+                {loading ? <Loader2 className="size-4 animate-spin mr-2" /> : <RefreshCw className="size-4 mr-2" />}
+                Testar conexão novamente
+              </Button>
+              <p className="opacity-80">
+                Enquanto isso, use o botão “Abrir no WhatsApp Web” ao lado — funciona sem o servidor.
+              </p>
             </div>
           )}
+
           <div className="flex items-center justify-between gap-2">
             <div>
               <p className="text-xs text-muted-foreground uppercase font-bold">Status</p>
