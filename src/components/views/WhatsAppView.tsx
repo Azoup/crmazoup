@@ -75,8 +75,11 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
       const accessToken = await getWhatsAppAccessToken();
       const data = await whatsappGatewayFetch<WhatsAppGatewayStatus>('/api/whatsapp/status', accessToken);
       setStatus(data);
+      setOffline(false);
+      failures.current = 0;
     } catch (e) {
-      console.error(e);
+      failures.current += 1;
+      if (failures.current >= 3) setOffline(true);
       setStatus({
         status: 'disconnected',
         qrDataUrl: null,
@@ -96,9 +99,25 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
     if (!data.qrDataUrl && data.status !== 'connected') {
       toast({
         title: 'QR ainda não disponível',
-        description: data.error || 'Aguarde alguns segundos ou veja o terminal do gateway.',
+        description: data.error || 'Aguarde alguns segundos e tente novamente.',
       });
     }
+  };
+
+  const handleRetry = async () => {
+    setLoading(true);
+    const ping = await pingWhatsAppGateway();
+    if (ping.ok) {
+      failures.current = 0;
+      setOffline(false);
+      await refreshStatus();
+      toast({ title: 'Gateway online', description: 'Conexão restabelecida.' });
+    } else {
+      setOffline(true);
+      setStatus({ status: 'disconnected', qrDataUrl: null, phone: null, error: ping.detail });
+      toast({ title: 'Servidor do WhatsApp offline', description: ping.detail, variant: 'destructive' });
+    }
+    setLoading(false);
   };
 
   const handleResetQr = async () => {
@@ -109,7 +128,6 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
 
       let data: WhatsAppGatewayStatus;
       try {
-        // Preferido: funciona no gateway atualizado sem depender de POST /reset
         data = await whatsappGatewayFetch<WhatsAppGatewayStatus>(
           '/api/whatsapp/status?reset=1',
           accessToken,
@@ -117,7 +135,6 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
       } catch (e) {
         const msg = e instanceof Error ? e.message : '';
         if (!msg.includes('404')) throw e;
-        // Gateway muito antigo: logout limpa sessão e status recria o socket
         await whatsappGatewayFetch('/api/whatsapp/logout', accessToken, {
           method: 'POST',
           body: '{}',
@@ -125,46 +142,47 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
         data = await whatsappGatewayFetch<WhatsAppGatewayStatus>('/api/whatsapp/status', accessToken);
       }
 
+      failures.current = 0;
+      setOffline(false);
       applyGatewayStatus(data);
     } catch (e) {
-      toast({
-        title: 'Erro ao gerar QR',
-        description:
-          e instanceof Error
-            ? e.message
-            : 'Reinicie o gateway: cd whatsapp-gateway && npm start',
-        variant: 'destructive',
-      });
+      const description = e instanceof Error ? e.message : 'Servidor do WhatsApp indisponível.';
+      failures.current += 1;
+      if (failures.current >= 2) setOffline(true);
+      setStatus({ status: 'disconnected', qrDataUrl: null, phone: null, error: description });
+      toast({ title: 'Erro ao gerar QR', description, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
 
+  // Polling com backoff: para de tentar quando o gateway está fora do ar
   useEffect(() => {
-    if (!configured || !session || gatewayBlock) return;
+    if (!configured || !session || gatewayBlock || offline) return;
     let cancelled = false;
     const tick = async () => {
       if (cancelled) return;
       await refreshStatus();
     };
     void tick();
-    const ms = status?.status === 'connected' ? 12000 : 1500;
+    const ms = status?.status === 'connected' ? 15000 : 4000;
     const id = window.setInterval(tick, ms);
     return () => {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [configured, session, gatewayBlock, refreshStatus, status?.status]);
+  }, [configured, session, gatewayBlock, offline, refreshStatus, status?.status]);
 
   useEffect(() => {
-    if (didAutoReset.current || gatewayBlock || !configured || !session) return;
+    if (didAutoReset.current || gatewayBlock || !configured || !session || offline) return;
     if (status?.qrDataUrl || status?.status === 'connected' || status?.status === 'qr') return;
-    if (status?.error?.includes('401') || status?.error?.includes('Sessão')) return;
-    if (status?.status === 'disconnected' && !status?.qrDataUrl) {
+    if (status?.error) return;
+    if (status?.status === 'disconnected') {
       didAutoReset.current = true;
       void handleResetQr();
     }
-  }, [status, gatewayBlock, configured, session]);
+  }, [status, gatewayBlock, configured, session, offline]);
+
 
   const handleLogout = async () => {
     if (!session) return;
