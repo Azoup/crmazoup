@@ -40,11 +40,14 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
   const [sending, setSending] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string>('');
   const [message, setMessage] = useState('');
+  const [offline, setOffline] = useState(false);
 
   const configured = isWhatsAppGatewayConfigured();
   const gatewayBlock = getWhatsAppGatewayBlockReason();
   const token = session?.access_token;
   const didAutoReset = useRef(false);
+  const failures = useRef(0);
+
 
   const leadsWithPhone = useMemo(
     () =>
