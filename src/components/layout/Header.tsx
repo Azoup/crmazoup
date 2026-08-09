@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
+import { UserAvatar } from '@/components/ui/user-avatar';
 
 interface Notification {
   id: string;
