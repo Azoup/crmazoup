@@ -192,13 +192,12 @@ export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncA
               <p className="text-sm font-semibold leading-none">{profile?.name.split(' ')[0]}</p>
               <p className="text-[11px] text-primary-foreground/60 mt-0.5">{profile?.role}</p>
             </div>
-            {profile?.avatar ? (
-              <img src={profile.avatar} alt="Perfil" className="w-10 h-10 rounded-full border-2 border-primary-foreground/30 shadow-md object-cover" />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-primary-foreground/15 flex items-center justify-center">
-                <UserCircle size={24} className="text-primary-foreground/80" />
-              </div>
-            )}
+            <UserAvatar
+              url={profile?.avatar}
+              name={profile?.name}
+              className="w-10 h-10 border-2 border-primary-foreground/30"
+              fallbackClassName="bg-primary-foreground/15 text-primary-foreground"
+            />
           </button>
         </div>
       </div>
