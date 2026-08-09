@@ -108,10 +108,10 @@ export function ImageUpload({
   return (
     <div className="flex flex-col items-center gap-3">
       <div className="relative w-24 h-24 rounded-full overflow-hidden bg-muted border-2 border-border">
-        {preview ? (
+        {displayUrl ? (
           <>
             <img 
-              src={preview} 
+              src={displayUrl} 
               alt="Preview" 
               className="w-full h-full object-cover"
             />
