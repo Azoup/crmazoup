@@ -23,7 +23,12 @@ export function ImageUpload({
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(currentImage);
+  const displayUrl = useResolvedAvatar(preview, bucket);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setPreview(currentImage);
+  }, [currentImage]);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
