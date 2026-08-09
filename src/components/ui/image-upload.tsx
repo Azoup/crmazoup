@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Upload, Loader2, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useResolvedAvatar } from '@/components/ui/user-avatar';
 
 interface ImageUploadProps {
   currentImage: string | null;
@@ -22,7 +23,12 @@ export function ImageUpload({
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(currentImage);
+  const displayUrl = useResolvedAvatar(preview, bucket);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setPreview(currentImage);
+  }, [currentImage]);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -102,10 +108,10 @@ export function ImageUpload({
   return (
     <div className="flex flex-col items-center gap-3">
       <div className="relative w-24 h-24 rounded-full overflow-hidden bg-muted border-2 border-border">
-        {preview ? (
+        {displayUrl ? (
           <>
             <img 
-              src={preview} 
+              src={displayUrl} 
               alt="Preview" 
               className="w-full h-full object-cover"
             />

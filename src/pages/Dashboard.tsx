@@ -234,6 +234,8 @@ export function Dashboard() {
         leads={leads}
         onSyncActiveCampaign={handleSyncAC}
         syncing={syncing}
+        salesGoal={settings?.sales_goal || 50000}
+        percentGoal={percentGoal}
       />
 
 

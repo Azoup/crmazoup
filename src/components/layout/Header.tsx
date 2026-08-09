@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
+import { UserAvatar } from '@/components/ui/user-avatar';
 
 interface Notification {
   id: string;
@@ -25,9 +26,11 @@ interface HeaderProps {
   leads: Lead[];
   onSyncActiveCampaign?: () => Promise<void>;
   syncing?: boolean;
+  salesGoal?: number;
+  percentGoal?: number;
 }
 
-export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncActiveCampaign, syncing }: HeaderProps) {
+export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncActiveCampaign, syncing, salesGoal, percentGoal }: HeaderProps) {
   const { profile } = useAuth();
   const { darkMode, toggleDarkMode, colorTheme, setColorTheme } = useTheme();
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -158,6 +161,27 @@ export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncA
             </Button>
           )}
 
+          {/* Meta de vendas sempre visível */}
+          {typeof salesGoal === 'number' && salesGoal > 0 && (
+            <button
+              onClick={() => setView('vendas')}
+              title="Meta de vendas (implantação) — clique para ver detalhes"
+              className="hidden xl:flex flex-col items-start gap-1 px-3 py-1.5 rounded-xl bg-primary-foreground/10 hover:bg-primary-foreground/20 transition hover-scale"
+            >
+              <span className="text-[10px] font-bold uppercase tracking-wider text-primary-foreground/70 leading-none">
+                Meta {(percentGoal ?? 0).toFixed(0)}%
+              </span>
+              <span className="w-24 h-1.5 rounded-full bg-primary-foreground/20 overflow-hidden">
+                <span
+                  className="block h-full rounded-full bg-primary-foreground transition-all duration-700"
+                  style={{ width: `${Math.min(100, Math.max(2, percentGoal ?? 0))}%` }}
+                />
+              </span>
+            </button>
+          )}
+
+
+
           {newLeadsCount > 0 && (
             <div className="bg-purple-500 text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 animate-pulse shadow-md">
               <Sparkles size={12} />
@@ -192,13 +216,12 @@ export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncA
               <p className="text-sm font-semibold leading-none">{profile?.name.split(' ')[0]}</p>
               <p className="text-[11px] text-primary-foreground/60 mt-0.5">{profile?.role}</p>
             </div>
-            {profile?.avatar ? (
-              <img src={profile.avatar} alt="Perfil" className="w-10 h-10 rounded-full border-2 border-primary-foreground/30 shadow-md object-cover" />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-primary-foreground/15 flex items-center justify-center">
-                <UserCircle size={24} className="text-primary-foreground/80" />
-              </div>
-            )}
+            <UserAvatar
+              url={profile?.avatar}
+              name={profile?.name}
+              className="w-10 h-10 border-2 border-primary-foreground/30"
+              fallbackClassName="bg-primary-foreground/15 text-primary-foreground"
+            />
           </button>
         </div>
       </div>

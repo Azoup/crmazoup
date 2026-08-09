@@ -148,3 +148,45 @@
     transform: translateY(-1px);
   }
 }
+
+/* Micro-interações e animações utilitárias */
+@layer utilities {
+  .hover-scale {
+    @apply transition-transform duration-200;
+  }
+  .hover-scale:hover {
+    transform: scale(1.04);
+  }
+
+  .hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px -12px hsl(var(--primary) / 0.35);
+  }
+
+  .story-link {
+    @apply relative inline-block;
+  }
+  .story-link::after {
+    content: '';
+    @apply absolute w-full h-0.5 bottom-0 left-0 bg-primary origin-bottom-right transition-transform duration-300;
+    transform: scaleX(0);
+  }
+  .story-link:hover::after {
+    transform: scaleX(1);
+    transform-origin: bottom left;
+  }
+
+  .shimmer-bg {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 0%,
+      hsl(var(--muted-foreground) / 0.12) 50%,
+      hsl(var(--muted)) 100%
+    );
+    background-size: 200% 100%;
+    @apply animate-shimmer;
+  }
+}
