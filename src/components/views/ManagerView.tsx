@@ -386,13 +386,7 @@ export function ManagerView({ leads, getLeadStatus: externalGetLeadStatus, perce
                       <CollapsibleTrigger className="w-full">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            {sdr.avatar ? (
-                              <img src={sdr.avatar} alt={sdr.name} className="w-10 h-10 rounded-full object-cover" />
-                            ) : (
-                              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                                <Users size={20} className="text-primary" />
-                              </div>
-                            )}
+                            <UserAvatar url={sdr.avatar} name={sdr.name} className="w-10 h-10" />
                             <div className="text-left">
                               <p className="font-medium text-foreground">{sdr.name}</p>
                               <p className="text-xs text-muted-foreground">
