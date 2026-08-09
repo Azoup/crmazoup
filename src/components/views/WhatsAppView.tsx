@@ -17,9 +17,11 @@ import {
   getWhatsAppAccessToken,
   getWhatsAppGatewayBlockReason,
   isWhatsAppGatewayConfigured,
+  pingWhatsAppGateway,
   whatsappGatewayFetch,
   type WhatsAppGatewayStatus,
 } from '@/lib/whatsappGateway';
+
 import { Loader2, LogOut, Send, Smartphone } from 'lucide-react';
 
 interface WhatsAppViewProps {
