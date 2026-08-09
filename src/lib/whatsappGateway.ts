@@ -57,6 +57,28 @@ export async function getWhatsAppAccessToken(): Promise<string> {
   return token;
 }
 
+/** Testa se o gateway está no ar (sem autenticação). */
+export async function pingWhatsAppGateway(): Promise<{ ok: boolean; detail: string }> {
+  const root = baseUrl();
+  if (!root) return { ok: false, detail: 'Gateway não configurado (VITE_WHATSAPP_GATEWAY_URL).' };
+  try {
+    const r = await fetch(`${root}/health`, { method: 'GET' });
+    if (r.ok) return { ok: true, detail: 'Gateway online.' };
+    if (r.status === 502 || r.status === 503 || r.status === 504) {
+      return {
+        ok: false,
+        detail: `O servidor do WhatsApp (${root}) está fora do ar (HTTP ${r.status}). Reinicie/redeploy o serviço na hospedagem (Railway) — o CRM volta a conectar sozinho.`,
+      };
+    }
+    return { ok: false, detail: `Gateway respondeu HTTP ${r.status}.` };
+  } catch {
+    return {
+      ok: false,
+      detail: `Sem resposta de ${root}. O servidor do WhatsApp está desligado ou sem deploy ativo. Suba o serviço (Railway) ou rode localmente: cd whatsapp-gateway && npm start.`,
+    };
+  }
+}
+
 export async function whatsappGatewayFetch<T>(
   path: string,
   accessToken: string,
@@ -80,9 +102,8 @@ export async function whatsappGatewayFetch<T>(
   try {
     r = await fetch(`${root}${path}`, { ...init, headers });
   } catch {
-    throw new Error(
-      'Não foi possível conectar ao gateway. Rode em outro terminal: cd whatsapp-gateway && npm start',
-    );
+    const ping = await pingWhatsAppGateway();
+    throw new Error(ping.detail);
   }
 
   const data = (await r.json().catch(() => ({}))) as T & { error?: string; detail?: string };
@@ -90,21 +111,23 @@ export async function whatsappGatewayFetch<T>(
     if (r.status === 401) {
       throw new Error(
         'Sessão inválida ou expirada. Saia do CRM, entre de novo e clique em "Gerar QR Code". ' +
-          'Confira se o Railway tem VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY (iguais ao CRM).',
+          'Confira se o servidor tem VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY (iguais ao CRM).',
       );
     }
-    if (r.status === 503) {
-      throw new Error((data as { error?: string }).error || 'Gateway sem VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY.');
+    if (r.status === 502 || r.status === 503 || r.status === 504) {
+      const ping = await pingWhatsAppGateway();
+      throw new Error(ping.detail);
     }
     if (r.status === 404) {
       throw new Error(
-        'HTTP 404 — reinicie o gateway: cd whatsapp-gateway && npm start (health deve mostrar version: 2).',
+        'HTTP 404 — o servidor do WhatsApp está desatualizado. Faça o redeploy do gateway (health deve mostrar version: 2).',
       );
     }
     throw new Error((data as { error?: string }).error || `HTTP ${r.status}`);
   }
   return data as T;
 }
+
 
 export type WhatsAppGatewayStatus = {
   status: 'disconnected' | 'connecting' | 'qr' | 'connected';
