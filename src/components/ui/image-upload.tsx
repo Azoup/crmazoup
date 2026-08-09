@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Upload, Loader2, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useResolvedAvatar } from '@/components/ui/user-avatar';
 
 interface ImageUploadProps {
   currentImage: string | null;
