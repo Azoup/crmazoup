@@ -26,9 +26,11 @@ interface HeaderProps {
   leads: Lead[];
   onSyncActiveCampaign?: () => Promise<void>;
   syncing?: boolean;
+  salesGoal?: number;
+  percentGoal?: number;
 }
 
-export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncActiveCampaign, syncing }: HeaderProps) {
+export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncActiveCampaign, syncing, salesGoal, percentGoal }: HeaderProps) {
   const { profile } = useAuth();
   const { darkMode, toggleDarkMode, colorTheme, setColorTheme } = useTheme();
   const [notifications, setNotifications] = useState<Notification[]>([]);
