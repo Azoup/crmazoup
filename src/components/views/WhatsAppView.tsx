@@ -22,7 +22,7 @@ import {
   type WhatsAppGatewayStatus,
 } from '@/lib/whatsappGateway';
 
-import { Loader2, LogOut, Send, Smartphone } from 'lucide-react';
+import { ExternalLink, Loader2, LogOut, RefreshCw, Send, Smartphone } from 'lucide-react';
 
 interface WhatsAppViewProps {
   leads: Lead[];
