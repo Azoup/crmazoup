@@ -159,6 +159,27 @@ export function Header({ view, setView, isManager, onProfileOpen, leads, onSyncA
             </Button>
           )}
 
+          {/* Meta de vendas sempre visível */}
+          {typeof salesGoal === 'number' && salesGoal > 0 && (
+            <button
+              onClick={() => setView('vendas')}
+              title="Meta de vendas (implantação) — clique para ver detalhes"
+              className="hidden sm:flex flex-col items-start gap-1 px-3 py-1.5 rounded-xl bg-primary-foreground/10 hover:bg-primary-foreground/20 transition hover-scale"
+            >
+              <span className="text-[10px] font-bold uppercase tracking-wider text-primary-foreground/70 leading-none">
+                Meta {(percentGoal ?? 0).toFixed(0)}%
+              </span>
+              <span className="w-24 h-1.5 rounded-full bg-primary-foreground/20 overflow-hidden">
+                <span
+                  className="block h-full rounded-full bg-primary-foreground transition-all duration-700"
+                  style={{ width: `${Math.min(100, Math.max(2, percentGoal ?? 0))}%` }}
+                />
+              </span>
+            </button>
+          )}
+
+
+
           {newLeadsCount > 0 && (
             <div className="bg-purple-500 text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 animate-pulse shadow-md">
               <Sparkles size={12} />
