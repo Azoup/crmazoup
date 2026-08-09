@@ -397,9 +397,30 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
             {sending ? <Loader2 className="size-4 animate-spin mr-2" /> : <Send className="size-4 mr-2" />}
             Enviar pelo WhatsApp
           </Button>
+          <Button
+            variant="outline"
+            className="w-full"
+            disabled={!selectedLead}
+            onClick={() => {
+              if (!selectedLead) return;
+              const d = digitsPhone(selectedLead.whatsapp);
+              const full = d.startsWith('55') ? d : `55${d}`;
+              window.open(
+                `https://wa.me/${full}${message.trim() ? `?text=${encodeURIComponent(message.trim())}` : ''}`,
+                '_blank',
+                'noopener',
+              );
+            }}
+          >
+            <ExternalLink className="size-4 mr-2" />
+            Abrir no WhatsApp Web
+          </Button>
           {status?.status !== 'connected' && (
-            <p className="text-xs text-muted-foreground">Conecte o WhatsApp ao lado para habilitar o envio.</p>
+            <p className="text-xs text-muted-foreground">
+              Envio automático precisa do servidor conectado. O botão acima abre a conversa direto no WhatsApp Web.
+            </p>
           )}
+
         </CardContent>
       </Card>
     </div>
