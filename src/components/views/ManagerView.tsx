@@ -18,6 +18,7 @@ import { ProposalModal } from '@/components/modals/ProposalModal';
 import { ManualQuoteModal } from '@/components/modals/ManualQuoteModal';
 import { ProductsManager } from '@/components/manager/ProductsManager';
 import { Package } from 'lucide-react';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import {
   Dialog,
   DialogContent,
