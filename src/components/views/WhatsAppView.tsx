@@ -17,10 +17,12 @@ import {
   getWhatsAppAccessToken,
   getWhatsAppGatewayBlockReason,
   isWhatsAppGatewayConfigured,
+  pingWhatsAppGateway,
   whatsappGatewayFetch,
   type WhatsAppGatewayStatus,
 } from '@/lib/whatsappGateway';
-import { Loader2, LogOut, Send, Smartphone } from 'lucide-react';
+
+import { ExternalLink, Loader2, LogOut, RefreshCw, Send, Smartphone } from 'lucide-react';
 
 interface WhatsAppViewProps {
   leads: Lead[];
@@ -38,11 +40,14 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
   const [sending, setSending] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string>('');
   const [message, setMessage] = useState('');
+  const [offline, setOffline] = useState(false);
 
   const configured = isWhatsAppGatewayConfigured();
   const gatewayBlock = getWhatsAppGatewayBlockReason();
   const token = session?.access_token;
   const didAutoReset = useRef(false);
+  const failures = useRef(0);
+
 
   const leadsWithPhone = useMemo(
     () =>
@@ -75,8 +80,11 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
       const accessToken = await getWhatsAppAccessToken();
       const data = await whatsappGatewayFetch<WhatsAppGatewayStatus>('/api/whatsapp/status', accessToken);
       setStatus(data);
+      setOffline(false);
+      failures.current = 0;
     } catch (e) {
-      console.error(e);
+      failures.current += 1;
+      if (failures.current >= 3) setOffline(true);
       setStatus({
         status: 'disconnected',
         qrDataUrl: null,
@@ -96,9 +104,25 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
     if (!data.qrDataUrl && data.status !== 'connected') {
       toast({
         title: 'QR ainda não disponível',
-        description: data.error || 'Aguarde alguns segundos ou veja o terminal do gateway.',
+        description: data.error || 'Aguarde alguns segundos e tente novamente.',
       });
     }
+  };
+
+  const handleRetry = async () => {
+    setLoading(true);
+    const ping = await pingWhatsAppGateway();
+    if (ping.ok) {
+      failures.current = 0;
+      setOffline(false);
+      await refreshStatus();
+      toast({ title: 'Gateway online', description: 'Conexão restabelecida.' });
+    } else {
+      setOffline(true);
+      setStatus({ status: 'disconnected', qrDataUrl: null, phone: null, error: ping.detail });
+      toast({ title: 'Servidor do WhatsApp offline', description: ping.detail, variant: 'destructive' });
+    }
+    setLoading(false);
   };
 
   const handleResetQr = async () => {
@@ -109,7 +133,6 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
 
       let data: WhatsAppGatewayStatus;
       try {
-        // Preferido: funciona no gateway atualizado sem depender de POST /reset
         data = await whatsappGatewayFetch<WhatsAppGatewayStatus>(
           '/api/whatsapp/status?reset=1',
           accessToken,
@@ -117,7 +140,6 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
       } catch (e) {
         const msg = e instanceof Error ? e.message : '';
         if (!msg.includes('404')) throw e;
-        // Gateway muito antigo: logout limpa sessão e status recria o socket
         await whatsappGatewayFetch('/api/whatsapp/logout', accessToken, {
           method: 'POST',
           body: '{}',
@@ -125,46 +147,47 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
         data = await whatsappGatewayFetch<WhatsAppGatewayStatus>('/api/whatsapp/status', accessToken);
       }
 
+      failures.current = 0;
+      setOffline(false);
       applyGatewayStatus(data);
     } catch (e) {
-      toast({
-        title: 'Erro ao gerar QR',
-        description:
-          e instanceof Error
-            ? e.message
-            : 'Reinicie o gateway: cd whatsapp-gateway && npm start',
-        variant: 'destructive',
-      });
+      const description = e instanceof Error ? e.message : 'Servidor do WhatsApp indisponível.';
+      failures.current += 1;
+      if (failures.current >= 2) setOffline(true);
+      setStatus({ status: 'disconnected', qrDataUrl: null, phone: null, error: description });
+      toast({ title: 'Erro ao gerar QR', description, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
 
+  // Polling com backoff: para de tentar quando o gateway está fora do ar
   useEffect(() => {
-    if (!configured || !session || gatewayBlock) return;
+    if (!configured || !session || gatewayBlock || offline) return;
     let cancelled = false;
     const tick = async () => {
       if (cancelled) return;
       await refreshStatus();
     };
     void tick();
-    const ms = status?.status === 'connected' ? 12000 : 1500;
+    const ms = status?.status === 'connected' ? 15000 : 4000;
     const id = window.setInterval(tick, ms);
     return () => {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [configured, session, gatewayBlock, refreshStatus, status?.status]);
+  }, [configured, session, gatewayBlock, offline, refreshStatus, status?.status]);
 
   useEffect(() => {
-    if (didAutoReset.current || gatewayBlock || !configured || !session) return;
+    if (didAutoReset.current || gatewayBlock || !configured || !session || offline) return;
     if (status?.qrDataUrl || status?.status === 'connected' || status?.status === 'qr') return;
-    if (status?.error?.includes('401') || status?.error?.includes('Sessão')) return;
-    if (status?.status === 'disconnected' && !status?.qrDataUrl) {
+    if (status?.error) return;
+    if (status?.status === 'disconnected') {
       didAutoReset.current = true;
       void handleResetQr();
     }
-  }, [status, gatewayBlock, configured, session]);
+  }, [status, gatewayBlock, configured, session, offline]);
+
 
   const handleLogout = async () => {
     if (!session) return;
@@ -272,11 +295,21 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           {(gatewayBlock || status?.error) && (
-            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive space-y-1">
-              <p className="font-semibold">Não foi possível conectar ao gateway</p>
+            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive space-y-2">
+              <p className="font-semibold">
+                {offline ? 'Servidor do WhatsApp offline' : 'Não foi possível conectar ao gateway'}
+              </p>
               <p>{gatewayBlock || status?.error}</p>
+              <Button size="sm" variant="outline" onClick={handleRetry} disabled={loading}>
+                {loading ? <Loader2 className="size-4 animate-spin mr-2" /> : <RefreshCw className="size-4 mr-2" />}
+                Testar conexão novamente
+              </Button>
+              <p className="opacity-80">
+                Enquanto isso, use o botão “Abrir no WhatsApp Web” ao lado — funciona sem o servidor.
+              </p>
             </div>
           )}
+
           <div className="flex items-center justify-between gap-2">
             <div>
               <p className="text-xs text-muted-foreground uppercase font-bold">Status</p>
@@ -364,9 +397,30 @@ export function WhatsAppView({ leads }: WhatsAppViewProps) {
             {sending ? <Loader2 className="size-4 animate-spin mr-2" /> : <Send className="size-4 mr-2" />}
             Enviar pelo WhatsApp
           </Button>
+          <Button
+            variant="outline"
+            className="w-full"
+            disabled={!selectedLead}
+            onClick={() => {
+              if (!selectedLead) return;
+              const d = digitsPhone(selectedLead.whatsapp);
+              const full = d.startsWith('55') ? d : `55${d}`;
+              window.open(
+                `https://wa.me/${full}${message.trim() ? `?text=${encodeURIComponent(message.trim())}` : ''}`,
+                '_blank',
+                'noopener',
+              );
+            }}
+          >
+            <ExternalLink className="size-4 mr-2" />
+            Abrir no WhatsApp Web
+          </Button>
           {status?.status !== 'connected' && (
-            <p className="text-xs text-muted-foreground">Conecte o WhatsApp ao lado para habilitar o envio.</p>
+            <p className="text-xs text-muted-foreground">
+              Envio automático precisa do servidor conectado. O botão acima abre a conversa direto no WhatsApp Web.
+            </p>
           )}
+
         </CardContent>
       </Card>
     </div>
