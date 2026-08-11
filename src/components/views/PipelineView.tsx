@@ -61,7 +61,12 @@ export function PipelineView({
   const [sortKey, setSortKey] = useState<PipelineSortKey>('recent');
   const [templatesLead, setTemplatesLead] = useState<Lead | null>(null);
   const [manageTemplates, setManageTemplates] = useState(false);
+  const [bulkWhats, setBulkWhats] = useState(false);
+  const [bulkDiscard, setBulkDiscard] = useState(false);
   const { selectedIds, toggleSelect, clearSelection, deleteSelected, deleting, hasSelection, selectionCount } = useBulkDelete();
+
+  const selectedLeads = leads.filter(l => selectedIds.has(l.id));
+
 
   
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
@@ -151,17 +156,37 @@ export function PipelineView({
             {selectMode ? 'Cancelar' : 'Selecionar'}
           </Button>
           {selectMode && hasSelection && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={deleteSelected}
-              disabled={deleting}
-              className="gap-1.5 h-8 text-xs"
-            >
-              <Trash2 size={13} />
-              Excluir {selectionCount}
-            </Button>
+            <>
+              <Button
+                size="sm"
+                onClick={() => setBulkWhats(true)}
+                className="gap-1.5 h-8 text-xs bg-success text-success-foreground hover:bg-success/90"
+              >
+                <MessageCircle size={13} />
+                Mensagem {selectionCount}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setBulkDiscard(true)}
+                className="gap-1.5 h-8 text-xs"
+              >
+                <Ban size={13} />
+                Descartar {selectionCount}
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={deleteSelected}
+                disabled={deleting}
+                className="gap-1.5 h-8 text-xs"
+              >
+                <Trash2 size={13} />
+                Excluir {selectionCount}
+              </Button>
+            </>
           )}
+
           <PipelineSortMenu value={sortKey} onChange={setSortKey} />
           <Button
             variant="outline"
