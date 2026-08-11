@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Lead, LeadStage, LeadHistory, MeetingStatus, STAGE_COLORS } from '@/types/lead';
 import { LeadCard } from '@/components/leads/LeadCard';
 import { formatCurrency, cleanPhoneNumber } from '@/lib/utils';
-import { DollarSign, Trash2, CheckSquare, XCircle, Sparkles } from 'lucide-react';
+import { DollarSign, Trash2, CheckSquare, XCircle, Sparkles, MessageCircle, Ban } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCelebration } from '@/hooks/useCelebration';
 import { useBulkDelete } from '@/hooks/useBulkDelete';
@@ -11,6 +11,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { PipelineSortMenu, sortLeads, PipelineSortKey } from '@/components/leads/PipelineSortMenu';
 import { calculateLeadScore } from '@/lib/leadScore';
 import { MessageTemplatesModal } from '@/components/modals/MessageTemplatesModal';
+import { BulkWhatsAppModal } from '@/components/modals/BulkWhatsAppModal';
+import { BulkDiscardModal } from '@/components/modals/BulkDiscardModal';
 
 
 interface PipelineViewProps {
@@ -59,7 +61,12 @@ export function PipelineView({
   const [sortKey, setSortKey] = useState<PipelineSortKey>('recent');
   const [templatesLead, setTemplatesLead] = useState<Lead | null>(null);
   const [manageTemplates, setManageTemplates] = useState(false);
+  const [bulkWhats, setBulkWhats] = useState(false);
+  const [bulkDiscard, setBulkDiscard] = useState(false);
   const { selectedIds, toggleSelect, clearSelection, deleteSelected, deleting, hasSelection, selectionCount } = useBulkDelete();
+
+  const selectedLeads = leads.filter(l => selectedIds.has(l.id));
+
 
   
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
@@ -149,17 +156,37 @@ export function PipelineView({
             {selectMode ? 'Cancelar' : 'Selecionar'}
           </Button>
           {selectMode && hasSelection && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={deleteSelected}
-              disabled={deleting}
-              className="gap-1.5 h-8 text-xs"
-            >
-              <Trash2 size={13} />
-              Excluir {selectionCount}
-            </Button>
+            <>
+              <Button
+                size="sm"
+                onClick={() => setBulkWhats(true)}
+                className="gap-1.5 h-8 text-xs bg-success text-success-foreground hover:bg-success/90"
+              >
+                <MessageCircle size={13} />
+                Mensagem {selectionCount}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setBulkDiscard(true)}
+                className="gap-1.5 h-8 text-xs"
+              >
+                <Ban size={13} />
+                Descartar {selectionCount}
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={deleteSelected}
+                disabled={deleting}
+                className="gap-1.5 h-8 text-xs"
+              >
+                <Trash2 size={13} />
+                Excluir {selectionCount}
+              </Button>
+            </>
           )}
+
           <PipelineSortMenu value={sortKey} onChange={setSortKey} />
           <Button
             variant="outline"
@@ -253,6 +280,22 @@ export function PipelineView({
         })}
       </div>
 
+      {bulkWhats && (
+        <BulkWhatsAppModal
+          leads={selectedLeads}
+          addHistory={addHistory}
+          onClose={() => setBulkWhats(false)}
+        />
+      )}
+      {bulkDiscard && (
+        <BulkDiscardModal
+          leads={selectedLeads}
+          updateLead={updateLead}
+          addHistory={addHistory}
+          onDone={clearSelection}
+          onClose={() => setBulkDiscard(false)}
+        />
+      )}
       {templatesLead && (
         <MessageTemplatesModal
           mode="pick"
