@@ -11,6 +11,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { PipelineSortMenu, sortLeads, PipelineSortKey } from '@/components/leads/PipelineSortMenu';
 import { calculateLeadScore } from '@/lib/leadScore';
 import { MessageTemplatesModal } from '@/components/modals/MessageTemplatesModal';
+import { BulkWhatsAppModal } from '@/components/modals/BulkWhatsAppModal';
+import { BulkDiscardModal } from '@/components/modals/BulkDiscardModal';
 
 
 interface PipelineViewProps {
