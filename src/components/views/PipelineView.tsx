@@ -280,6 +280,22 @@ export function PipelineView({
         })}
       </div>
 
+      {bulkWhats && (
+        <BulkWhatsAppModal
+          leads={selectedLeads}
+          addHistory={addHistory}
+          onClose={() => setBulkWhats(false)}
+        />
+      )}
+      {bulkDiscard && (
+        <BulkDiscardModal
+          leads={selectedLeads}
+          updateLead={updateLead}
+          addHistory={addHistory}
+          onDone={clearSelection}
+          onClose={() => setBulkDiscard(false)}
+        />
+      )}
       {templatesLead && (
         <MessageTemplatesModal
           mode="pick"
