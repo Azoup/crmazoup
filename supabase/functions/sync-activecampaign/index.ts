@@ -457,9 +457,13 @@ async function fetchContactFieldValuesForIds(
   utmByContactId: Record<string, UtmFields>,
 ): Promise<void> {
   const unique = [...new Set(contactIds.map((id) => String(id)).filter(Boolean))];
-  const batchSize = 10;
+  const batchSize = AC_BATCH_SIZE;
 
   for (let i = 0; i < unique.length; i += batchSize) {
+    if (pastDeadline()) {
+      console.warn(`Deadline atingido: parando em ${i}/${unique.length} contatos`);
+      break;
+    }
     const batch = unique.slice(i, i + batchSize);
     await Promise.all(batch.map(async (id) => {
       try {
@@ -496,9 +500,13 @@ async function mergeContactDatumForIds(
   utmByContactId: Record<string, UtmFields>,
 ): Promise<void> {
   const unique = [...new Set(contactIds.map((id) => String(id)).filter(Boolean))];
-  const batchSize = 10;
+  const batchSize = AC_BATCH_SIZE;
 
   for (let i = 0; i < unique.length; i += batchSize) {
+    if (pastDeadline()) {
+      console.warn(`Deadline atingido: parando em ${i}/${unique.length} contatos`);
+      break;
+    }
     const batch = unique.slice(i, i + batchSize);
     await Promise.all(batch.map(async (id) => {
       try {
@@ -563,8 +571,12 @@ async function fetchContactTags(contacts: any[], acUrl: string, acApiKey: string
   const contactTags: Record<string, string[]> = {};
   const tagNameCache: Record<string, string> = {};
 
-  const batchSize = 10;
+  const batchSize = AC_BATCH_SIZE;
   for (let i = 0; i < contacts.length; i += batchSize) {
+    if (pastDeadline()) {
+      console.warn(`Deadline atingido: tags paradas em ${i}/${contacts.length}`);
+      break;
+    }
     const batch = contacts.slice(i, i + batchSize);
 
     await Promise.all(batch.map(async (contact: any) => {
@@ -622,9 +634,10 @@ async function fetchOrgNames(contacts: any[], acUrl: string, acApiKey: string): 
 
   console.log(`Fetching ${orgIds.size} organization names...`);
 
-  const batchSize = 10;
+  const batchSize = AC_BATCH_SIZE;
   const orgIdArray = Array.from(orgIds);
   for (let i = 0; i < orgIdArray.length; i += batchSize) {
+    if (pastDeadline()) break;
     const batch = orgIdArray.slice(i, i + batchSize);
     await Promise.all(batch.map(async (orgId) => {
       try {
@@ -653,6 +666,7 @@ serve(async (req) => {
 
   try {
     fieldUtmResolveCache.clear();
+    startSyncDeadline();
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
