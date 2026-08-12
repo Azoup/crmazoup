@@ -404,6 +404,18 @@ async function mergeFieldValuesIntoUtmMap(
   }
 }
 
+/** Deadline global do sync — evita IDLE_TIMEOUT (150s) da edge function. */
+let syncDeadline = 0;
+function startSyncDeadline(ms = 110_000) {
+  syncDeadline = Date.now() + ms;
+}
+function pastDeadline(): boolean {
+  return syncDeadline > 0 && Date.now() > syncDeadline;
+}
+
+/** Concorrência das chamadas por contato na AC. */
+const AC_BATCH_SIZE = 30;
+
 /** List contacts (date filter). Sideload fieldValues is unreliable — use fetchContactFieldValuesBatched. */
 async function fetchAllContacts(acUrl: string, acApiKey: string): Promise<any[]> {
   const allContacts: any[] = [];
