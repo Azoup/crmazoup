@@ -38,6 +38,10 @@ const SUPABASE_ANON_KEY =
   process.env.SUPABASE_ANON_KEY;
 const PORT = Number(process.env.PORT || 3847);
 
+if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
+  throw new Error(`PORT inválida: ${process.env.PORT}`);
+}
+
 function supabaseProjectRef() {
   try {
     const payload = SUPABASE_ANON_KEY?.split('.')[1];
@@ -271,7 +275,8 @@ app.use(cors());
 app.use(express.json({ limit: '64kb' }));
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, version: 3, uptime: Math.round(process.uptime()) });
+  res.set('Cache-Control', 'no-store');
+  res.json({ ok: true, version: 4, uptime: Math.round(process.uptime()) });
 });
 
 async function handleWhatsAppReset(userId, res) {
@@ -389,10 +394,15 @@ app.post('/api/whatsapp/send', authMiddleware, async (req, res) => {
   }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`WhatsApp gateway ouvindo na porta ${PORT}`);
   console.log(`Supabase: ${SUPABASE_URL || '(não definido)'} | ref: ${supabaseProjectRef()}`);
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     console.warn('AVISO: defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY (ou PUBLISHABLE_KEY) no Railway/.env');
   }
+});
+
+server.on('error', (error) => {
+  console.error('Falha fatal ao abrir a porta HTTP', error);
+  process.exit(1);
 });

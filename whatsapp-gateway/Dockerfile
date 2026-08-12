@@ -15,7 +15,6 @@ RUN npm ci --omit=dev --omit=optional
 COPY server.js ./
 
 ENV NODE_ENV=production
-ENV PORT=3847
 
 EXPOSE 3847
 
