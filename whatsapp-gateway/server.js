@@ -8,7 +8,6 @@ import express from 'express';
 import cors from 'cors';
 import QRCode from 'qrcode';
 import pino from 'pino';
-import makeWASocket, { DisconnectReason, useMultiFileAuthState } from '@whiskeysockets/baileys';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -18,6 +17,17 @@ const SESSIONS_ROOT = process.env.SESSIONS_PATH
   ? path.resolve(process.env.SESSIONS_PATH)
   : path.join(__dirname, 'sessions');
 const baileysLogger = pino({ level: 'silent' });
+let baileysPromise = null;
+
+async function loadBaileys() {
+  if (!baileysPromise) {
+    baileysPromise = import('@whiskeysockets/baileys').catch((error) => {
+      baileysPromise = null;
+      throw new Error(`Motor do WhatsApp não iniciou: ${error?.message || 'falha ao carregar Baileys'}`);
+    });
+  }
+  return baileysPromise;
+}
 
 // Mesmos nomes do .env do CRM (Railway / Vite) + aliases legados
 const SUPABASE_URL =
@@ -159,6 +169,7 @@ function createUserCtx(userId) {
         console.log(`[${userId}] WhatsApp conectado`, ctx.phone);
       } else if (connection === 'close') {
         const code = lastDisconnect?.error?.output?.statusCode;
+        const { DisconnectReason } = await loadBaileys();
         const loggedOut = code === DisconnectReason.loggedOut;
         const restartRequired = code === DisconnectReason.restartRequired;
         const badSession = loggedOut || restartRequired || code === 401 || code === 403;
@@ -195,6 +206,7 @@ function createUserCtx(userId) {
     ctx.lastError = null;
 
     ctx.initPromise = (async () => {
+      const { default: makeWASocket, useMultiFileAuthState } = await loadBaileys();
       const { state, saveCreds } = await useMultiFileAuthState(sessionDir(userId));
       const sock = makeWASocket({
         auth: state,
@@ -259,7 +271,7 @@ app.use(cors());
 app.use(express.json({ limit: '64kb' }));
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, version: 2 });
+  res.json({ ok: true, version: 3, uptime: Math.round(process.uptime()) });
 });
 
 async function handleWhatsAppReset(userId, res) {
