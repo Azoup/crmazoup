@@ -5,8 +5,10 @@
     "dockerfilePath": "Dockerfile.whatsapp-gateway"
   },
   "deploy": {
+    "startCommand": "node server.js",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300,
-    "restartPolicyType": "ALWAYS"
+    "restartPolicyType": "ALWAYS",
+    "restartPolicyMaxRetries": 10
   }
 }
