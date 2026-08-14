@@ -170,6 +170,15 @@ export function useLeads() {
     return () => clearInterval(interval);
   }, [user?.id, refetchLeads]);
 
+  // Atualização manual (ex.: após importar planilha)
+  useEffect(() => {
+    const handler = () => { refetchLeads(); };
+    window.addEventListener('leads:refresh', handler);
+    return () => window.removeEventListener('leads:refresh', handler);
+  }, [refetchLeads]);
+
+
+
 
   useEffect(() => {
     if (!user) {

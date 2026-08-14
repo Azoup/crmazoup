@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Lead, LeadStage, LeadHistory, MeetingStatus, STAGE_COLORS } from '@/types/lead';
 import { LeadCard } from '@/components/leads/LeadCard';
 import { formatCurrency, cleanPhoneNumber } from '@/lib/utils';
-import { DollarSign, Trash2, CheckSquare, XCircle, Sparkles, MessageCircle, Ban } from 'lucide-react';
+import { DollarSign, Trash2, CheckSquare, XCircle, Sparkles, MessageCircle, Ban, FileSpreadsheet } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCelebration } from '@/hooks/useCelebration';
 import { useBulkDelete } from '@/hooks/useBulkDelete';
@@ -13,6 +13,7 @@ import { calculateLeadScore } from '@/lib/leadScore';
 import { MessageTemplatesModal } from '@/components/modals/MessageTemplatesModal';
 import { BulkWhatsAppModal } from '@/components/modals/BulkWhatsAppModal';
 import { BulkDiscardModal } from '@/components/modals/BulkDiscardModal';
+import { ImportLeadsModal } from '@/components/modals/ImportLeadsModal';
 
 
 interface PipelineViewProps {
@@ -58,6 +59,7 @@ export function PipelineView({
   const { profile } = useAuth();
   const { celebrateMeeting, celebrateSale } = useCelebration();
   const [selectMode, setSelectMode] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [sortKey, setSortKey] = useState<PipelineSortKey>('recent');
   const [templatesLead, setTemplatesLead] = useState<Lead | null>(null);
   const [manageTemplates, setManageTemplates] = useState(false);
@@ -198,6 +200,16 @@ export function PipelineView({
             <Sparkles size={13} className="text-primary" />
             Templates
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setImportOpen(true)}
+            className="gap-1.5 h-8 text-xs hover-scale"
+            title="Importar leads de planilha (.xlsx)"
+          >
+            <FileSpreadsheet size={13} className="text-success" />
+            Importar planilha
+          </Button>
         </div>
         <div className="bg-card px-3 py-1.5 rounded-lg border border-border/50 shadow-sm text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
           <DollarSign size={12} className="text-success" /> 
@@ -280,6 +292,12 @@ export function PipelineView({
         })}
       </div>
 
+      {importOpen && (
+        <ImportLeadsModal
+          onClose={() => setImportOpen(false)}
+          onImported={() => window.dispatchEvent(new Event('leads:refresh'))}
+        />
+      )}
       {bulkWhats && (
         <BulkWhatsAppModal
           leads={selectedLeads}
