@@ -70,7 +70,7 @@ export function ImportLeadsModal({ onClose, onImported }: Props) {
       const phones = new Set((existing || []).map((l) => (l.whatsapp || '').replace(/\D/g, '')).filter(Boolean));
       const emails = new Set((existing || []).map((l) => (l.email || '').toLowerCase()).filter(Boolean));
 
-      const toInsert: Record<string, unknown>[] = [];
+      const toInsert: { user_id: string; name: string; [k: string]: unknown }[] = [];
       let skipped = 0;
       for (const r of parsed) {
         const p = r.whatsapp || '';
@@ -108,7 +108,7 @@ export function ImportLeadsModal({ onClose, onImported }: Props) {
       }
 
       if (toInsert.length > 0) {
-        const { error } = await supabase.from('leads').insert(toInsert);
+        const { error } = await supabase.from('leads').insert(toInsert as never);
         if (error) throw error;
       }
 
