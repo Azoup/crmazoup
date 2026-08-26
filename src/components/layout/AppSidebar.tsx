@@ -41,7 +41,7 @@ export function AppSidebar({ view, setView, isManager, collapsed, onToggle, onPr
       <aside
         className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-card border-r border-border transition-all duration-300 ease-out shadow-[4px_0_24px_rgba(0,0,0,0.06)] ${
           autoHide
-            ? 'w-[228px] -translate-x-[calc(100%-10px)] hover:translate-x-0'
+            ? 'w-[228px] -translate-x-[218px] hover:translate-x-0'
             : collapsed
             ? 'w-[68px] translate-x-0'
             : 'w-[228px] translate-x-0'
