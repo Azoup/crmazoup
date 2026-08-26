@@ -251,9 +251,13 @@ export function Dashboard() {
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed((c) => !c)}
         onProfileOpen={() => setIsProfileOpen(true)}
+        autoHide={sidebarAutoHide}
+        onToggleAutoHide={() => setSidebarAutoHide((a) => !a)}
       />
 
-      <div className={`transition-[padding] duration-200 ${sidebarCollapsed ? 'pl-[68px]' : 'pl-[228px]'}`}>
+      <div className={`transition-[padding] duration-300 ${
+        sidebarAutoHide ? 'pl-2' : sidebarCollapsed ? 'pl-[68px]' : 'pl-[228px]'
+      }`}>
         <TopBar
           title={meta.title}
           subtitle={meta.subtitle}
