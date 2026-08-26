@@ -61,6 +61,8 @@ export function Dashboard() {
   } = useLeads();
 
   const [view, setView] = useState<ViewType>('pipeline');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [currentLead, setCurrentLead] = useState<Lead | null>(null);
