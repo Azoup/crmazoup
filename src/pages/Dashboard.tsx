@@ -220,6 +220,19 @@ export function Dashboard() {
     );
   }
 
+  const VIEW_META: Record<string, { title: string; subtitle: string }> = {
+    pipeline: { title: 'Pipeline', subtitle: 'Acompanhe suas oportunidades e próximos passos.' },
+    prospeccao_ativa: { title: 'Prospecção Ativa', subtitle: 'Leads prospectados por você e importações de planilha.' },
+    indicacao: { title: 'Indicação', subtitle: 'Oportunidades vindas de indicações.' },
+    agenda: { title: 'Agenda', subtitle: 'Suas reuniões e compromissos da semana.' },
+    vendas: { title: 'Vendas', subtitle: 'Resultados, metas e valores fechados.' },
+    qualificacao: { title: 'Qualificação', subtitle: 'Qualidade dos leads e análise por DDD.' },
+    relatorios: { title: 'Relatórios', subtitle: 'Indicadores mensais e exportações.' },
+    whatsapp: { title: 'WhatsApp', subtitle: 'Conexão e disparos de mensagens.' },
+    gestor: { title: 'Gestor', subtitle: 'Visão consolidada do time comercial.' },
+  };
+  const meta = VIEW_META[view] || VIEW_META.pipeline;
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <CommandPalette
@@ -228,20 +241,33 @@ export function Dashboard() {
         onCreateLead={() => handleOpenNewLead('marketing')}
         onGoToReports={() => setView('relatorios')}
       />
-      <Header
+      <AppSidebar
         view={view}
         setView={setView}
         isManager={isManager}
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed((c) => !c)}
         onProfileOpen={() => setIsProfileOpen(true)}
-        leads={leads}
-        onSyncActiveCampaign={handleSyncAC}
-        syncing={syncing}
-        salesGoal={settings?.sales_goal || 50000}
-        percentGoal={percentGoal}
       />
 
+      <div className={`transition-[padding] duration-200 ${sidebarCollapsed ? 'pl-[68px]' : 'pl-[228px]'}`}>
+        <TopBar
+          title={meta.title}
+          subtitle={meta.subtitle}
+          leads={leads}
+          isManager={isManager}
+          onProfileOpen={() => setIsProfileOpen(true)}
+          onSyncActiveCampaign={handleSyncAC}
+          syncing={syncing}
+          salesGoal={settings?.sales_goal || 50000}
+          percentGoal={percentGoal}
+          onGoToSales={() => setView('vendas')}
+          search={filters.search}
+          onSearchChange={(value) => setFilters({ ...filters, search: value })}
+        />
 
       <main className="p-4 md:p-6">
+
         {(view === 'pipeline' || view === 'agenda') && (
           <FilterBar filters={filters} setFilters={setFilters} />
         )}
