@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Lead, LeadStage, LeadHistory, MeetingStatus, STAGE_COLORS } from '@/types/lead';
 import { LeadCard } from '@/components/leads/LeadCard';
 import { formatCurrency, cleanPhoneNumber } from '@/lib/utils';
-import { DollarSign, Trash2, CheckSquare, XCircle, Sparkles, MessageCircle, Ban, FileSpreadsheet } from 'lucide-react';
+import { DollarSign, Trash2, CheckSquare, XCircle, Sparkles, MessageCircle, Ban, Plus, TrendingUp, CalendarClock, Target } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCelebration } from '@/hooks/useCelebration';
 import { useBulkDelete } from '@/hooks/useBulkDelete';
@@ -13,7 +13,6 @@ import { calculateLeadScore } from '@/lib/leadScore';
 import { MessageTemplatesModal } from '@/components/modals/MessageTemplatesModal';
 import { BulkWhatsAppModal } from '@/components/modals/BulkWhatsAppModal';
 import { BulkDiscardModal } from '@/components/modals/BulkDiscardModal';
-import { ImportLeadsModal } from '@/components/modals/ImportLeadsModal';
 
 
 interface PipelineViewProps {
@@ -23,7 +22,9 @@ interface PipelineViewProps {
   updateLead: (leadId: string, updates: Partial<Lead>) => Promise<boolean>;
   addHistory: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
   msgTemplate: string;
+  onCreateLead?: () => void;
 }
+
 
 const COLUMNS: { id: LeadStage; title: string }[] = [
   { id: 'prospeccao', title: 'Prospecção' },
