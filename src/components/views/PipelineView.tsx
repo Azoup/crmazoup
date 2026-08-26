@@ -176,22 +176,24 @@ export function PipelineView({
   return (
     <div className="flex flex-col h-full">
       {/* KPIs */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
-        {kpis.map((kpi) => (
-          <div
-            key={kpi.label}
-            className="rounded-[14px] bg-card border border-border p-4 shadow-[0_1px_3px_rgba(16,24,40,0.04),0_1px_2px_rgba(16,24,40,0.03)] transition-colors hover:border-primary/30"
-          >
-            <div className="flex items-center gap-2.5">
-              <span className={`h-8 w-8 rounded-full grid place-items-center ${kpi.tone}`}>
-                <kpi.icon size={15} />
-              </span>
-              <span className="text-[12px] font-medium text-muted-foreground">{kpi.label}</span>
+      {showKpis && (
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
+          {kpis.map((kpi) => (
+            <div
+              key={kpi.label}
+              className="rounded-[14px] bg-card border border-border p-4 shadow-[0_1px_3px_rgba(16,24,40,0.04),0_1px_2px_rgba(16,24,40,0.03)] transition-colors hover:border-primary/30"
+            >
+              <div className="flex items-center gap-2.5">
+                <span className={`h-8 w-8 rounded-full grid place-items-center ${kpi.tone}`}>
+                  <kpi.icon size={15} />
+                </span>
+                <span className="text-[12px] font-medium text-muted-foreground">{kpi.label}</span>
+              </div>
+              <p className="mt-2.5 text-[23px] font-semibold tracking-tight text-foreground tabular-nums">{kpi.value}</p>
             </div>
-            <p className="mt-2.5 text-[23px] font-semibold tracking-tight text-foreground tabular-nums">{kpi.value}</p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Action bar */}
       <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
@@ -201,6 +203,16 @@ export function PipelineView({
               <Plus size={14} /> Nova oportunidade
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowKpis((s) => !s)}
+            className="gap-1.5 h-9 text-[13px] rounded-[10px]"
+            title={showKpis ? 'Ocultar KPIs' : 'Mostrar KPIs'}
+          >
+            {showKpis ? <EyeOff size={14} /> : <Eye size={14} />}
+            {showKpis ? 'Ocultar KPIs' : 'KPIs'}
+          </Button>
           <Button
             variant={selectMode ? 'default' : 'outline'}
             size="sm"
