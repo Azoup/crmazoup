@@ -62,6 +62,7 @@ export function Dashboard() {
 
   const [view, setView] = useState<ViewType>('pipeline');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarAutoHide, setSidebarAutoHide] = useState(false);
 
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
