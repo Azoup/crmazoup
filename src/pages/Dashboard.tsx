@@ -7,8 +7,10 @@ import { useProposalReminder } from '@/hooks/useProposalReminder';
 import { useMeetingAlert } from '@/hooks/useMeetingAlert';
 import { useReturnReminder } from '@/hooks/useReturnReminder';
 import { useNewSystemReminder } from '@/hooks/useNewSystemReminder';
-import { Header } from '@/components/layout/Header';
+import { AppSidebar } from '@/components/layout/AppSidebar';
+import { TopBar } from '@/components/layout/TopBar';
 import { FilterBar } from '@/components/layout/FilterBar';
+
 import { PipelineView } from '@/components/views/PipelineView';
 import { ManualPipelineView } from '@/components/views/ManualPipelineView';
 import { WeeklyAgendaView } from '@/components/views/WeeklyAgendaView';
