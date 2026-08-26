@@ -226,6 +226,17 @@ export function ManualPipelineView({
         })}
       </div>
 
+      {importOpen && (
+        <ImportLeadsModal
+          onClose={() => setImportOpen(false)}
+          onImported={() => window.dispatchEvent(new Event('leads:refresh'))}
+          stage="prospeccao"
+          temperature="frio"
+          leadSource="prospeccao_ativa"
+          stageLabel="Prospecção Ativa"
+        />
+      )}
     </div>
   );
 }
+
