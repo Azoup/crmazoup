@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { Lead, LeadStage, LeadHistory, LeadSource, STAGE_COLORS } from '@/types/lead';
 import { LeadCard } from '@/components/leads/LeadCard';
 import { formatCurrency, cleanPhoneNumber } from '@/lib/utils';
-import { DollarSign, Trash2, CheckSquare, XCircle, Plus } from 'lucide-react';
+import { DollarSign, Trash2, CheckSquare, XCircle, Plus, Upload } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCelebration } from '@/hooks/useCelebration';
 import { useBulkDelete } from '@/hooks/useBulkDelete';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ImportLeadsModal } from '@/components/modals/ImportLeadsModal';
+
 
 interface ManualPipelineViewProps {
   leads: Lead[];
