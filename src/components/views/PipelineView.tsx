@@ -63,6 +63,7 @@ export function PipelineView({
   const [selectMode, setSelectMode] = useState(false);
 
   const [sortKey, setSortKey] = useState<PipelineSortKey>('recent');
+  const [showKpis, setShowKpis] = useState(true);
   const [templatesLead, setTemplatesLead] = useState<Lead | null>(null);
   const [manageTemplates, setManageTemplates] = useState(false);
   const [bulkWhats, setBulkWhats] = useState(false);
