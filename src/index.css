@@ -49,10 +49,11 @@
     --stage-congelados: 190 90% 50%;
     --stage-perdidos: 0 72% 51%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
+    --border: 220 16% 93%;
+    --input: 220 16% 93%;
     --ring: 24 90% 50%;
-    --radius: 0.625rem;
+    --radius: 0.75rem;
+
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5% 26%;
