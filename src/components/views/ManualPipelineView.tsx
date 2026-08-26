@@ -139,12 +139,25 @@ export function ManualPipelineView({
             {selectMode ? <XCircle size={13} /> : <CheckSquare size={13} />}
             {selectMode ? 'Cancelar' : 'Selecionar'}
           </Button>
+          {source === 'prospeccao_ativa' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setImportOpen(true)}
+              className="gap-1.5 h-8 text-xs"
+              title="Importar leads de planilha (.xlsx) — entram como frio"
+            >
+              <Upload size={13} />
+              Importar planilha
+            </Button>
+          )}
           {selectMode && hasSelection && (
             <Button variant="destructive" size="sm" onClick={deleteSelected} disabled={deleting} className="gap-1.5 h-8 text-xs">
               <Trash2 size={13} /> Excluir {selectionCount}
             </Button>
           )}
         </div>
+
         <div className="bg-card px-3 py-1.5 rounded-lg border border-border/50 shadow-sm text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
           <DollarSign size={12} className="text-success" />
           <span className="hidden sm:inline">Oportunidades:</span>
