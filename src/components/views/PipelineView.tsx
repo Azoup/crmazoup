@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Lead, LeadStage, LeadHistory, MeetingStatus, STAGE_COLORS } from '@/types/lead';
 import { LeadCard } from '@/components/leads/LeadCard';
 import { formatCurrency, cleanPhoneNumber } from '@/lib/utils';
-import { DollarSign, Trash2, CheckSquare, XCircle, Sparkles, MessageCircle, Ban, Plus, TrendingUp, CalendarClock, Target } from 'lucide-react';
+import { DollarSign, Trash2, CheckSquare, XCircle, Sparkles, MessageCircle, Ban, Plus, TrendingUp, CalendarClock, Target, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCelebration } from '@/hooks/useCelebration';
 import { useBulkDelete } from '@/hooks/useBulkDelete';
