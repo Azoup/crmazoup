@@ -143,18 +143,68 @@ export function PipelineView({
     }
   };
 
+  const negotiations = leads.filter((l) => ['interesse', 'reuniao', 'proposta'].includes(l.stage)).length;
+  const todayStr = new Date().toDateString();
+  const meetingsToday = leads.filter(
+    (l) => l.meeting_date && new Date(l.meeting_date).toDateString() === todayStr,
+  ).length;
+  const closedWon = leads.filter((l) => l.stage === 'venda').length;
+  const closedLost = leads.filter((l) => ['perdidos'].includes(l.stage)).length;
+  const conversionBase = closedWon + closedLost;
+  const conversionRate = conversionBase > 0 ? (closedWon / conversionBase) * 100 : null;
+
+  const kpis = [
+    {
+      label: 'Oportunidades',
+      value: formatCurrency(totalPipelineValue),
+      icon: DollarSign,
+      tone: 'text-success bg-success/10',
+    },
+    { label: 'Negociações', value: String(negotiations), icon: TrendingUp, tone: 'text-info bg-info/10' },
+    { label: 'Reuniões hoje', value: String(meetingsToday), icon: CalendarClock, tone: 'text-stage-reuniao bg-stage-reuniao/10' },
+    {
+      label: 'Taxa de conversão',
+      value: conversionRate === null ? '—' : `${conversionRate.toFixed(0)}%`,
+      icon: Target,
+      tone: 'text-primary bg-primary/10',
+    },
+  ];
+
   return (
     <div className="flex flex-col h-full">
-      {/* Top bar */}
-      <div className="flex justify-between items-center mb-3 px-1">
-        <div className="flex items-center gap-2">
+      {/* KPIs */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
+        {kpis.map((kpi) => (
+          <div
+            key={kpi.label}
+            className="rounded-[14px] bg-card border border-border p-4 shadow-[0_1px_3px_rgba(16,24,40,0.04),0_1px_2px_rgba(16,24,40,0.03)] transition-colors hover:border-primary/30"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className={`h-8 w-8 rounded-full grid place-items-center ${kpi.tone}`}>
+                <kpi.icon size={15} />
+              </span>
+              <span className="text-[12px] font-medium text-muted-foreground">{kpi.label}</span>
+            </div>
+            <p className="mt-2.5 text-[23px] font-semibold tracking-tight text-foreground tabular-nums">{kpi.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Action bar */}
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+        <div className="flex items-center flex-wrap gap-2">
+          {onCreateLead && (
+            <Button size="sm" onClick={onCreateLead} className="gap-1.5 h-9 text-[13px] rounded-[10px]">
+              <Plus size={14} /> Nova oportunidade
+            </Button>
+          )}
           <Button
             variant={selectMode ? 'default' : 'outline'}
             size="sm"
             onClick={handleToggleSelectMode}
-            className="gap-1.5 h-8 text-xs"
+            className="gap-1.5 h-9 text-[13px] rounded-[10px]"
           >
-            {selectMode ? <XCircle size={13} /> : <CheckSquare size={13} />}
+            {selectMode ? <XCircle size={14} /> : <CheckSquare size={14} />}
             {selectMode ? 'Cancelar' : 'Selecionar'}
           </Button>
           {selectMode && hasSelection && (
@@ -162,18 +212,13 @@ export function PipelineView({
               <Button
                 size="sm"
                 onClick={() => setBulkWhats(true)}
-                className="gap-1.5 h-8 text-xs bg-success text-success-foreground hover:bg-success/90"
+                className="gap-1.5 h-9 text-[13px] rounded-[10px] bg-success text-success-foreground hover:bg-success/90"
               >
-                <MessageCircle size={13} />
+                <MessageCircle size={14} />
                 Mensagem {selectionCount}
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setBulkDiscard(true)}
-                className="gap-1.5 h-8 text-xs"
-              >
-                <Ban size={13} />
+              <Button variant="outline" size="sm" onClick={() => setBulkDiscard(true)} className="gap-1.5 h-9 text-[13px] rounded-[10px]">
+                <Ban size={14} />
                 Descartar {selectionCount}
               </Button>
               <Button
@@ -181,9 +226,9 @@ export function PipelineView({
                 size="sm"
                 onClick={deleteSelected}
                 disabled={deleting}
-                className="gap-1.5 h-8 text-xs"
+                className="gap-1.5 h-9 text-[13px] rounded-[10px]"
               >
-                <Trash2 size={13} />
+                <Trash2 size={14} />
                 Excluir {selectionCount}
               </Button>
             </>
@@ -194,32 +239,17 @@ export function PipelineView({
             variant="outline"
             size="sm"
             onClick={() => setManageTemplates(true)}
-            className="gap-1.5 h-8 text-xs hover-scale"
+            className="gap-1.5 h-9 text-[13px] rounded-[10px]"
             title="Gerenciar templates de WhatsApp"
           >
-            <Sparkles size={13} className="text-primary" />
+            <Sparkles size={14} className="text-primary" />
             Templates
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setImportOpen(true)}
-            className="gap-1.5 h-8 text-xs hover-scale"
-            title="Importar leads de planilha (.xlsx)"
-          >
-            <FileSpreadsheet size={13} className="text-success" />
-            Importar planilha
-          </Button>
-        </div>
-        <div className="bg-card px-3 py-1.5 rounded-lg border border-border/50 shadow-sm text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-          <DollarSign size={12} className="text-success" /> 
-          <span className="hidden sm:inline">Oportunidades:</span>
-          <span className="text-success font-bold">{formatCurrency(totalPipelineValue)}</span>
         </div>
       </div>
-      
+
       {/* Pipeline columns */}
-      <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-200px)] scrollbar-thin">
+      <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-330px)] min-h-[420px] scrollbar-thin">
         {COLUMNS.map(col => {
           const rawColLeads = leads.filter(l => l.stage === col.id);
           const colLeads = sortLeads(rawColLeads, sortKey, calculateLeadScore);
@@ -230,38 +260,45 @@ export function PipelineView({
           return (
             <div
               key={col.id}
-              className="min-w-[300px] w-[300px] bg-card/80 glass rounded-2xl border border-border/30 flex flex-col flex-shrink-0 overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 animate-fade-in"
+              className="min-w-[304px] w-[304px] bg-card rounded-[14px] border border-border flex flex-col flex-shrink-0 overflow-hidden shadow-[0_1px_3px_rgba(16,24,40,0.04),0_1px_2px_rgba(16,24,40,0.03)]"
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, col.id)}
             >
               {/* Colored top strip */}
-              <div className={`h-1.5 w-full ${stageStripClass}`} />
+              <div className={`h-[3px] w-full ${stageStripClass}`} />
               {/* Column header */}
-              <div className={`px-4 py-3 border-b ${STAGE_COLORS[col.id]} bg-card`}>
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
+              <div className="px-4 pt-3.5 pb-3">
+                <div className="flex justify-between items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     {selectMode && colLeads.length > 0 && (
                       <Checkbox
                         checked={allColSelected}
                         onCheckedChange={() => handleSelectAllInColumn(colLeads)}
                       />
                     )}
-                    <span className="font-bold text-foreground text-sm">{col.title}</span>
+                    <span className="font-semibold text-foreground text-[16px] tracking-tight truncate">{col.title}</span>
                   </div>
-                  <span className="bg-foreground/10 text-foreground/70 min-w-[24px] h-6 px-1.5 rounded-full text-xs font-bold flex items-center justify-center">
+                  <span className="bg-muted text-muted-foreground min-w-[26px] h-6 px-2 rounded-md text-[12px] font-semibold flex items-center justify-center tabular-nums">
                     {colLeads.length}
                   </span>
                 </div>
                 {colValue > 0 && (
-                  <div className="text-xs text-muted-foreground font-medium flex items-center gap-1 mt-1.5">
-                    <DollarSign size={11} /> {formatCurrency(colValue)}
+                  <div className="text-[12px] text-muted-foreground mt-1 tabular-nums">
+                    {formatCurrency(colValue)}
                   </div>
                 )}
               </div>
 
-              
               {/* Cards */}
-              <div className="p-3 flex-1 overflow-y-auto space-y-3 min-h-[200px] scrollbar-thin">
+              <div className="px-3 pb-3 flex-1 overflow-y-auto space-y-2.5 min-h-[200px] scrollbar-thin">
+                {onCreateLead && col.id === COLUMNS[0].id && (
+                  <button
+                    onClick={onCreateLead}
+                    className="w-full flex items-center justify-center gap-1.5 rounded-[12px] border border-dashed border-border bg-muted/30 py-2.5 text-[12.5px] text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors duration-150"
+                  >
+                    <Plus size={14} /> Adicionar oportunidade
+                  </button>
+                )}
                 {colLeads.map(lead => (
                   <div key={lead.id} className="flex items-start gap-1">
                     {selectMode && (
@@ -291,6 +328,7 @@ export function PipelineView({
           );
         })}
       </div>
+
 
       {importOpen && (
         <ImportLeadsModal
