@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import {
   LayoutDashboard, CalendarDays, TrendingUp, Users, ClipboardCheck,
-  PhoneOutgoing, UserPlus, FileText, Smartphone, Settings, PanelLeftClose, PanelLeftOpen,
+  PhoneOutgoing, UserPlus, FileText, Smartphone, Settings, Pin, PinOff,
 } from 'lucide-react';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
 import { UserAvatar } from '@/components/ui/user-avatar';
@@ -14,6 +14,8 @@ interface AppSidebarProps {
   collapsed: boolean;
   onToggle: () => void;
   onProfileOpen: () => void;
+  autoHide: boolean;
+  onToggleAutoHide: () => void;
 }
 
 const ITEMS = [
