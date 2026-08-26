@@ -55,6 +55,8 @@ export function ManualPipelineView({
   const { profile } = useAuth();
   const { celebrateMeeting, celebrateSale } = useCelebration();
   const [selectMode, setSelectMode] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+
   const { selectedIds, toggleSelect, clearSelection, deleteSelected, deleting, hasSelection, selectionCount } = useBulkDelete();
 
   // Filter leads by source
