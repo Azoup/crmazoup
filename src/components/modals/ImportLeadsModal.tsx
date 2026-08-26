@@ -36,7 +36,14 @@ function val(row: Row, keys: string[]): string | null {
 
 const digits = (v: string | null) => (v ? v.replace(/\D/g, '') || null : null);
 
-export function ImportLeadsModal({ onClose, onImported }: Props) {
+export function ImportLeadsModal({
+  onClose,
+  onImported,
+  stage = 'interesse',
+  temperature = 'morno',
+  leadSource = 'marketing',
+  stageLabel,
+}: Props) {
   const { user, profile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ created: number; skipped: number } | null>(null);
