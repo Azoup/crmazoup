@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { Lead, LeadStage, LeadHistory, LeadSource, STAGE_COLORS } from '@/types/lead';
 import { LeadCard } from '@/components/leads/LeadCard';
 import { formatCurrency, cleanPhoneNumber } from '@/lib/utils';
-import { DollarSign, Trash2, CheckSquare, XCircle, Plus } from 'lucide-react';
+import { DollarSign, Trash2, CheckSquare, XCircle, Plus, Upload } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCelebration } from '@/hooks/useCelebration';
 import { useBulkDelete } from '@/hooks/useBulkDelete';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ImportLeadsModal } from '@/components/modals/ImportLeadsModal';
+
 
 interface ManualPipelineViewProps {
   leads: Lead[];
@@ -53,6 +55,8 @@ export function ManualPipelineView({
   const { profile } = useAuth();
   const { celebrateMeeting, celebrateSale } = useCelebration();
   const [selectMode, setSelectMode] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+
   const { selectedIds, toggleSelect, clearSelection, deleteSelected, deleting, hasSelection, selectionCount } = useBulkDelete();
 
   // Filter leads by source
@@ -139,12 +143,25 @@ export function ManualPipelineView({
             {selectMode ? <XCircle size={13} /> : <CheckSquare size={13} />}
             {selectMode ? 'Cancelar' : 'Selecionar'}
           </Button>
+          {source === 'prospeccao_ativa' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setImportOpen(true)}
+              className="gap-1.5 h-8 text-xs"
+              title="Importar leads de planilha (.xlsx) — entram como frio"
+            >
+              <Upload size={13} />
+              Importar planilha
+            </Button>
+          )}
           {selectMode && hasSelection && (
             <Button variant="destructive" size="sm" onClick={deleteSelected} disabled={deleting} className="gap-1.5 h-8 text-xs">
               <Trash2 size={13} /> Excluir {selectionCount}
             </Button>
           )}
         </div>
+
         <div className="bg-card px-3 py-1.5 rounded-lg border border-border/50 shadow-sm text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
           <DollarSign size={12} className="text-success" />
           <span className="hidden sm:inline">Oportunidades:</span>
@@ -213,6 +230,17 @@ export function ManualPipelineView({
         })}
       </div>
 
+      {importOpen && (
+        <ImportLeadsModal
+          onClose={() => setImportOpen(false)}
+          onImported={() => window.dispatchEvent(new Event('leads:refresh'))}
+          stage="prospeccao"
+          temperature="frio"
+          leadSource="prospeccao_ativa"
+          stageLabel="Prospecção Ativa"
+        />
+      )}
     </div>
   );
 }
+

@@ -9,7 +9,16 @@ import { toast } from '@/hooks/use-toast';
 interface Props {
   onClose: () => void;
   onImported?: () => void;
+  /** Etapa de destino dos leads importados. */
+  stage?: string;
+  /** Temperatura aplicada aos leads importados. */
+  temperature?: 'frio' | 'morno' | 'quente';
+  /** Origem do lead (define em qual aba ele aparece). */
+  leadSource?: string;
+  /** Nome da etapa exibido na descrição. */
+  stageLabel?: string;
 }
+
 
 type Row = Record<string, unknown>;
 
@@ -27,7 +36,14 @@ function val(row: Row, keys: string[]): string | null {
 
 const digits = (v: string | null) => (v ? v.replace(/\D/g, '') || null : null);
 
-export function ImportLeadsModal({ onClose, onImported }: Props) {
+export function ImportLeadsModal({
+  onClose,
+  onImported,
+  stage = 'interesse',
+  temperature = 'morno',
+  leadSource = 'marketing',
+  stageLabel,
+}: Props) {
   const { user, profile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ created: number; skipped: number } | null>(null);
@@ -92,9 +108,10 @@ export function ImportLeadsModal({ onClose, onImported }: Props) {
           utm_source: r.utm_source,
           utm_campaign: r.utm_campaign,
           utm_conjunto: r.utm_conjunto,
-          stage: 'interesse',
-          temperature: 'morno',
-          lead_source: 'marketing',
+          stage,
+          temperature,
+          lead_source: leadSource,
+
           is_new: true,
           history: [
             {
