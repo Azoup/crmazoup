@@ -101,9 +101,10 @@ export function ImportLeadsModal({ onClose, onImported }: Props) {
           utm_source: r.utm_source,
           utm_campaign: r.utm_campaign,
           utm_conjunto: r.utm_conjunto,
-          stage: 'interesse',
-          temperature: 'morno',
-          lead_source: 'marketing',
+          stage,
+          temperature,
+          lead_source: leadSource,
+
           is_new: true,
           history: [
             {
