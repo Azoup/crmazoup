@@ -55,12 +55,13 @@ export function PipelineView({
   getLeadStatus, 
   updateLead, 
   addHistory,
-  msgTemplate 
+  msgTemplate,
+  onCreateLead
 }: PipelineViewProps) {
   const { profile } = useAuth();
   const { celebrateMeeting, celebrateSale } = useCelebration();
   const [selectMode, setSelectMode] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
+
   const [sortKey, setSortKey] = useState<PipelineSortKey>('recent');
   const [templatesLead, setTemplatesLead] = useState<Lead | null>(null);
   const [manageTemplates, setManageTemplates] = useState(false);
