@@ -2,6 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   LayoutDashboard, CalendarDays, TrendingUp, Users, ClipboardCheck,
   PhoneOutgoing, UserPlus, FileText, Smartphone, Settings, Pin, PinOff,
+  PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
 import { UserAvatar } from '@/components/ui/user-avatar';
