@@ -29,21 +29,27 @@ const ITEMS = [
   { id: 'relatorios', label: 'Relatórios', icon: FileText },
 ];
 
-export function AppSidebar({ view, setView, isManager, collapsed, onToggle, onProfileOpen }: AppSidebarProps) {
+export function AppSidebar({ view, setView, isManager, collapsed, onToggle, onProfileOpen, autoHide, onToggleAutoHide }: AppSidebarProps) {
   const { profile } = useAuth();
   const items = isManager ? [...ITEMS, { id: 'gestor', label: 'Gestor', icon: Users }] : ITEMS;
+
+  const isCollapsed = collapsed || (autoHide && false);
 
   return (
     <TooltipProvider delayDuration={200}>
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex flex-col bg-card border-r border-border transition-[width] duration-200 ${
-          collapsed ? 'w-[68px]' : 'w-[228px]'
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-card border-r border-border transition-all duration-300 ease-out shadow-[4px_0_24px_rgba(0,0,0,0.06)] ${
+          autoHide
+            ? 'w-[228px] -translate-x-[calc(100%-10px)] hover:translate-x-0'
+            : collapsed
+            ? 'w-[68px] translate-x-0'
+            : 'w-[228px] translate-x-0'
         }`}
       >
         {/* Brand */}
-        <div className={`flex items-center gap-2.5 h-[68px] px-3 border-b border-border/70 ${collapsed ? 'justify-center' : ''}`}>
+        <div className={`flex items-center gap-2.5 h-[68px] px-3 border-b border-border/70 ${isCollapsed ? 'justify-center' : ''}`}>
           <AnimatedLogo size="sm" />
-          {!collapsed && (
+          {!isCollapsed && (
             <div className="min-w-0">
               <p className="text-[15px] font-semibold tracking-tight leading-none text-foreground">Azoup</p>
               <p className="text-[11px] text-muted-foreground mt-1">CRM • {isManager ? 'Gestor' : 'SDR'}</p>
@@ -63,14 +69,14 @@ export function AppSidebar({ view, setView, isManager, collapsed, onToggle, onPr
                   active
                     ? 'bg-accent text-primary'
                     : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
-                } ${collapsed ? 'justify-center px-0' : ''}`}
+                } ${isCollapsed ? 'justify-center px-0' : ''}`}
               >
                 {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-primary" />}
                 <item.icon size={17} className={active ? 'text-primary' : ''} />
-                {!collapsed && <span className="truncate">{item.label}</span>}
+                {!isCollapsed && <span className="truncate">{item.label}</span>}
               </button>
             );
-            return collapsed ? (
+            return isCollapsed ? (
               <Tooltip key={item.id}>
                 <TooltipTrigger asChild>{button}</TooltipTrigger>
                 <TooltipContent side="right">{item.label}</TooltipContent>
@@ -86,11 +92,11 @@ export function AppSidebar({ view, setView, isManager, collapsed, onToggle, onPr
           <button
             onClick={onProfileOpen}
             className={`w-full flex items-center gap-2.5 rounded-lg px-2 py-2 hover:bg-muted/60 transition-colors ${
-              collapsed ? 'justify-center' : ''
+              isCollapsed ? 'justify-center' : ''
             }`}
           >
             <UserAvatar url={profile?.avatar} name={profile?.name} className="w-8 h-8" />
-            {!collapsed && (
+            {!isCollapsed && (
               <div className="min-w-0 text-left">
                 <p className="text-[13px] font-medium text-foreground truncate">{profile?.name || 'Azoup CRM'}</p>
                 <p className="text-[11px] text-muted-foreground leading-none">{profile?.role || 'SDR'}</p>
@@ -100,21 +106,31 @@ export function AppSidebar({ view, setView, isManager, collapsed, onToggle, onPr
           <button
             onClick={onProfileOpen}
             className={`w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors ${
-              collapsed ? 'justify-center px-0' : ''
+              isCollapsed ? 'justify-center px-0' : ''
             }`}
           >
             <Settings size={16} />
-            {!collapsed && <span>Configurações</span>}
+            {!isCollapsed && <span>Configurações</span>}
           </button>
           <button
             onClick={onToggle}
-            title={collapsed ? 'Mostrar menu' : 'Ocultar menu'}
+            title={collapsed ? 'Expandir menu' : 'Recolher menu'}
             className={`w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors ${
-              collapsed ? 'justify-center px-0' : ''
+              isCollapsed ? 'justify-center px-0' : ''
             }`}
           >
             {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-            {!collapsed && <span>Ocultar menu</span>}
+            {!isCollapsed && <span>{collapsed ? 'Expandir' : 'Recolher'}</span>}
+          </button>
+          <button
+            onClick={onToggleAutoHide}
+            title={autoHide ? 'Fixar menu' : 'Auto-ocultar menu'}
+            className={`w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors ${
+              isCollapsed ? 'justify-center px-0' : ''
+            }`}
+          >
+            {autoHide ? <Pin size={16} /> : <PinOff size={16} />}
+            {!isCollapsed && <span>{autoHide ? 'Fixar menu' : 'Auto-ocultar'}</span>}
           </button>
         </div>
       </aside>
