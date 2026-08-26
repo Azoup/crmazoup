@@ -331,12 +331,6 @@ export function PipelineView({
       </div>
 
 
-      {importOpen && (
-        <ImportLeadsModal
-          onClose={() => setImportOpen(false)}
-          onImported={() => window.dispatchEvent(new Event('leads:refresh'))}
-        />
-      )}
       {bulkWhats && (
         <BulkWhatsAppModal
           leads={selectedLeads}
