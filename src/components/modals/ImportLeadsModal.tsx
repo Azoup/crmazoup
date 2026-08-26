@@ -9,7 +9,16 @@ import { toast } from '@/hooks/use-toast';
 interface Props {
   onClose: () => void;
   onImported?: () => void;
+  /** Etapa de destino dos leads importados. */
+  stage?: string;
+  /** Temperatura aplicada aos leads importados. */
+  temperature?: 'frio' | 'morno' | 'quente';
+  /** Origem do lead (define em qual aba ele aparece). */
+  leadSource?: string;
+  /** Nome da etapa exibido na descrição. */
+  stageLabel?: string;
 }
+
 
 type Row = Record<string, unknown>;
 
