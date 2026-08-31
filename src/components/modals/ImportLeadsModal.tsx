@@ -36,6 +36,27 @@ function val(row: Row, keys: string[]): string | null {
 
 const digits = (v: string | null) => (v ? v.replace(/\D/g, '') || null : null);
 
+/** Converte data de planilha (Date, serial Excel ou texto) para YYYY-MM-DD. */
+function toISODate(v: unknown): string | null {
+  if (v == null || v === '') return null;
+  if (v instanceof Date && !isNaN(v.getTime())) {
+    return `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
+  }
+  if (typeof v === 'number') {
+    const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+    return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+  }
+  const s = String(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (br) return `${br[3]}-${br[2]}-${br[1]}`;
+  return null;
+}
+
+const normName = (s: string | null) =>
+  (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+
+
 export function ImportLeadsModal({
   onClose,
   onImported,
@@ -73,6 +94,7 @@ export function ImportLeadsModal({
           utm_source: val(r, ['utm_source', 'utm_id']),
           utm_campaign: val(r, ['utm_campaign', 'utm_term']),
           utm_conjunto: val(r, ['utm_content', 'utm_conjunto']),
+          entry_date: toISODate(val(r, ['Data', 'Data de entrada', 'date', 'created_at'])),
         }))
         .filter((r) => r.name || r.whatsapp || r.email);
 
@@ -81,22 +103,33 @@ export function ImportLeadsModal({
         return;
       }
 
-      // Busca leads existentes para não duplicar
-      const { data: existing } = await supabase.from('leads').select('whatsapp, email').limit(10000);
+      // Busca leads existentes para não duplicar (data + nome + número)
+      const { data: existing } = await supabase
+        .from('leads')
+        .select('whatsapp, email, name, entry_date')
+        .limit(10000);
       const phones = new Set((existing || []).map((l) => (l.whatsapp || '').replace(/\D/g, '')).filter(Boolean));
       const emails = new Set((existing || []).map((l) => (l.email || '').toLowerCase()).filter(Boolean));
+      const nameDates = new Set(
+        (existing || [])
+          .filter((l) => l.name)
+          .map((l) => `${normName(l.name)}|${(l.entry_date || '').slice(0, 10)}`),
+      );
 
       const toInsert: { user_id: string; name: string; [k: string]: unknown }[] = [];
       let skipped = 0;
       for (const r of parsed) {
         const p = r.whatsapp || '';
         const e = (r.email || '').toLowerCase();
-        if ((p && phones.has(p)) || (e && emails.has(e))) {
+        const nd = `${normName(r.name)}|${r.entry_date || ''}`;
+        const dupByName = !!r.name && !!r.entry_date && nameDates.has(nd);
+        if ((p && phones.has(p)) || (e && emails.has(e)) || dupByName) {
           skipped++;
           continue;
         }
         if (p) phones.add(p);
         if (e) emails.add(e);
+        nameDates.add(nd);
         toInsert.push({
           user_id: user.id,
           name: (r.name || r.company || r.email || r.whatsapp)!.substring(0, 255),
@@ -108,6 +141,7 @@ export function ImportLeadsModal({
           utm_source: r.utm_source,
           utm_campaign: r.utm_campaign,
           utm_conjunto: r.utm_conjunto,
+          ...(r.entry_date ? { entry_date: r.entry_date } : {}),
           stage,
           temperature,
           lead_source: leadSource,
@@ -132,8 +166,9 @@ export function ImportLeadsModal({
       setResult({ created: toInsert.length, skipped });
       toast({
         title: 'Importação concluída',
-        description: `${toInsert.length} novo(s) lead(s) em Interesse • ${skipped} já existiam`,
+        description: `${toInsert.length} novo(s) lead(s) em ${stageLabel || 'Interesse'} • ${skipped} já existiam`,
       });
+
       onImported?.();
     } catch (err) {
       toast({
@@ -154,9 +189,11 @@ export function ImportLeadsModal({
             <FileSpreadsheet size={18} className="text-primary" /> Importar leads da planilha
           </DialogTitle>
           <DialogDescription>
-            Envie o arquivo .xlsx sempre que for atualizado. Só os leads novos entram — os já cadastrados
-            (mesmo WhatsApp ou e-mail) são ignorados. Todos vão para a coluna <b>Interesse</b> no topo.
+            Envie o arquivo .xlsx sempre que for atualizado. Só entram os leads novos — os já cadastrados
+            (mesmo WhatsApp, e-mail ou mesmo nome + data) são ignorados. Todos vão para a coluna{' '}
+            <b>{stageLabel || 'Interesse'}</b> no topo, como <b>{temperature}</b>.
           </DialogDescription>
+
         </DialogHeader>
 
         <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-border rounded-xl p-8 cursor-pointer hover:border-primary/60 transition-colors">

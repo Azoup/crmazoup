@@ -58,6 +58,8 @@ export function Dashboard() {
     totalMonthly,
     percentGoal,
     syncActiveCampaign,
+    refetchLeads,
+
   } = useLeads();
 
   const [view, setView] = useState<ViewType>('pipeline');
@@ -329,6 +331,8 @@ export function Dashboard() {
             addHistory={addHistory}
             msgTemplate={settings?.msg_template || ''}
             onCreateLead={() => handleOpenNewLead('marketing')}
+            onImported={refetchLeads}
+
 
           />
         )}

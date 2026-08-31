@@ -1,7 +1,7 @@
 import { Lead, LeadTemperature } from '@/types/lead';
 import { getDaysSince, formatCurrencyCompact } from '@/lib/utils';
 import { calculateLeadScore, leadScoreColor, leadScoreLabel } from '@/lib/leadScore';
-import { AlertTriangle, DollarSign, MessageCircle, Phone, Sparkles, UserCheck, UserX, Calendar, Clock, Video, FileText } from 'lucide-react';
+import { AlertTriangle, DollarSign, MessageCircle, Phone, Sparkles, UserCheck, UserX, Calendar, Clock, Video, FileText, BellPlus } from 'lucide-react';
 
 
 interface LeadCardProps {
@@ -10,9 +10,12 @@ interface LeadCardProps {
   status: 'late' | 'today' | 'ontime' | 'neutral';
   onQuickWhatsApp: (e: React.MouseEvent) => void;
   onOpenTemplates?: (lead: Lead) => void;
+  /** Abre o agendamento de lembrete de retorno para este lead. */
+  onScheduleReturn?: (lead: Lead) => void;
   /** Quando false, desativa drag nativo (ex.: dentro de carrossel com scroll por arraste). */
   enableNativeDrag?: boolean;
 }
+
 
 const tempColors: Record<LeadTemperature, string> = {
   quente: 'bg-temp-hot/10 text-temp-hot',
@@ -55,7 +58,7 @@ function formatContactDateTime(date: Date): string {
   return `${pad(date.getDate())}/${pad(date.getMonth() + 1)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export function LeadCard({ lead, onClick, status, onQuickWhatsApp, onOpenTemplates, enableNativeDrag = true }: LeadCardProps) {
+export function LeadCard({ lead, onClick, status, onQuickWhatsApp, onOpenTemplates, onScheduleReturn, enableNativeDrag = true }: LeadCardProps) {
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData("leadId", lead.id);
   };
@@ -274,7 +277,17 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp, onOpenTemplat
               <Phone size={16} />
             </a>
           )}
+          {onScheduleReturn && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onScheduleReturn(lead); }}
+              className="text-warning hover:bg-warning/10 p-1.5 rounded-lg transition-all hover:scale-110"
+              title="Lembrete de retorno"
+            >
+              <BellPlus size={16} />
+            </button>
+          )}
           {onOpenTemplates && (
+
             <button
               onClick={(e) => { e.stopPropagation(); onOpenTemplates(lead); }}
               className="text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-all hover:scale-110"

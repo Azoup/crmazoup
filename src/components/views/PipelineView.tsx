@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Lead, LeadStage, LeadHistory, MeetingStatus, STAGE_COLORS } from '@/types/lead';
+import { Lead, LeadStage, LeadHistory, MeetingStatus, NextContactType, STAGE_COLORS } from '@/types/lead';
 import { LeadCard } from '@/components/leads/LeadCard';
 import { formatCurrency, cleanPhoneNumber } from '@/lib/utils';
-import { DollarSign, Trash2, CheckSquare, XCircle, Sparkles, MessageCircle, Ban, Plus, TrendingUp, CalendarClock, Target, Eye, EyeOff } from 'lucide-react';
+import { DollarSign, Trash2, CheckSquare, XCircle, Sparkles, MessageCircle, Ban, Plus, TrendingUp, CalendarClock, Target, Eye, EyeOff, FileSpreadsheet } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCelebration } from '@/hooks/useCelebration';
 import { useBulkDelete } from '@/hooks/useBulkDelete';
@@ -13,6 +13,10 @@ import { calculateLeadScore } from '@/lib/leadScore';
 import { MessageTemplatesModal } from '@/components/modals/MessageTemplatesModal';
 import { BulkWhatsAppModal } from '@/components/modals/BulkWhatsAppModal';
 import { BulkDiscardModal } from '@/components/modals/BulkDiscardModal';
+import { ImportLeadsModal } from '@/components/modals/ImportLeadsModal';
+import { ScheduleReturnModal } from '@/components/modals/ScheduleReturnModal';
+import { formatScheduledReturnNote } from '@/lib/contactFollowUp';
+
 
 
 interface PipelineViewProps {
@@ -23,7 +27,9 @@ interface PipelineViewProps {
   addHistory: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
   msgTemplate: string;
   onCreateLead?: () => void;
+  onImported?: () => void;
 }
+
 
 
 const COLUMNS: { id: LeadStage; title: string }[] = [
@@ -56,7 +62,8 @@ export function PipelineView({
   updateLead, 
   addHistory,
   msgTemplate,
-  onCreateLead
+  onCreateLead,
+  onImported,
 }: PipelineViewProps) {
   const { profile } = useAuth();
   const { celebrateMeeting, celebrateSale } = useCelebration();
@@ -68,7 +75,21 @@ export function PipelineView({
   const [manageTemplates, setManageTemplates] = useState(false);
   const [bulkWhats, setBulkWhats] = useState(false);
   const [bulkDiscard, setBulkDiscard] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [returnLead, setReturnLead] = useState<Lead | null>(null);
   const { selectedIds, toggleSelect, clearSelection, deleteSelected, deleting, hasSelection, selectionCount } = useBulkDelete();
+
+  const handleConfirmReturn = async (nextContact: string, contactType: NextContactType) => {
+    if (!returnLead) return;
+    const ok = await updateLead(returnLead.id, {
+      next_contact: nextContact,
+      next_contact_type: contactType,
+    });
+    if (ok) {
+      await addHistory(returnLead.id, 'retorno', formatScheduledReturnNote(nextContact, contactType, returnLead));
+    }
+  };
+
 
   const selectedLeads = leads.filter(l => selectedIds.has(l.id));
 
@@ -260,6 +281,17 @@ export function PipelineView({
             <Sparkles size={14} className="text-primary" />
             Templates
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setImportOpen(true)}
+            className="gap-1.5 h-9 text-[13px] rounded-[10px]"
+            title="Importar leads de planilha (somente os novos, como frio em Prospecção)"
+          >
+            <FileSpreadsheet size={14} className="text-primary" />
+            Importar planilha
+          </Button>
+
         </div>
       </div>
 
@@ -334,6 +366,8 @@ export function PipelineView({
                           if (!selectMode) sendWhatsApp(lead);
                         }}
                         onOpenTemplates={(l) => !selectMode && setTemplatesLead(l)}
+                        onScheduleReturn={(l) => !selectMode && setReturnLead(l)}
+
                       />
                     </div>
                   </div>
@@ -375,6 +409,24 @@ export function PipelineView({
           onClose={() => setManageTemplates(false)}
         />
       )}
+      {importOpen && (
+        <ImportLeadsModal
+          stage="prospeccao"
+          temperature="frio"
+          leadSource="marketing"
+          stageLabel="Prospecção"
+          onImported={onImported}
+          onClose={() => setImportOpen(false)}
+        />
+      )}
+      {returnLead && (
+        <ScheduleReturnModal
+          lead={returnLead}
+          onClose={() => setReturnLead(null)}
+          onConfirm={handleConfirmReturn}
+        />
+      )}
+
     </div>
   );
 }
