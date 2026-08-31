@@ -281,6 +281,17 @@ export function PipelineView({
             <Sparkles size={14} className="text-primary" />
             Templates
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setImportOpen(true)}
+            className="gap-1.5 h-9 text-[13px] rounded-[10px]"
+            title="Importar leads de planilha (somente os novos, como frio em Prospecção)"
+          >
+            <FileSpreadsheet size={14} className="text-primary" />
+            Importar planilha
+          </Button>
+
         </div>
       </div>
 
