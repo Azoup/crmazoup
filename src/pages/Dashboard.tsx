@@ -58,6 +58,8 @@ export function Dashboard() {
     totalMonthly,
     percentGoal,
     syncActiveCampaign,
+    refetchLeads,
+
   } = useLeads();
 
   const [view, setView] = useState<ViewType>('pipeline');
