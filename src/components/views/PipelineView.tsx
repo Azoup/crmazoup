@@ -27,7 +27,9 @@ interface PipelineViewProps {
   addHistory: (leadId: string, type: string, note: string) => Promise<LeadHistory[] | null>;
   msgTemplate: string;
   onCreateLead?: () => void;
+  onImported?: () => void;
 }
+
 
 
 const COLUMNS: { id: LeadStage; title: string }[] = [
