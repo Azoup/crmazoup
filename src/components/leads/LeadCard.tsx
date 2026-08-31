@@ -58,7 +58,7 @@ function formatContactDateTime(date: Date): string {
   return `${pad(date.getDate())}/${pad(date.getMonth() + 1)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export function LeadCard({ lead, onClick, status, onQuickWhatsApp, onOpenTemplates, enableNativeDrag = true }: LeadCardProps) {
+export function LeadCard({ lead, onClick, status, onQuickWhatsApp, onOpenTemplates, onScheduleReturn, enableNativeDrag = true }: LeadCardProps) {
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData("leadId", lead.id);
   };
@@ -277,7 +277,17 @@ export function LeadCard({ lead, onClick, status, onQuickWhatsApp, onOpenTemplat
               <Phone size={16} />
             </a>
           )}
+          {onScheduleReturn && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onScheduleReturn(lead); }}
+              className="text-warning hover:bg-warning/10 p-1.5 rounded-lg transition-all hover:scale-110"
+              title="Lembrete de retorno"
+            >
+              <BellPlus size={16} />
+            </button>
+          )}
           {onOpenTemplates && (
+
             <button
               onClick={(e) => { e.stopPropagation(); onOpenTemplates(lead); }}
               className="text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-all hover:scale-110"
