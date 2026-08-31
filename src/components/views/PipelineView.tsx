@@ -366,6 +366,8 @@ export function PipelineView({
                           if (!selectMode) sendWhatsApp(lead);
                         }}
                         onOpenTemplates={(l) => !selectMode && setTemplatesLead(l)}
+                        onScheduleReturn={(l) => !selectMode && setReturnLead(l)}
+
                       />
                     </div>
                   </div>
