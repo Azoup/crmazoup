@@ -331,6 +331,8 @@ export function Dashboard() {
             addHistory={addHistory}
             msgTemplate={settings?.msg_template || ''}
             onCreateLead={() => handleOpenNewLead('marketing')}
+            onImported={refetchLeads}
+
 
           />
         )}
