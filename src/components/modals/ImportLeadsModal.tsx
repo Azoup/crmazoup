@@ -189,9 +189,11 @@ export function ImportLeadsModal({
             <FileSpreadsheet size={18} className="text-primary" /> Importar leads da planilha
           </DialogTitle>
           <DialogDescription>
-            Envie o arquivo .xlsx sempre que for atualizado. Só os leads novos entram — os já cadastrados
-            (mesmo WhatsApp ou e-mail) são ignorados. Todos vão para a coluna <b>Interesse</b> no topo.
+            Envie o arquivo .xlsx sempre que for atualizado. Só entram os leads novos — os já cadastrados
+            (mesmo WhatsApp, e-mail ou mesmo nome + data) são ignorados. Todos vão para a coluna{' '}
+            <b>{stageLabel || 'Interesse'}</b> no topo, como <b>{temperature}</b>.
           </DialogDescription>
+
         </DialogHeader>
 
         <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-border rounded-xl p-8 cursor-pointer hover:border-primary/60 transition-colors">
