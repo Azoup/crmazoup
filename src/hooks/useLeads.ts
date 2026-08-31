@@ -898,6 +898,8 @@ export function useLeads() {
     totalMonthly,
     percentGoal,
     syncActiveCampaign,
+    refetchLeads,
+
     debugActiveCampaign,
     importActiveCampaignContact,
   };
