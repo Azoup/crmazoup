@@ -1,7 +1,7 @@
 import { Lead, LeadTemperature } from '@/types/lead';
 import { getDaysSince, formatCurrencyCompact } from '@/lib/utils';
 import { calculateLeadScore, leadScoreColor, leadScoreLabel } from '@/lib/leadScore';
-import { AlertTriangle, DollarSign, MessageCircle, Phone, Sparkles, UserCheck, UserX, Calendar, Clock, Video, FileText } from 'lucide-react';
+import { AlertTriangle, DollarSign, MessageCircle, Phone, Sparkles, UserCheck, UserX, Calendar, Clock, Video, FileText, BellPlus } from 'lucide-react';
 
 
 interface LeadCardProps {
@@ -10,9 +10,12 @@ interface LeadCardProps {
   status: 'late' | 'today' | 'ontime' | 'neutral';
   onQuickWhatsApp: (e: React.MouseEvent) => void;
   onOpenTemplates?: (lead: Lead) => void;
+  /** Abre o agendamento de lembrete de retorno para este lead. */
+  onScheduleReturn?: (lead: Lead) => void;
   /** Quando false, desativa drag nativo (ex.: dentro de carrossel com scroll por arraste). */
   enableNativeDrag?: boolean;
 }
+
 
 const tempColors: Record<LeadTemperature, string> = {
   quente: 'bg-temp-hot/10 text-temp-hot',
