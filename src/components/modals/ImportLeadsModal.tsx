@@ -36,6 +36,27 @@ function val(row: Row, keys: string[]): string | null {
 
 const digits = (v: string | null) => (v ? v.replace(/\D/g, '') || null : null);
 
+/** Converte data de planilha (Date, serial Excel ou texto) para YYYY-MM-DD. */
+function toISODate(v: unknown): string | null {
+  if (v == null || v === '') return null;
+  if (v instanceof Date && !isNaN(v.getTime())) {
+    return `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
+  }
+  if (typeof v === 'number') {
+    const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+    return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+  }
+  const s = String(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (br) return `${br[3]}-${br[2]}-${br[1]}`;
+  return null;
+}
+
+const normName = (s: string | null) =>
+  (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+
+
 export function ImportLeadsModal({
   onClose,
   onImported,
