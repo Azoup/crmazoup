@@ -409,6 +409,24 @@ export function PipelineView({
           onClose={() => setManageTemplates(false)}
         />
       )}
+      {importOpen && (
+        <ImportLeadsModal
+          stage="prospeccao"
+          temperature="frio"
+          leadSource="marketing"
+          stageLabel="Prospecção"
+          onImported={onImported}
+          onClose={() => setImportOpen(false)}
+        />
+      )}
+      {returnLead && (
+        <ScheduleReturnModal
+          lead={returnLead}
+          onClose={() => setReturnLead(null)}
+          onConfirm={handleConfirmReturn}
+        />
+      )}
+
     </div>
   );
 }
