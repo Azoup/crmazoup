@@ -62,7 +62,8 @@ export function PipelineView({
   updateLead, 
   addHistory,
   msgTemplate,
-  onCreateLead
+  onCreateLead,
+  onImported,
 }: PipelineViewProps) {
   const { profile } = useAuth();
   const { celebrateMeeting, celebrateSale } = useCelebration();
@@ -74,7 +75,21 @@ export function PipelineView({
   const [manageTemplates, setManageTemplates] = useState(false);
   const [bulkWhats, setBulkWhats] = useState(false);
   const [bulkDiscard, setBulkDiscard] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [returnLead, setReturnLead] = useState<Lead | null>(null);
   const { selectedIds, toggleSelect, clearSelection, deleteSelected, deleting, hasSelection, selectionCount } = useBulkDelete();
+
+  const handleConfirmReturn = async (nextContact: string, contactType: NextContactType) => {
+    if (!returnLead) return;
+    const ok = await updateLead(returnLead.id, {
+      next_contact: nextContact,
+      next_contact_type: contactType,
+    });
+    if (ok) {
+      await addHistory(returnLead.id, 'retorno', formatScheduledReturnNote(nextContact, contactType, returnLead));
+    }
+  };
+
 
   const selectedLeads = leads.filter(l => selectedIds.has(l.id));
 
