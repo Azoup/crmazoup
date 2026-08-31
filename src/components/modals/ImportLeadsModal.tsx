@@ -94,6 +94,7 @@ export function ImportLeadsModal({
           utm_source: val(r, ['utm_source', 'utm_id']),
           utm_campaign: val(r, ['utm_campaign', 'utm_term']),
           utm_conjunto: val(r, ['utm_content', 'utm_conjunto']),
+          entry_date: toISODate(val(r, ['Data', 'Data de entrada', 'date', 'created_at'])),
         }))
         .filter((r) => r.name || r.whatsapp || r.email);
 
@@ -102,22 +103,33 @@ export function ImportLeadsModal({
         return;
       }
 
-      // Busca leads existentes para não duplicar
-      const { data: existing } = await supabase.from('leads').select('whatsapp, email').limit(10000);
+      // Busca leads existentes para não duplicar (data + nome + número)
+      const { data: existing } = await supabase
+        .from('leads')
+        .select('whatsapp, email, name, entry_date')
+        .limit(10000);
       const phones = new Set((existing || []).map((l) => (l.whatsapp || '').replace(/\D/g, '')).filter(Boolean));
       const emails = new Set((existing || []).map((l) => (l.email || '').toLowerCase()).filter(Boolean));
+      const nameDates = new Set(
+        (existing || [])
+          .filter((l) => l.name)
+          .map((l) => `${normName(l.name)}|${(l.entry_date || '').slice(0, 10)}`),
+      );
 
       const toInsert: { user_id: string; name: string; [k: string]: unknown }[] = [];
       let skipped = 0;
       for (const r of parsed) {
         const p = r.whatsapp || '';
         const e = (r.email || '').toLowerCase();
-        if ((p && phones.has(p)) || (e && emails.has(e))) {
+        const nd = `${normName(r.name)}|${r.entry_date || ''}`;
+        const dupByName = !!r.name && !!r.entry_date && nameDates.has(nd);
+        if ((p && phones.has(p)) || (e && emails.has(e)) || dupByName) {
           skipped++;
           continue;
         }
         if (p) phones.add(p);
         if (e) emails.add(e);
+        nameDates.add(nd);
         toInsert.push({
           user_id: user.id,
           name: (r.name || r.company || r.email || r.whatsapp)!.substring(0, 255),
@@ -129,6 +141,7 @@ export function ImportLeadsModal({
           utm_source: r.utm_source,
           utm_campaign: r.utm_campaign,
           utm_conjunto: r.utm_conjunto,
+          ...(r.entry_date ? { entry_date: r.entry_date } : {}),
           stage,
           temperature,
           lead_source: leadSource,
@@ -153,8 +166,9 @@ export function ImportLeadsModal({
       setResult({ created: toInsert.length, skipped });
       toast({
         title: 'Importação concluída',
-        description: `${toInsert.length} novo(s) lead(s) em Interesse • ${skipped} já existiam`,
+        description: `${toInsert.length} novo(s) lead(s) em ${stageLabel || 'Interesse'} • ${skipped} já existiam`,
       });
+
       onImported?.();
     } catch (err) {
       toast({
