@@ -847,38 +847,7 @@ export function useLeads() {
     }
   }, [user?.id, refetchLeads, toast, playNewLeadSound]);
 
-  const syncInFlightRef = useRef(false);
-
-  useEffect(() => {
-    // Gestor: sync automático da equipe em useManagerData (evita chamar a Edge Function em duplicata)
-    if (!user || isManager) return;
-
-    const runAutoSync = async () => {
-      if (syncInFlightRef.current) return;
-      syncInFlightRef.current = true;
-      try {
-        await syncActiveCampaign({ silent: true });
-      } finally {
-        syncInFlightRef.current = false;
-      }
-    };
-
-    runAutoSync();
-
-    const intervalId = window.setInterval(runAutoSync, AC_AUTO_SYNC_INTERVAL_MS);
-
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        void runAutoSync();
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-
-    return () => {
-      window.clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
-  }, [user?.id, isManager, syncActiveCampaign]);
+  // Sync do ActiveCampaign agora é SOMENTE manual (botão "Sincronizar") — sem polling automático.
 
   return {
     leads,
